@@ -108,9 +108,6 @@ Hai nhánh chính, đều được bảo vệ (không push trực tiếp, chỉ 
 | `prod` | Nhánh ổn định, chỉ chứa code đã kiểm tra, dùng để triển khai |
 
 Quy trình:
-1. Tạo nhánh từ `dev`: `feature/<tên>` hoặc `fix/<tên>`, ví dụ `feature/auth-login`.
-2. Làm xong, mở Pull Request vào `dev`, có ít nhất một người review.
-3. Khi `dev` ổn định và đã chạy thử đầy đủ, mở Pull Request từ `dev` vào `prod`.
-4. Lỗi gấp trên `prod`: tạo `hotfix/<tên>` từ `prod`, merge vào `prod`, rồi merge ngược lại vào `dev`.
+1. cứ checkout nhánh từ dev rồi merge vào dev ae nhá
 
 Khác biệt giữa hai nhánh: `dev` dùng `ddl-auto: update` và thông tin kết nối mặc định ở trên. Với `prod`, nhóm cần chuyển sang Flyway + `ddl-auto: validate` và đặt mật khẩu, địa chỉ DB/RabbitMQ qua biến môi trường (`DB_URL`, `DB_USER`, `DB_PASSWORD`, `RABBIT_HOST`, `RABBIT_PORT`, `RABBIT_USER`, `RABBIT_PASSWORD`, `REDIS_HOST`, `JWK_SET_URI`) trước khi triển khai thật.
