@@ -1,0 +1,14 @@
+package com.oep.coremodel.constant;
+
+public final class MessagingConstants {
+    private MessagingConstants() {}
+
+    public static final String EXCHANGE = "oep.events";
+
+    public static final String QUEUE_NOTIFICATION = "oep.worker.notification";
+    public static final String QUEUE_SCORE_SYNC = "oep.worker.score-sync";
+
+    public static final String RK_QUIZ_PUBLISHED = "quiz.published";
+    public static final String RK_NOTIFICATION = "notification.requested";
+    public static final String RK_SCORE_SYNC = "exam.score.sync";
+}

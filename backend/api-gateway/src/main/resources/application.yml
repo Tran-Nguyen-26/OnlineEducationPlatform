@@ -1,0 +1,52 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: 6379
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Core LMS (token issuer) must expose its public keys here
+          jwk-set-uri: ${JWK_SET_URI:http://localhost:8081/.well-known/jwks.json}
+  cloud:
+    gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins:
+              - http://localhost:4200
+              - http://localhost:3000
+            allowedMethods: "*"
+            allowedHeaders: "*"
+      default-filters:
+        - name: RequestRateLimiter
+          args:
+            redis-rate-limiter.replenishRate: 20
+            redis-rate-limiter.burstCapacity: 40
+            key-resolver: "#{@userKeyResolver}"
+      routes:
+        - id: core-lms
+          uri: ${CORE_LMS_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/auth/**,/api/users/**,/api/courses/**,/api/enrollments/**,/api/notifications/**
+        - id: assessment
+          uri: ${ASSESSMENT_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/quizzes/**,/api/attempts/**,/api/submissions/**
+        # AI Tutor (Python) - add later:
+        # - id: ai-tutor
+        #   uri: ${AI_TUTOR_URL:http://localhost:8090}
+        #   predicates:
+        #     - Path=/api/ai/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
