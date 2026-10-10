@@ -4,10 +4,6 @@ server:
 spring:
   application:
     name: core-lms-service
-  datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/oep}
-    username: ${DB_USER:oep}
-    password: ${DB_PASSWORD:oep}
   jpa:
     hibernate:
       ddl-auto: update
@@ -17,3 +13,15 @@ spring:
     port: ${RABBIT_PORT:5673}
     username: ${RABBIT_USER:oep}
     password: ${RABBIT_PASSWORD:oep}
+
+oep:
+  datasource:
+    routing-enabled: true
+    primary:
+      jdbc-url: ${DB_URL:jdbc:postgresql://localhost:5432/oep}
+      username: ${DB_USER:oep}
+      password: ${DB_PASSWORD:oep}
+    replica:
+      jdbc-url: ${DB_REPLICA_URL:jdbc:postgresql://localhost:5433/oep}
+      username: ${DB_REPLICA_USER:oep}
+      password: ${DB_REPLICA_PASSWORD:oep}
