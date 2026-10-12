@@ -3,16 +3,26 @@ package com.oep.coremodel.exception;
 import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
+    // --- General ---
     NOT_FOUND(HttpStatus.NOT_FOUND),
     FORBIDDEN(HttpStatus.FORBIDDEN),
     VALIDATION_FAILED(HttpStatus.BAD_REQUEST),
+    // --- Course / Enrollment ---
     COURSE_NOT_OPEN(HttpStatus.CONFLICT),
     COURSE_FULL(HttpStatus.CONFLICT),
     INVALID_INVITE_CODE(HttpStatus.FORBIDDEN),
     ALREADY_ENROLLED(HttpStatus.CONFLICT),
+    // --- Assessment ---
     QUIZ_LOCKED(HttpStatus.CONFLICT),
     ATTEMPT_LIMIT_REACHED(HttpStatus.CONFLICT),
-    DEADLINE_PASSED(HttpStatus.CONFLICT);
+    DEADLINE_PASSED(HttpStatus.CONFLICT),
+    // --- Identity & Auth ---
+    EMAIL_TAKEN(HttpStatus.CONFLICT),
+    BAD_CREDENTIALS(HttpStatus.UNAUTHORIZED),
+    ACCOUNT_DISABLED(HttpStatus.FORBIDDEN),
+    INVALID_TOKEN(HttpStatus.UNAUTHORIZED),
+    TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED),
+    MUST_CHANGE_PASSWORD(HttpStatus.FORBIDDEN);
 
     private final HttpStatus status;
 
