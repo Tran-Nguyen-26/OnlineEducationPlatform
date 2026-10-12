@@ -7,7 +7,11 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
+    show-sql: false
     open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
   rabbitmq:
     host: ${RABBIT_HOST:localhost}
     port: ${RABBIT_PORT:5673}
@@ -25,3 +29,12 @@ oep:
       jdbc-url: ${DB_REPLICA_URL:jdbc:postgresql://localhost:5433/oep}
       username: ${DB_REPLICA_USER:oep}
       password: ${DB_REPLICA_PASSWORD:oep}
+jwt:
+  issuer: ${JWT_ISSUER:http://localhost:8081}
+  access-token-validity-minutes: ${JWT_ACCESS_TOKEN_VALIDITY_MINUTES:60}
+  refresh-token-validity-days: ${JWT_REFRESH_TOKEN_VALIDITY_DAYS:14}
+
+logging:
+  level:
+    com.oep.corelms: INFO
+    org.springframework.security: INFO
