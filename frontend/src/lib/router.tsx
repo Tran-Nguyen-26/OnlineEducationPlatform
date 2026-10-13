@@ -1,13 +1,14 @@
 // oxlint-disable react/only-export-components -- router config file legitimately re-exports lazy components
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { RootLayout } from '@/layouts/RootLayout'
-import { AuthLayout } from '@/layouts/AuthLayout'
+import { RegisterLayout } from '@/layouts/RegisterLayout'
 
 // Lazy-loaded feature pages
 import { lazy, Suspense } from 'react'
 
 const LoginPage = lazy(() => import('@/features/auth/LoginPage'))
 const RegisterPage = lazy(() => import('@/features/auth/RegisterPage'))
+const ChooseRolePage = lazy(() => import('@/features/auth/ChooseRolePage'))
 const CoursesPage = lazy(() => import('@/features/courses/CoursesPage'))
 const CourseDetailPage = lazy(() => import('@/features/courses/CourseDetailPage'))
 const EnrollmentPage = lazy(() => import('@/features/enrollment/EnrollmentPage'))
@@ -40,10 +41,19 @@ export const router = createBrowserRouter([
     ],
   },
   {
+    // LoginPage is self-contained (full-page layout) – no AuthLayout wrapper needed
+    path: '/login',
+    element: withSuspense(LoginPage),
+  },
+  {
+    // ChooseRolePage is a self-contained full-page layout – no wrapper layout needed
+    path: '/choose-role',
+    element: withSuspense(ChooseRolePage),
+  },
+  {
     path: '/',
-    element: <AuthLayout />,
+    element: <RegisterLayout />,
     children: [
-      { path: 'login', element: withSuspense(LoginPage) },
       { path: 'register', element: withSuspense(RegisterPage) },
     ],
   },
