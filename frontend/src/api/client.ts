@@ -17,10 +17,18 @@ apiClient.use({
     }
     return request
   },
-  onResponse({ response }) {
+  onResponse({ request, response, schemaPath }) {
     if (response.status === 401) {
-      localStorage.removeItem('access_token')
-      window.location.href = '/login'
+      const isAuthEndpoint =
+        schemaPath === '/auth/login' ||
+        schemaPath === '/auth/register' ||
+        request.url.includes('/auth/login') ||
+        request.url.includes('/auth/register')
+
+      if (!isAuthEndpoint && window.location.pathname !== '/login') {
+        localStorage.removeItem('access_token')
+        window.location.href = '/login'
+      }
     }
     return response
   },

@@ -1,13 +1,14 @@
 // oxlint-disable react/only-export-components -- router config file legitimately re-exports lazy components
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { RootLayout } from '@/layouts/RootLayout'
-import { AuthLayout } from '@/layouts/AuthLayout'
+import { RegisterLayout } from '@/layouts/RegisterLayout'
 
 // Lazy-loaded feature pages
 import { lazy, Suspense } from 'react'
 
-const LoginPage = lazy(() => import('@/features/auth/LoginPage'))
-const RegisterPage = lazy(() => import('@/features/auth/RegisterPage'))
+const LoginPage = lazy(() => import('@/features/auth/loginPage/LoginPage.tsx'))
+const RegisterPage = lazy(() => import('@/features/auth/registerStudent/RegisterStudentPage'))
+const ChooseRolePage = lazy(() => import('@/features/auth/chooseRole/ChooseRolePage.tsx'))
 const CoursesPage = lazy(() => import('@/features/courses/CoursesPage'))
 const CourseDetailPage = lazy(() => import('@/features/courses/CourseDetailPage'))
 const EnrollmentPage = lazy(() => import('@/features/enrollment/EnrollmentPage'))
@@ -29,9 +30,11 @@ const withSuspense = (Component: React.ComponentType) => (
 export const router = createBrowserRouter([
   {
     path: '/',
+    element: <Navigate to="/login" replace />,
+  },
+  {
     element: <RootLayout />,
     children: [
-      { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: 'dashboard', element: withSuspense(DashboardPage) },
       { path: 'courses', element: withSuspense(CoursesPage) },
       { path: 'courses/:id', element: withSuspense(CourseDetailPage) },
@@ -40,10 +43,19 @@ export const router = createBrowserRouter([
     ],
   },
   {
+    // LoginPage is self-contained (full-page layout) – no AuthLayout wrapper needed
+    path: '/login',
+    element: withSuspense(LoginPage),
+  },
+  {
+    // ChooseRolePage is a self-contained full-page layout – no wrapper layout needed
+    path: '/choose-role',
+    element: withSuspense(ChooseRolePage),
+  },
+  {
     path: '/',
-    element: <AuthLayout />,
+    element: <RegisterLayout />,
     children: [
-      { path: 'login', element: withSuspense(LoginPage) },
       { path: 'register', element: withSuspense(RegisterPage) },
     ],
   },
