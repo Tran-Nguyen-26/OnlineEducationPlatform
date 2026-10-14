@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { registerUser } from '@/api/auth'
-import './register.css'
+import { registerUser } from '@/api/auth.ts'
+import './register-student.css'
 
 function getPasswordStrength(password: string): { level: number; label: string } {
   if (!password) return { level: 0, label: '' }
@@ -20,7 +20,7 @@ function getPasswordStrength(password: string): { level: number; label: string }
 const strengthColors = ['', '#ef4444', '#f97316', '#eab308', '#10b981']
 const strengthColorNames = ['', 'reg-strength-weak', 'reg-strength-fair', 'reg-strength-good', 'reg-strength-strong']
 
-export default function RegisterPage() {
+export default function RegisterStudentPage() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -405,10 +405,6 @@ export default function RegisterPage() {
         <p className="reg-signin-link">
           Đã có tài khoản?{' '}
           <Link to="/login" className="reg-signin-link-a">Đăng nhập</Link>
-        </p>
-
-        <p className="reg-privacy-note">
-          Thông tin của bạn sẽ được dùng để tạo và quản lý tài khoản học viên.
         </p>
       </form>
     </>

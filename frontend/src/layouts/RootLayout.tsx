@@ -23,7 +23,7 @@ export function RootLayout() {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold text-white">
             OEP
           </div>
-          <Link to="/" className="text-lg font-semibold text-gray-900">
+          <Link to="/dashboard" className="text-lg font-semibold text-gray-900">
             OEP Platform
           </Link>
         </div>

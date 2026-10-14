@@ -1,5 +1,5 @@
 import { Link, Outlet } from 'react-router-dom'
-import '@/features/auth/register.css'
+import '@/features/auth/registerStudent/register-student.css'
 
 export function RegisterLayout() {
   return (

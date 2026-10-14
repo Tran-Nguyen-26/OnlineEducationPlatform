@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
-import { loginUser } from '@/api/auth'
+import { loginUser } from '@/api/auth.ts'
 import './login.css'
 
 interface LocationState {

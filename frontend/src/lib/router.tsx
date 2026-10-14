@@ -6,9 +6,9 @@ import { RegisterLayout } from '@/layouts/RegisterLayout'
 // Lazy-loaded feature pages
 import { lazy, Suspense } from 'react'
 
-const LoginPage = lazy(() => import('@/features/auth/LoginPage'))
-const RegisterPage = lazy(() => import('@/features/auth/RegisterPage'))
-const ChooseRolePage = lazy(() => import('@/features/auth/ChooseRolePage'))
+const LoginPage = lazy(() => import('@/features/auth/loginPage/LoginPage.tsx'))
+const RegisterPage = lazy(() => import('@/features/auth/registerStudent/RegisterStudentPage'))
+const ChooseRolePage = lazy(() => import('@/features/auth/chooseRole/ChooseRolePage.tsx'))
 const CoursesPage = lazy(() => import('@/features/courses/CoursesPage'))
 const CourseDetailPage = lazy(() => import('@/features/courses/CourseDetailPage'))
 const EnrollmentPage = lazy(() => import('@/features/enrollment/EnrollmentPage'))
@@ -30,9 +30,11 @@ const withSuspense = (Component: React.ComponentType) => (
 export const router = createBrowserRouter([
   {
     path: '/',
+    element: <Navigate to="/login" replace />,
+  },
+  {
     element: <RootLayout />,
     children: [
-      { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: 'dashboard', element: withSuspense(DashboardPage) },
       { path: 'courses', element: withSuspense(CoursesPage) },
       { path: 'courses/:id', element: withSuspense(CourseDetailPage) },
