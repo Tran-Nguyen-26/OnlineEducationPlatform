@@ -10,6 +10,7 @@ public enum ErrorCode {
     // --- Course / Enrollment ---
     COURSE_NOT_OPEN(HttpStatus.CONFLICT),
     COURSE_FULL(HttpStatus.CONFLICT),
+    ENROLLMENT_STATE_CONFLICT(HttpStatus.CONFLICT),
     INVALID_INVITE_CODE(HttpStatus.FORBIDDEN),
     ALREADY_ENROLLED(HttpStatus.CONFLICT),
     // --- Assessment ---
