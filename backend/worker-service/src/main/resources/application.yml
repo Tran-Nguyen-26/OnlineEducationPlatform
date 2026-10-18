@@ -17,3 +17,16 @@ spring:
     port: ${RABBIT_PORT:5673}
     username: ${RABBIT_USER:oep}
     password: ${RABBIT_PASSWORD:oep}
+
+oep:
+  minio:
+    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${MINIO_ACCESS_KEY:oep}
+    secret-key: ${MINIO_SECRET_KEY:oep_secret}
+    bucket-raw: ${MINIO_BUCKET_RAW:oep-raw}
+    bucket-hls: ${MINIO_BUCKET_HLS:oep-hls}
+    bucket-thumbnails: ${MINIO_BUCKET_THUMBNAILS:oep-thumbnails}
+  ffmpeg:
+    binary: ${FFMPEG_BINARY:/usr/bin/ffmpeg}
+    ffprobe: ${FFPROBE_BINARY:/usr/bin/ffprobe}
+    temp-dir: ${FFMPEG_TEMP_DIR:/tmp/oep}

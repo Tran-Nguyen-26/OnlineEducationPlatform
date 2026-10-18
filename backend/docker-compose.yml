@@ -34,6 +34,19 @@ services:
       RABBITMQ_DEFAULT_PASS: oep
     ports: ["5673:5672", "15673:15672"]
 
+  minio:
+    image: coollabsio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: oep
+      MINIO_ROOT_PASSWORD: oep_secret
+    ports:
+      - "9000:9000"    # S3 API
+      - "9001:9001"    # Web Console → http://localhost:9001
+    volumes:
+      - miniodata:/data
+
 volumes:
   pgdata:
   pgdata-replica:
+  miniodata:

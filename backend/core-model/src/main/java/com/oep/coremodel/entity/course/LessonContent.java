@@ -64,6 +64,22 @@ public class LessonContent extends BaseEntity {
     @Column(name = "version_number", nullable = false)
     private int versionNumber = 1;
 
+    /** Path đến master.m3u8 trong bucket oep-hls, ví dụ: videos/{contentId}/master.m3u8 */
+    @Column(name = "hls_master_key", nullable = true, length = 500)
+    private String hlsMasterKey;
+
+    /** Thumbnail chính tại 10% duration, lưu trong oep-thumbnails */
+    @Column(name = "thumbnail_key", nullable = true, length = 500)
+    private String thumbnailKey;
+
+    /** Sprite sheet 20 frame để scrubbing preview, lưu trong oep-thumbnails */
+    @Column(name = "sprite_sheet_key", nullable = true, length = 500)
+    private String spriteSheetKey;
+
+    /** Ghi lại lý do thất bại nếu upload_status = FAILED */
+    @Column(name = "processing_error", nullable = true, columnDefinition = "text")
+    private String processingError;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = true)
     @JoinColumn(name = "created_by", nullable = true)
     private User createdBy;

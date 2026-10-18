@@ -16,6 +16,10 @@ public enum ErrorCode {
     QUIZ_LOCKED(HttpStatus.CONFLICT),
     ATTEMPT_LIMIT_REACHED(HttpStatus.CONFLICT),
     DEADLINE_PASSED(HttpStatus.CONFLICT),
+    // --- Video & Media ---
+    FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE),
+    INVALID_FILE_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE),
+    CONTENT_NOT_READY(HttpStatus.CONFLICT),
     // --- Identity & Auth ---
     EMAIL_TAKEN(HttpStatus.CONFLICT),
     BAD_CREDENTIALS(HttpStatus.UNAUTHORIZED),

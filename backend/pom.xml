@@ -36,6 +36,11 @@
                 <artifactId>core-model</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>io.minio</groupId>
+                <artifactId>minio</artifactId>
+                <version>8.5.10</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 </project>

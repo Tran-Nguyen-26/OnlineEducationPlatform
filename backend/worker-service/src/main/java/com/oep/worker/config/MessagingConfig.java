@@ -44,6 +44,25 @@ public class MessagingConfig {
     }
 
     @Bean
+    org.springframework.amqp.core.Queue videoProcessQueue() {
+        return org.springframework.amqp.core.QueueBuilder.durable(MessagingConstants.QUEUE_VIDEO_PROCESS)
+                .withArgument("x-dead-letter-exchange", "")
+                .withArgument("x-dead-letter-routing-key", MessagingConstants.QUEUE_VIDEO_PROCESS_DLQ)
+                .withArgument("x-message-ttl", 7_200_000L)
+                .build();
+    }
+
+    @Bean
+    org.springframework.amqp.core.Queue videoProcessDlq() {
+        return org.springframework.amqp.core.QueueBuilder.durable(MessagingConstants.QUEUE_VIDEO_PROCESS_DLQ).build();
+    }
+
+    @Bean
+    Binding videoProcessBinding(org.springframework.amqp.core.Queue videoProcessQueue, TopicExchange oepExchange) {
+        return BindingBuilder.bind(videoProcessQueue).to(oepExchange).with(MessagingConstants.RK_VIDEO_UPLOADED);
+    }
+
+    @Bean
     MessageConverter jsonMessageConverter() {
         return new Jackson2JsonMessageConverter();
     }
