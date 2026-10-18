@@ -42,6 +42,9 @@ public class EmailNotificationEvent extends BaseEntity {
     @Column(name = "sent_at", nullable = true)
     private Instant sentAt;
 
+    @Column(name = "dedupe_key", nullable = true, length = 255, unique = true)
+    private String dedupeKey;
+
     @Column(name = "retry_count", nullable = false)
     private int retryCount = 0;
 }

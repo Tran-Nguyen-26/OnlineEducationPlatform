@@ -44,6 +44,13 @@ public class Notification extends BaseEntity {
     @Column(name = "target_id", nullable = true)
     private UUID targetId;
 
+    @Column(name = "action_url", nullable = true, length = 500)
+    private String actionUrl;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "metadata", nullable = true, columnDefinition = "jsonb")
+    private String metadata;
+
     @Column(name = "is_read", nullable = false)
     private boolean read = false;
 
