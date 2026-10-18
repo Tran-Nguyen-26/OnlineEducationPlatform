@@ -1,0 +1,848 @@
+openapi: 3.0.3
+info:
+  title: OEP Module 6 - Notifications, Polling, Outbox and Audit Trail
+  version: 0.1.0
+  description: |
+    API contract proposal for Module 6 (In-app Notifications, High-efficiency Polling,
+    Delivery Preferences, and System Audit Trail) via the API gateway.
+    All timestamps are UTC RFC 3339.
+    The authenticated user ID is extracted from the JWT token and is never supplied in the request body.
+    Outbox event workers and notification ingestion guarantee idempotency via unique dedupe_key:
+    Format: `{event_type}:{target_id}[:{discriminator}]:{user_id}`.
+servers:
+  - url: http://localhost:8080/api
+security:
+  - bearerAuth: []
+tags:
+  - name: Notifications
+    description: In-app notification polling, listing, and read status lifecycle.
+  - name: Notification Preferences
+    description: User notification delivery channel preferences (in-app, email).
+  - name: Audit Logs
+    description: Immutable system audit logs for administrative and sensitive actions.
+
+paths:
+  /notifications:
+    get:
+      tags: [Notifications]
+      operationId: listMyNotifications
+      summary: List notifications for current user with pagination and filter
+      description: |
+        Returns paginated in-app notifications for the authenticated user, ordered by `createdAt` DESC.
+        Supports filtering by read status (`isRead`) and `eventType`.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - name: isRead
+          in: query
+          required: false
+          description: Filter notifications by read status.
+          schema:
+            type: boolean
+          example: false
+        - name: eventType
+          in: query
+          required: false
+          description: Filter by domain event type (e.g. QUIZ_PUBLISHED, ASSIGNMENT_GRADED).
+          schema:
+            $ref: '#/components/schemas/NotificationEventType'
+          example: ASSIGNMENT_GRADED
+      responses:
+        '200':
+          description: Paginated notifications list with total unread counter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /notifications/unread:
+    get:
+      tags: [Notifications]
+      operationId: pollUnreadNotifications
+      summary: Fast polling endpoint for unread notifications and badge counter
+      description: |
+        Optimized for client-side interval polling (recommended interval: 30–60 seconds).
+        Returns the current unread count, the latest notification timestamp, and recent unread items.
+        Clients can provide the `since` query parameter or `If-None-Match` header containing the previous ETag.
+        When no new notifications have arrived, the server responds with 304 Not Modified and an empty body,
+        minimizing bandwidth and server CPU load.
+      parameters:
+        - name: since
+          in: query
+          required: false
+          description: Return unread notifications created after this timestamp.
+          schema:
+            type: string
+            format: date-time
+          example: '2026-10-15T12:00:00Z'
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of unread items to return (default 20, max 100).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          example: 20
+        - name: If-None-Match
+          in: header
+          required: false
+          description: Previous ETag value received from a poll call.
+          schema:
+            type: string
+          example: '"w/3-20261015124000"'
+      responses:
+        '200':
+          description: Unread notification batch and badge status
+          headers:
+            ETag:
+              description: Entity tag representing unread state and latest timestamp.
+              schema:
+                type: string
+              example: '"w/3-20261015124000"'
+            Cache-Control:
+              description: Caching policy directive for polling clients.
+              schema:
+                type: string
+              example: 'private, no-cache'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnreadNotificationBatch'
+        '304':
+          description: Not Modified. No new unread notifications since supplied ETag or timestamp.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /notifications/{notificationId}:
+    parameters:
+      - $ref: '#/components/parameters/NotificationId'
+    delete:
+      tags: [Notifications]
+      operationId: deleteNotification
+      summary: Delete or dismiss a single notification
+      description: |
+        Deletes or dismisses a notification belonging to the authenticated user.
+        If the notification does not exist or does not belong to the user, returns 404 Not Found (mitigating enumeration attacks).
+      responses:
+        '204':
+          description: Notification dismissed successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /notifications/{notificationId}/read:
+    parameters:
+      - $ref: '#/components/parameters/NotificationId'
+    patch:
+      tags: [Notifications]
+      operationId: markNotificationAsRead
+      summary: Mark a single notification as read
+      description: |
+        Idempotent operation. Authenticated user must own the notification (`user_id = auth.userId`).
+        Sets `is_read = true` and `read_at = current_timestamp`.
+        If the notification is already read, returns 200 with the existing state unchanged.
+        If the notification does not exist or does not belong to the authenticated user, returns 404 Not Found to prevent ID enumeration.
+      responses:
+        '200':
+          description: Notification marked as read
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /notifications/batch-read:
+    post:
+      tags: [Notifications]
+      operationId: markBatchNotificationsAsRead
+      summary: Mark selected notifications as read by IDs
+      description: |
+        Marks a specific list of unread notification IDs belonging to the authenticated user as read in a single batch request.
+        Notifications already read or not owned by the user are safely ignored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchMarkReadRequest'
+            example:
+              notificationIds:
+                - '3fa85f64-5717-4562-b3fc-2c963f66afa6'
+                - '8c3a1100-3344-49a2-9811-1234567890ab'
+      responses:
+        '200':
+          description: Batch read update completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarkAllReadResponse'
+              example:
+                updatedCount: 2
+                markedAt: '2026-10-15T12:40:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /notifications/read-all:
+    post:
+      tags: [Notifications]
+      operationId: markAllNotificationsAsRead
+      summary: Mark all unread notifications as read
+      description: |
+        Marks all unread notifications belonging to the authenticated user as read.
+        An optional `before` timestamp can be specified to only mark notifications created up to that time.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkAllReadRequest'
+            example:
+              before: '2026-10-15T12:30:00Z'
+      responses:
+        '200':
+          description: Batch read update completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarkAllReadResponse'
+              example:
+                updatedCount: 8
+                markedAt: '2026-10-15T12:40:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /notifications/preferences:
+    get:
+      tags: [Notification Preferences]
+      operationId: getNotificationPreferences
+      summary: Get user notification delivery preferences
+      description: |
+        Retrieves user-level opt-in/opt-out preferences for in-app and email delivery across
+        all system notification event types. Defaults to in-app enabled and email enabled where applicable.
+      responses:
+        '200':
+          description: List of current notification channel preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferencesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      tags: [Notification Preferences]
+      operationId: updateNotificationPreferences
+      summary: Update user notification delivery preferences
+      description: |
+        Bulk updates notification channel toggles for one or more event types.
+        Non-specified event types retain their existing preferences.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateNotificationPreferencesRequest'
+            example:
+              preferences:
+                - eventType: QUIZ_PUBLISHED
+                  inAppEnabled: true
+                  emailEnabled: false
+                - eventType: ASSIGNMENT_DUE_REMINDER
+                  inAppEnabled: true
+                  emailEnabled: true
+      responses:
+        '200':
+          description: Preferences updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferencesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /audit-logs:
+    get:
+      tags: [Audit Logs]
+      operationId: listAuditLogs
+      summary: Query system audit logs (Admin only)
+      description: |
+        Admin-only endpoint for inspecting immutable audit trails of sensitive operations
+        (e.g., DISABLE_USER, DISABLE_COURSE, REGRADE, ADJUST_SCORE, RESET_QUIZ_ATTEMPT).
+        Supports filtering by action, actorId, targetType, targetId, and date range.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - name: action
+          in: query
+          required: false
+          description: Filter by audit action code.
+          schema:
+            $ref: '#/components/schemas/AuditAction'
+          example: DISABLE_USER
+        - name: actorId
+          in: query
+          required: false
+          description: Filter by actor user UUID.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+          example: '11111111-1111-4111-8111-111111111111'
+        - name: targetType
+          in: query
+          required: false
+          description: Target entity classification (e.g. USER, COURSE, ASSIGNMENT, QUIZ).
+          schema:
+            type: string
+          example: USER
+        - name: targetId
+          in: query
+          required: false
+          description: Filter by target entity UUID.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+          example: '44444444-4444-4444-8444-444444444444'
+        - name: fromDate
+          in: query
+          required: false
+          description: Start of audit timestamp filter range.
+          schema:
+            type: string
+            format: date-time
+          example: '2026-10-01T00:00:00Z'
+        - name: toDate
+          in: query
+          required: false
+          description: End of audit timestamp filter range.
+          schema:
+            type: string
+            format: date-time
+          example: '2026-10-15T23:59:59Z'
+      responses:
+        '200':
+          description: Paginated audit log records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    NotificationId:
+      name: notificationId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+      example: '98765432-1234-4321-8888-1234567890ab'
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+      example: 0
+    Size:
+      name: size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      example: 20
+
+  schemas:
+    Uuid:
+      type: string
+      format: uuid
+      example: '3fa85f64-5717-4562-b3fc-2c963f66afa6'
+
+    NotificationEventType:
+      type: string
+      description: |
+        Canonical domain event category triggering notifications across all functional modules.
+        Categorized by business sub-domains:
+        - Assessment & Submission (QUIZ_*, ASSIGNMENT_*)
+        - Course Content & Lifecycle (COURSE_*)
+        - Enrollment & Access (ENROLLMENT_*)
+        - Social & Q&A (DISCUSSION_*)
+        - Onboarding & Identity (INSTRUCTOR_APPLICATION_*, CERTIFICATE_*, ACCOUNT_*)
+        - System (SYSTEM_*)
+      enum:
+        # Assessment - Quiz
+        - QUIZ_PUBLISHED
+        - QUIZ_DUE_REMINDER
+        - QUIZ_RESULT_PUBLISHED
+        - QUIZ_ATTEMPT_RESET
+        # Assessment - Assignment
+        - ASSIGNMENT_PUBLISHED
+        - ASSIGNMENT_SUBMITTED
+        - ASSIGNMENT_GRADED
+        - ASSIGNMENT_REGRADED
+        - ASSIGNMENT_DUE_REMINDER
+        # Course Management & Content
+        - COURSE_ANNOUNCEMENT
+        - COURSE_CONTENT_UPDATED
+        - COURSE_APPROVED
+        - COURSE_REJECTED
+        - COURSE_DISABLED
+        # Enrollment Lifecycle
+        - ENROLLMENT_CONFIRMED
+        - ENROLLMENT_REMOVED
+        - ENROLLMENT_REQUEST_SUBMITTED
+        - ENROLLMENT_REQUEST_REJECTED
+        # Social & Community
+        - DISCUSSION_REPLIED
+        - DISCUSSION_MENTIONED
+        # Certification, Onboarding & Identity
+        - CERTIFICATE_ISSUED
+        - INSTRUCTOR_APPLICATION_APPROVED
+        - INSTRUCTOR_APPLICATION_REJECTED
+        - COURSE_INVITATION_RECEIVED
+        - ACCOUNT_SUSPENDED
+        # Platform & System
+        - SYSTEM_MAINTENANCE_ALERT
+
+    TargetType:
+      type: string
+      description: Entity type referenced by targetId for frontend routing/deep-linking.
+      enum:
+        - COURSE
+        - LESSON
+        - QUIZ
+        - QUIZ_ATTEMPT
+        - ASSIGNMENT
+        - SUBMISSION
+        - DISCUSSION
+        - ENROLLMENT
+        - ENROLLMENT_REQUEST
+        - CERTIFICATE
+        - INSTRUCTOR_APPLICATION
+        - COURSE_INVITATION
+        - USER
+        - SYSTEM_ALERT
+
+    AuditAction:
+      type: string
+      description: Administrative or high-risk business action recorded in the audit trail across all modules.
+      enum:
+        # Module 1: Identity & IAM
+        - DISABLE_USER
+        - ENABLE_USER
+        - CHANGE_USER_ROLE
+        - REVOKE_ALL_SESSIONS
+        - ADMIN_RESET_PASSWORD
+        # Module 2: Course & Media
+        - DISABLE_COURSE
+        - APPROVE_COURSE
+        - REJECT_COURSE
+        - TRANSFER_COURSE_OWNERSHIP
+        - ASSIGN_CO_INSTRUCTOR
+        - REMOVE_CO_INSTRUCTOR
+        # Module 3: Enrollment & Progress
+        - FORCE_REMOVE_ENROLLMENT
+        - ADMIN_MANUAL_ENROLL
+        - RESTORE_ENROLLMENT
+        # Module 4: Assessment - Quiz Engine
+        - RESET_QUIZ_ATTEMPT
+        - ADJUST_QUIZ_SCORE
+        - UNLOCK_QUIZ_CONTENT
+        # Module 5: Assessment - Assignment Engine
+        - REGRADE
+        - ADJUST_SCORE
+        - EXTEND_ASSIGNMENT_DEADLINE
+        # Module 6: Notifications & System Reliability
+        - UPDATE_SYSTEM_SETTING
+        - BROADCAST_SYSTEM_ALERT
+        - RETRY_FAILED_OUTBOX
+        # Module 8: Reviews & Communication
+        - MODERATE_HIDE_REVIEW
+        - UNHIDE_REVIEW
+        - MUTE_CHANNEL_MEMBER
+        # Module 9: Applications & Invitations
+        - APPROVE_INSTRUCTOR_APPLICATION
+        - REJECT_INSTRUCTOR_APPLICATION
+        - REVOKE_INVITE_CODE
+        # Module 10: AI Tutor Knowledge Assistant
+        - TOGGLE_COURSE_AI_TUTOR
+        - PURGE_AI_KNOWLEDGE_BASE
+
+    Notification:
+      type: object
+      required:
+        - id
+        - userId
+        - eventType
+        - title
+        - message
+        - dedupeKey
+        - isRead
+        - createdAt
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        userId:
+          $ref: '#/components/schemas/Uuid'
+        eventType:
+          $ref: '#/components/schemas/NotificationEventType'
+        title:
+          type: string
+          maxLength: 255
+          example: 'Bài kiểm tra mới đã sẵn sàng'
+        message:
+          type: string
+          example: 'Giảng viên đã công bố bài kiểm tra Quiz 1: Tổng quan Spring Boot trong khóa học Java Core.'
+        dedupeKey:
+          type: string
+          maxLength: 255
+          description: 'Unique deduplication key matching {event_type}:{target_id}[:{discriminator}]:{user_id}.'
+          example: 'ASSIGNMENT_REGRADED:8c3a1100-3344-49a2-9811-1234567890ab:v2:3fa85f64-5717-4562-b3fc-2c963f66afa6'
+        targetType:
+          $ref: '#/components/schemas/TargetType'
+        targetId:
+          $ref: '#/components/schemas/Uuid'
+        isRead:
+          type: boolean
+          example: false
+        readAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        actionUrl:
+          type: string
+          nullable: true
+          description: 'Pre-computed client route for direct navigation and deep-linking.'
+          example: '/courses/11111111-1111-4111-8111-111111111111/assignments/77777777-7777-4777-8777-777777777777'
+        metadata:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: 'Contextual payload for rich card rendering.'
+          example:
+            courseId: '11111111-1111-4111-8111-111111111111'
+            courseTitle: 'Lập trình Backend chuyên sâu'
+            score: 9.5
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-10-15T12:35:00Z'
+
+    NotificationPage:
+      type: object
+      required:
+        - items
+        - page
+        - size
+        - total
+        - unreadTotal
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notification'
+        page:
+          type: integer
+          example: 0
+        size:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 45
+        unreadTotal:
+          type: integer
+          description: Total count of all unread notifications for this user.
+          example: 3
+
+    UnreadNotificationBatch:
+      type: object
+      required:
+        - unreadCount
+        - latestTimestamp
+        - items
+      properties:
+        unreadCount:
+          type: integer
+          description: Current count of unread notifications for badge rendering.
+          example: 3
+        latestTimestamp:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp of the most recent notification in inbox.
+          example: '2026-10-15T12:35:00Z'
+        items:
+          type: array
+          description: Unread notification items (capped by limit).
+          items:
+            $ref: '#/components/schemas/Notification'
+
+    BatchMarkReadRequest:
+      type: object
+      required:
+        - notificationIds
+      properties:
+        notificationIds:
+          type: array
+          minItems: 1
+          description: List of notification UUIDs to mark as read.
+          items:
+            $ref: '#/components/schemas/Uuid'
+          example:
+            - '3fa85f64-5717-4562-b3fc-2c963f66afa6'
+            - '8c3a1100-3344-49a2-9811-1234567890ab'
+
+    MarkAllReadRequest:
+      type: object
+      properties:
+        before:
+          type: string
+          format: date-time
+          nullable: true
+          description: Optional cutoff timestamp. Only notifications created at or before this time are marked as read.
+          example: '2026-10-15T12:30:00Z'
+
+    MarkAllReadResponse:
+      type: object
+      required:
+        - updatedCount
+        - markedAt
+      properties:
+        updatedCount:
+          type: integer
+          description: Number of notifications updated from unread to read.
+          example: 8
+        markedAt:
+          type: string
+          format: date-time
+          example: '2026-10-15T12:40:00Z'
+
+    NotificationPreferenceItem:
+      type: object
+      required:
+        - eventType
+        - inAppEnabled
+        - emailEnabled
+      properties:
+        eventType:
+          $ref: '#/components/schemas/NotificationEventType'
+        inAppEnabled:
+          type: boolean
+          example: true
+        emailEnabled:
+          type: boolean
+          example: false
+        reminderBeforeMinutes:
+          type: integer
+          nullable: true
+          default: 1440
+          description: 'Advance reminder window in minutes before deadlines (default 1440 = 24h).'
+          example: 1440
+
+    NotificationPreferencesResponse:
+      type: object
+      required:
+        - preferences
+      properties:
+        preferences:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationPreferenceItem'
+
+    UpdateNotificationPreferencesRequest:
+      type: object
+      required:
+        - preferences
+      properties:
+        preferences:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/NotificationPreferenceItem'
+
+    AuditLog:
+      type: object
+      required:
+        - id
+        - actorId
+        - action
+        - targetType
+        - targetId
+        - createdAt
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        actorId:
+          $ref: '#/components/schemas/Uuid'
+          description: User ID of the admin or instructor performing the action.
+        actorEmail:
+          type: string
+          format: email
+          description: 'User email of the actor, enriched at query time via JOIN with users table (not a physical column in audit_logs).'
+          example: 'admin@oep.edu.vn'
+        action:
+          $ref: '#/components/schemas/AuditAction'
+        targetType:
+          type: string
+          description: Type of entity targeted by the audit action.
+          enum:
+            - USER
+            - COURSE
+            - ENROLLMENT
+            - QUIZ
+            - QUIZ_ATTEMPT
+            - QUIZ_RESULT
+            - ASSIGNMENT
+            - SUBMISSION
+            - SYSTEM_SETTING
+            - COURSE_REVIEW
+            - COURSE_CHANNEL
+            - INSTRUCTOR_APPLICATION
+            - COURSE_INVITE_CODE
+          example: 'USER'
+        targetId:
+          $ref: '#/components/schemas/Uuid'
+        metadata:
+          type: object
+          description: Contextual payload capturing previous state, new state, reason, and client IP.
+          additionalProperties: true
+          example:
+            reason: 'Tài khoản có dấu hiệu gian lận thi cử nhiều lần'
+            previousStatus: 'ACTIVE'
+            newStatus: 'DISABLED'
+            clientIp: '192.168.1.100'
+            userAgent: 'Mozilla/5.0'
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-10-15T11:20:00Z'
+
+    AuditLogPage:
+      type: object
+      required:
+        - items
+        - page
+        - size
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLog'
+        page:
+          type: integer
+          example: 0
+        size:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 120
+
+    Error:
+      type: object
+      required:
+        - timestamp
+        - status
+        - error
+        - message
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          example: '2026-10-15T12:40:00Z'
+        status:
+          type: integer
+          example: 400
+        error:
+          type: string
+          example: 'VALIDATION_FAILED'
+        message:
+          type: string
+          example: 'Invalid input parameters'
+        details:
+          type: object
+          additionalProperties:
+            type: string
+
+  responses:
+    BadRequest:
+      description: Malformed or invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            timestamp: '2026-10-15T12:40:00Z'
+            status: 400
+            error: VALIDATION_FAILED
+            message: 'Invalid pagination or filter parameters'
+    Unauthorized:
+      description: Missing or expired JWT bearer token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            timestamp: '2026-10-15T12:40:00Z'
+            status: 401
+            error: UNAUTHORIZED
+            message: 'Full authentication is required to access this resource'
+    Forbidden:
+      description: Access denied (e.g. attempting to read another user notification, or non-admin calling audit)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            timestamp: '2026-10-15T12:40:00Z'
+            status: 403
+            error: FORBIDDEN
+            message: 'You do not have permission to access or modify this resource'
+    NotFound:
+      description: Notification or requested entity does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            timestamp: '2026-10-15T12:40:00Z'
+            status: 404
+            error: NOT_FOUND
+            message: 'Notification not found'
