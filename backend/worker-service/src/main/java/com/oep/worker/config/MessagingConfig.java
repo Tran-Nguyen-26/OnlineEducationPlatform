@@ -29,6 +29,11 @@ public class MessagingConfig {
     }
 
     @Bean
+    Queue forgotPasswordEmailQueue() {
+        return new Queue(MessagingConstants.QUEUE_FORGOT_PASSWORD_EMAIL, true);
+    }
+
+    @Bean
     Binding notificationBinding(Queue notificationQueue, TopicExchange oepExchange) {
         return BindingBuilder.bind(notificationQueue).to(oepExchange).with(MessagingConstants.RK_NOTIFICATION);
     }
@@ -41,6 +46,11 @@ public class MessagingConfig {
     @Bean
     Binding scoreSyncBinding(Queue scoreSyncQueue, TopicExchange oepExchange) {
         return BindingBuilder.bind(scoreSyncQueue).to(oepExchange).with(MessagingConstants.RK_SCORE_SYNC);
+    }
+
+    @Bean
+    Binding forgotPasswordEmailBinding(Queue forgotPasswordEmailQueue, TopicExchange oepExchange) {
+        return BindingBuilder.bind(forgotPasswordEmailQueue).to(oepExchange).with(MessagingConstants.RK_FORGOT_PASSWORD_EMAIL);
     }
 
     @Bean

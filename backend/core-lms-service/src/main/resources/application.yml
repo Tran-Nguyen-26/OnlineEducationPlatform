@@ -14,9 +14,13 @@ spring:
         format_sql: true
   rabbitmq:
     host: ${RABBIT_HOST:localhost}
-    port: ${RABBIT_PORT:5673}
-    username: ${RABBIT_USER:oep}
-    password: ${RABBIT_PASSWORD:oep}
+    port: ${RABBIT_PORT:5672}
+    username: ${RABBIT_USER:guest}
+    password: ${RABBIT_PASSWORD:guest}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
 
 oep:
   datasource:

@@ -2,10 +2,16 @@ package com.oep.corelms.controller;
 
 import com.oep.corelms.dto.auth.AuthResponse;
 import com.oep.corelms.dto.auth.ChangePasswordRequest;
+import com.oep.corelms.dto.auth.ForgotPasswordRequest;
+import com.oep.corelms.dto.auth.ForgotPasswordResponse;
+import com.oep.corelms.dto.auth.ForgotPasswordVerifyOtpRequest;
+import com.oep.corelms.dto.auth.ForgotPasswordVerifyOtpResponse;
 import com.oep.corelms.dto.auth.LoginRequest;
 import com.oep.corelms.dto.auth.RefreshTokenRequest;
 import com.oep.corelms.dto.auth.RegisterRequest;
+import com.oep.corelms.dto.auth.ResetPasswordRequest;
 import com.oep.corelms.service.AuthService;
+import com.oep.corelms.service.ForgotPasswordService;
 import com.oep.corelms.service.JwtService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -26,6 +32,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final JwtService jwtService;
+    private final ForgotPasswordService forgotPasswordService;
 
     @PostMapping("/api/auth/register")
     public ResponseEntity<AuthResponse> register(
@@ -75,10 +82,30 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("message", "Password changed successfully"));
     }
 
-    /**
-     * JWKS endpoint exposed so api-gateway (and any resource server) can fetch the public key to verify JWTs.
-     * Accessible publicly at GET /.well-known/jwks.json and /api/auth/jwks.json
-     */
+    @PostMapping("/api/auth/forgot-password")
+    public ResponseEntity<ForgotPasswordResponse> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request
+    ) {
+        ForgotPasswordResponse response = forgotPasswordService.forgotPassword(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/api/auth/forgot-password/verify-otp")
+    public ResponseEntity<ForgotPasswordVerifyOtpResponse> verifyOtp(
+            @Valid @RequestBody ForgotPasswordVerifyOtpRequest request
+    ) {
+        ForgotPasswordVerifyOtpResponse response = forgotPasswordService.verifyForgotPasswordOtp(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/api/auth/reset-password")
+    public ResponseEntity<Map<String, String>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request
+    ) {
+        forgotPasswordService.resetPassword(request);
+        return ResponseEntity.ok(Map.of("message", "Mật khẩu đã được đặt lại thành công. Vui lòng đăng nhập bằng mật khẩu mới."));
+    }
+
     @GetMapping(value = {"/.well-known/jwks.json", "/api/auth/jwks.json"}, produces = "application/json")
     public Map<String, Object> jwks() {
         return jwtService.getJwkSetJson();

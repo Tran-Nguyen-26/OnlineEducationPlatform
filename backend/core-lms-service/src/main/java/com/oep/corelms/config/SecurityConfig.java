@@ -43,6 +43,9 @@ public class SecurityConfig {
                                 "/api/auth/login",
                                 "/api/auth/refresh",
                                 "/api/auth/logout",
+                                "/api/auth/forgot-password",
+                                "/api/auth/forgot-password/verify-otp",
+                                "/api/auth/reset-password",
                                 "/api/auth/jwks.json",
                                 "/.well-known/jwks.json",
                                 "/actuator/**"
