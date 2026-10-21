@@ -1,0 +1,552 @@
+/* ========================================================
+   Trang Đăng Ký – Layout & Styles
+   ======================================================== */
+
+/* ── Khung 2 cột ── */
+.register-layout {
+  display: flex;
+  min-height: 100vh;
+  background: #f8fafc;
+}
+
+/* ── Panel trái ── */
+.register-left-panel {
+  width: 42%;
+  min-width: 340px;
+  max-width: 520px;
+  padding: 3rem 3rem 3rem 3.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: transparent;
+  box-sizing: border-box;
+}
+
+/* Logo */
+.reg-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-bottom: 3rem;
+}
+.reg-logo-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  background: #0d9488;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  padding: 0.375rem;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+.reg-logo-icon svg {
+  width: 100%;
+  height: 100%;
+}
+.reg-logo-name {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #111827;
+  text-decoration: none;
+}
+
+/* Tiêu đề hero */
+.reg-hero {
+  margin-bottom: 2rem;
+}
+.reg-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #0d9488;
+  background: #ccfbf1;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  margin-bottom: 1rem;
+}
+.reg-badge-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+.reg-hero-title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #111827;
+  line-height: 1.2;
+  margin-bottom: 0.75rem;
+}
+.reg-hero-desc {
+  font-size: 0.9375rem;
+  color: #4b5563;
+  line-height: 1.6;
+}
+
+/* Card tính năng nổi bật */
+.reg-feature-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.875rem;
+  padding: 1.125rem 1.25rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+.reg-feature-card-icon {
+  width: 3rem;
+  height: 3rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 0.625rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0d9488;
+  padding: 0.5rem;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+.reg-feature-card-icon svg {
+  width: 100%;
+  height: 100%;
+}
+.reg-feature-card-title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 0.25rem;
+}
+.reg-feature-card-desc {
+  font-size: 0.8125rem;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+/* Danh sách tính năng */
+.reg-feature-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.reg-feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+}
+.reg-feature-item-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #0d9488;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+.reg-feature-item-icon svg {
+  width: 100%;
+  height: 100%;
+}
+.reg-feature-item-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 0.2rem;
+}
+.reg-feature-item-desc {
+  font-size: 0.8125rem;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+/* ── Panel phải ── */
+.register-right-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: transparent;
+}
+.register-form-scroll {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 2.5rem 2rem;
+  gap: 1.5rem;
+}
+
+/* Card form */
+.register-form-card {
+  background: #fff;
+  border-radius: 1rem;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
+  padding: 2rem 2.25rem;
+  width: 100%;
+  max-width: 600px;
+  box-sizing: border-box;
+}
+
+/* Footer */
+.reg-footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  text-align: center;
+  justify-content: center;
+}
+.reg-footer-dot {
+  color: #d1d5db;
+}
+.reg-footer-link {
+  color: #9ca3af;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.reg-footer-link:hover {
+  color: #0d9488;
+}
+
+/* ── Nội dung form ── */
+.reg-form-header {
+  margin-bottom: 1.25rem;
+}
+.reg-form-title {
+  font-size: 1.375rem;
+  font-weight: 800;
+  color: #111827;
+  margin-bottom: 0.3rem;
+}
+.reg-form-subtitle {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+.reg-form-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+/* Thông báo lỗi & thành công */
+.reg-alert-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 0.75rem 1rem;
+  border-radius: 0.625rem;
+  font-size: 0.84375rem;
+  line-height: 1.45;
+  margin-bottom: 0.5rem;
+  animation: reg-fade-in 0.2s ease-in-out;
+}
+.reg-alert-success {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+  padding: 0.75rem 1rem;
+  border-radius: 0.625rem;
+  font-size: 0.84375rem;
+  line-height: 1.45;
+  margin-bottom: 0.5rem;
+  animation: reg-fade-in 0.2s ease-in-out;
+}
+.reg-alert-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+@keyframes reg-fade-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Tiêu đề section */
+.reg-section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #f3f4f6;
+  margin-bottom: 0.25rem;
+}
+.reg-section-icon {
+  width: 1rem;
+  height: 1rem;
+  color: #0d9488;
+  flex-shrink: 0;
+}
+.reg-section-icon svg {
+  width: 100%;
+  height: 100%;
+}
+.reg-section-title {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #374151;
+}
+.reg-section-desc {
+  font-size: 0.8125rem;
+  color: #6b7280;
+  margin: 0 0 0.25rem 0;
+}
+
+/* Trường nhập liệu */
+.reg-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.reg-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.reg-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}
+.reg-required {
+  color: #ef4444;
+  margin-left: 1px;
+}
+.reg-label-hint {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+.reg-optional {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+/* Wrapper input có icon */
+.reg-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.reg-input-icon {
+  position: absolute;
+  left: 0.75rem;
+  width: 1rem;
+  height: 1rem;
+  color: #9ca3af;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+.reg-input-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Input cơ bản */
+.reg-input {
+  width: 100%;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 0.625rem;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  color: #111827;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+.reg-input:focus {
+  border-color: #0d9488;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+}
+.reg-input.reg-input-with-icon {
+  padding-left: 2.5rem;
+}
+.reg-input.reg-input-with-toggle {
+  padding-right: 2.75rem;
+}
+.reg-input.reg-input-error {
+  border-color: #ef4444;
+}
+.reg-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* Nút ẩn/hiện mật khẩu */
+.reg-toggle-btn {
+  position: absolute;
+  right: 0.75rem;
+  width: 1.125rem;
+  height: 1.125rem;
+  color: #9ca3af;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: color 0.2s;
+}
+.reg-toggle-btn:hover {
+  color: #374151;
+}
+.reg-toggle-btn svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Thanh độ mạnh mật khẩu */
+.reg-strength-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+.reg-strength-label {
+  font-size: 0.75rem;
+  color: #6b7280;
+  white-space: nowrap;
+}
+.reg-strength-bars {
+  display: flex;
+  gap: 0.25rem;
+  flex: 1;
+}
+.reg-strength-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 9999px;
+  transition: background-color 0.3s;
+}
+.reg-strength-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+  min-width: 3rem;
+  text-align: right;
+}
+.reg-strength-weak   { color: #ef4444; }
+.reg-strength-fair   { color: #f97316; }
+.reg-strength-good   { color: #eab308; }
+.reg-strength-strong { color: #10b981; }
+
+/* Badge mật khẩu khớp */
+.reg-match-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #0d9488;
+}
+.reg-match-badge svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+/* 2 cột (SĐT + Ngày sinh) */
+.reg-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.875rem;
+}
+
+/* Nút tạo tài khoản */
+.reg-submit-btn {
+  width: 100%;
+  background: #0d9488;
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  padding: 0.8125rem;
+  border: none;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+  margin-top: 0.5rem;
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.25);
+}
+.reg-submit-btn:hover {
+  background: #0f766e;
+  box-shadow: 0 4px 16px rgba(13, 148, 136, 0.35);
+}
+.reg-submit-btn:active {
+  transform: translateY(1px);
+}
+.reg-submit-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+.reg-spinner {
+  width: 1.125rem;
+  height: 1.125rem;
+  animation: reg-spin 0.8s linear infinite;
+}
+@keyframes reg-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Link đăng nhập */
+.reg-signin-link {
+  text-align: center;
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
+}
+.reg-signin-link-a {
+  font-weight: 700;
+  color: #0d9488;
+  text-decoration: none;
+}
+.reg-signin-link-a:hover {
+  text-decoration: underline;
+}
+
+/* Ghi chú bảo mật */
+.reg-privacy-note {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+/* ── Responsive (mobile < 900px) ── */
+@media (max-width: 900px) {
+  .register-layout {
+    flex-direction: column;
+  }
+  .register-left-panel {
+    width: 100%;
+    max-width: 100%;
+    padding: 2rem 1.5rem 1.5rem;
+  }
+  .register-right-panel {
+    padding: 0;
+  }
+  .register-form-scroll {
+    padding: 1.5rem 1rem 2rem;
+  }
+  .reg-two-col {
+    grid-template-columns: 1fr;
+  }
+}

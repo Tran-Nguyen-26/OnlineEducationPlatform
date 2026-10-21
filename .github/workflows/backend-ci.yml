@@ -1,0 +1,57 @@
+name: Backend CI
+
+on:
+  pull_request:
+    branches: [main, dev, nam/frontend-setup]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  push:
+    branches: [main, dev, nam/frontend-setup]
+    paths:
+      - 'backend/**'
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & Verify Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ──────────────────────────────────────────────────────────────────────
+      # Maven dependency cache — giảm ≥ 40% thời gian CI từ lần chạy thứ 2
+      # ──────────────────────────────────────────────────────────────────────
+      - name: Cache Maven local repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            maven-${{ runner.os }}-
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Build & verify (skip tests until test suite added)
+        run: mvn -B verify -DskipTests --no-transfer-progress
+        working-directory: backend
+
+      - name: Upload build artifacts (jars)
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: backend-jars
+          path: |
+            backend/**/target/*.jar
+            !backend/**/target/*-sources.jar
+          retention-days: 3
