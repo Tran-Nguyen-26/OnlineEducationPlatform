@@ -22,11 +22,11 @@ oep:
   datasource:
     routing-enabled: true
     primary:
-      jdbc-url: ${DB_URL:jdbc:postgresql://localhost:5432/oep}
+      url: ${DB_URL:jdbc:postgresql://localhost:5434/oep}
       username: ${DB_USER:oep}
       password: ${DB_PASSWORD:oep}
     replica:
-      jdbc-url: ${DB_REPLICA_URL:jdbc:postgresql://localhost:5433/oep}
+      url: ${DB_REPLICA_URL:jdbc:postgresql://localhost:5435/oep}
       username: ${DB_REPLICA_USER:oep}
       password: ${DB_REPLICA_PASSWORD:oep}
 jwt:
