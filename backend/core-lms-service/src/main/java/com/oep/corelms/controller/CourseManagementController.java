@@ -2,8 +2,10 @@ package com.oep.corelms.controller;
 
 import com.oep.corelms.dto.course.CourseDtos;
 import com.oep.corelms.dto.course.LessonDtos;
+import com.oep.corelms.dto.course.LessonContentDtos;
 import com.oep.corelms.dto.course.ModuleDtos;
 import com.oep.corelms.service.CourseManagementService;
+import com.oep.coremodel.enums.UploadStatus;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -118,6 +120,55 @@ public class CourseManagementController {
                                                        @PathVariable UUID moduleId,
                                                        @Valid @RequestBody LessonDtos.ReorderRequest request) {
         return service.reorderLessons(userId(jwt), courseId, moduleId, request);
+    }
+
+    @GetMapping("/courses/{courseId}/modules/{moduleId}/lessons/{lessonId}/contents")
+    public LessonContentDtos.PageResponse listLessonContents(@AuthenticationPrincipal Jwt jwt,
+                                                              @PathVariable UUID courseId,
+                                                              @PathVariable UUID moduleId,
+                                                              @PathVariable UUID lessonId,
+                                                              @RequestParam(defaultValue = "1") int page,
+                                                              @RequestParam(name = "page_size", defaultValue = "20") int pageSize,
+                                                              @RequestParam(name = "upload_status", required = false) UploadStatus status) {
+        return service.listLessonContents(userId(jwt), courseId, moduleId, lessonId, page, pageSize, status);
+    }
+
+    @PostMapping("/courses/{courseId}/modules/{moduleId}/lessons/{lessonId}/contents")
+    @ResponseStatus(HttpStatus.CREATED)
+    public LessonContentDtos.Response createLessonContent(@AuthenticationPrincipal Jwt jwt,
+                                                           @PathVariable UUID courseId,
+                                                           @PathVariable UUID moduleId,
+                                                           @PathVariable UUID lessonId,
+                                                           @Valid @RequestBody LessonContentDtos.CreateRequest request) {
+        return service.createLessonContent(userId(jwt), courseId, moduleId, lessonId, request);
+    }
+
+    @GetMapping("/courses/{courseId}/modules/{moduleId}/lessons/{lessonId}/contents/{contentId}")
+    public LessonContentDtos.Response getLessonContent(@AuthenticationPrincipal Jwt jwt,
+                                                        @PathVariable UUID courseId,
+                                                        @PathVariable UUID moduleId,
+                                                        @PathVariable UUID lessonId,
+                                                        @PathVariable UUID contentId) {
+        return service.getLessonContent(userId(jwt), courseId, moduleId, lessonId, contentId);
+    }
+
+    @PatchMapping("/courses/{courseId}/modules/{moduleId}/lessons/{lessonId}/contents/{contentId}")
+    public LessonContentDtos.Response updateLessonContent(@AuthenticationPrincipal Jwt jwt,
+                                                           @PathVariable UUID courseId,
+                                                           @PathVariable UUID moduleId,
+                                                           @PathVariable UUID lessonId,
+                                                           @PathVariable UUID contentId,
+                                                           @Valid @RequestBody LessonContentDtos.UpdateRequest request) {
+        return service.updateLessonContent(userId(jwt), courseId, moduleId, lessonId, contentId, request);
+    }
+
+    @DeleteMapping("/courses/{courseId}/modules/{moduleId}/lessons/{lessonId}/contents/{contentId}")
+    public LessonContentDtos.DeleteResponse deleteLessonContent(@AuthenticationPrincipal Jwt jwt,
+                                                                  @PathVariable UUID courseId,
+                                                                  @PathVariable UUID moduleId,
+                                                                  @PathVariable UUID lessonId,
+                                                                  @PathVariable UUID contentId) {
+        return service.deleteLessonContent(userId(jwt), courseId, moduleId, lessonId, contentId);
     }
 
     private UUID userId(Jwt jwt) {

@@ -1,23 +1,29 @@
 package com.oep.corelms.service;
 
 import com.oep.corelms.dto.course.CourseDtos;
+import com.oep.corelms.dto.course.LessonContentDtos;
 import com.oep.corelms.dto.course.LessonDtos;
 import com.oep.corelms.dto.course.ModuleDtos;
 import com.oep.corelms.repository.CourseInstructorRepository;
 import com.oep.corelms.repository.CourseModuleRepository;
 import com.oep.corelms.repository.CourseRepository;
 import com.oep.corelms.repository.LessonRepository;
+import com.oep.corelms.repository.LessonContentRepository;
+import com.oep.corelms.repository.LessonContentReferenceRepository;
 import com.oep.corelms.repository.UserRepository;
 import com.oep.coremodel.entity.course.Course;
 import com.oep.coremodel.entity.course.CourseInstructor;
 import com.oep.coremodel.entity.course.CourseInstructorId;
 import com.oep.coremodel.entity.course.CourseModule;
 import com.oep.coremodel.entity.course.Lesson;
+import com.oep.coremodel.entity.course.LessonContent;
 import com.oep.coremodel.entity.identity.User;
 import com.oep.coremodel.enums.CourseInstructorRole;
 import com.oep.coremodel.enums.CourseLifecycleStatus;
 import com.oep.coremodel.enums.CourseVisibility;
+import com.oep.coremodel.enums.ContentType;
 import com.oep.coremodel.enums.LearningMode;
+import com.oep.coremodel.enums.UploadStatus;
 import com.oep.coremodel.enums.UserRole;
 import com.oep.coremodel.exception.BusinessException;
 import com.oep.coremodel.exception.ErrorCode;
@@ -28,6 +34,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.List;
 import java.util.HashSet;
 import java.util.UUID;
@@ -38,6 +46,8 @@ public class CourseManagementService {
     private final CourseRepository courses;
     private final CourseModuleRepository modules;
     private final LessonRepository lessons;
+    private final LessonContentRepository contents;
+    private final LessonContentReferenceRepository contentReferences;
     private final CourseInstructorRepository courseInstructors;
     private final UserRepository users;
 
@@ -253,6 +263,89 @@ public class CourseManagementService {
         return toLesson(lessons.saveAndFlush(lesson));
     }
 
+    @Transactional(readOnly = true)
+    public LessonContentDtos.PageResponse listLessonContents(UUID actorId, UUID courseId, UUID moduleId, UUID lessonId,
+                                                             int page, int pageSize, UploadStatus status) {
+        Lesson lesson = requireManagedLesson(actorId, courseId, moduleId, lessonId);
+        validatePage(page, pageSize);
+        Page<LessonContent> result = status == null
+                ? contents.findByLessonIdOrderByPositionAsc(lesson.getId(), PageRequest.of(page - 1, pageSize))
+                : contents.findByLessonIdAndUploadStatusOrderByPositionAsc(lesson.getId(), status, PageRequest.of(page - 1, pageSize));
+        return new LessonContentDtos.PageResponse(result.getContent().stream().map(this::toContent).toList(), pageInfo(result));
+    }
+
+    @Transactional
+    public LessonContentDtos.Response createLessonContent(UUID actorId, UUID courseId, UUID moduleId, UUID lessonId,
+                                                            LessonContentDtos.CreateRequest request) {
+        Lesson lesson = requireEditableLesson(actorId, courseId, moduleId, lessonId);
+        validateCreateContent(request);
+        int position;
+        if (request.position() == null) {
+            List<LessonContent> current = contents.findByLessonIdOrderByPositionAsc(lesson.getId());
+            position = current.isEmpty() ? 0 : current.get(current.size() - 1).getPosition() + 1;
+        } else {
+            position = request.position();
+        }
+        if (contents.existsByLessonIdAndPosition(lesson.getId(), position)) {
+            throw new BusinessException(ErrorCode.CONTENT_POSITION_TAKEN, "Content position is already used");
+        }
+
+        User actor = requireUser(actorId);
+        LessonContent content = new LessonContent();
+        content.setLesson(lesson);
+        content.setContentType(request.contentType());
+        content.setTitle(request.title());
+        content.setTextContent(request.textContent());
+        content.setExternalUrl(request.externalUrl());
+        content.setUploadStatus(UploadStatus.AVAILABLE);
+        content.setPosition(position);
+        content.setCreatedBy(actor);
+        content.setUpdatedBy(actor);
+        return toContent(contents.saveAndFlush(content));
+    }
+
+    @Transactional(readOnly = true)
+    public LessonContentDtos.Response getLessonContent(UUID actorId, UUID courseId, UUID moduleId, UUID lessonId, UUID contentId) {
+        Lesson lesson = requireManagedLesson(actorId, courseId, moduleId, lessonId);
+        return toContent(requireContent(lesson.getId(), contentId));
+    }
+
+    @Transactional
+    public LessonContentDtos.Response updateLessonContent(UUID actorId, UUID courseId, UUID moduleId, UUID lessonId,
+                                                            UUID contentId, LessonContentDtos.UpdateRequest request) {
+        Lesson lesson = requireEditableLesson(actorId, courseId, moduleId, lessonId);
+        LessonContent content = requireContent(lesson.getId(), contentId);
+        requireTextOrLink(content);
+        if (request.title() == null && request.textContent() == null && request.externalUrl() == null) {
+            throw new BusinessException(ErrorCode.INVALID_CONTENT_METADATA, "At least one content field is required");
+        }
+        if (content.getContentType() == ContentType.TEXT && request.externalUrl() != null
+                || content.getContentType() == ContentType.LINK && request.textContent() != null) {
+            throw new BusinessException(ErrorCode.INVALID_CONTENT_METADATA, "Fields do not match the content type");
+        }
+        if (request.externalUrl() != null) validateExternalUrl(request.externalUrl());
+
+        if (request.title() != null) content.setTitle(request.title());
+        if (request.textContent() != null) content.setTextContent(request.textContent());
+        if (request.externalUrl() != null) content.setExternalUrl(request.externalUrl());
+        content.setUpdatedBy(requireUser(actorId));
+        return toContent(contents.saveAndFlush(content));
+    }
+
+    @Transactional
+    public LessonContentDtos.DeleteResponse deleteLessonContent(UUID actorId, UUID courseId, UUID moduleId, UUID lessonId,
+                                                                 UUID contentId) {
+        Lesson lesson = requireEditableLesson(actorId, courseId, moduleId, lessonId);
+        LessonContent content = contents.findByIdAndLessonIdForUpdate(contentId, lesson.getId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_CONTENT, "Content not found in lesson"));
+        requireTextOrLink(content);
+        if (contentReferences.isReferenced(contentId)) {
+            throw new BusinessException(ErrorCode.CONTENT_IN_USE, "Content is referenced by progress, AI data or change history");
+        }
+        contents.delete(content);
+        return new LessonContentDtos.DeleteResponse(true, contentId);
+    }
+
     @Transactional
     public LessonDtos.ReorderResponse reorderLessons(UUID actorId, UUID courseId, UUID moduleId, LessonDtos.ReorderRequest request) {
         requireInstructorCourseManager(courseId, actorId);
@@ -286,14 +379,74 @@ public class CourseManagementService {
     }
 
     private void requireInstructorCourseManager(UUID courseId, UUID actorId) {
+        requireInstructorAssociation(courseId, actorId);
+        Course course = requireCourse(courseId);
+        ensureCourseEditable(course);
+    }
+
+    private void requireInstructorAssociation(UUID courseId, UUID actorId) {
         if (actorId == null) throw new BusinessException(ErrorCode.FORBIDDEN, "Course manager access is required");
+        requireCourse(courseId);
         CourseInstructor link = courseInstructors.findByIdCourseIdAndIdInstructorId(courseId, actorId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.FORBIDDEN, "Course manager access is required"));
         if (link.getCourseRole() != CourseInstructorRole.OWNER && link.getCourseRole() != CourseInstructorRole.CO_INSTRUCTOR) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Course manager access is required");
         }
-        Course course = requireCourse(courseId);
-        ensureCourseEditable(course);
+    }
+
+    private Lesson requireManagedLesson(UUID actorId, UUID courseId, UUID moduleId, UUID lessonId) {
+        requireInstructorAssociation(courseId, actorId);
+        requireModule(courseId, moduleId);
+        return lessons.findByIdAndModuleId(lessonId, moduleId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_COURSE_LESSON, "Lesson not found in module"));
+    }
+
+    private Lesson requireEditableLesson(UUID actorId, UUID courseId, UUID moduleId, UUID lessonId) {
+        requireInstructorCourseManager(courseId, actorId);
+        requireModule(courseId, moduleId);
+        return lessons.findByIdAndModuleIdForUpdate(lessonId, moduleId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_COURSE_LESSON, "Lesson not found in module"));
+    }
+
+    private LessonContent requireContent(UUID lessonId, UUID contentId) {
+        return contents.findByIdAndLessonId(contentId, lessonId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_CONTENT, "Content not found in lesson"));
+    }
+
+    private void validateCreateContent(LessonContentDtos.CreateRequest request) {
+        if (request.contentType() != ContentType.TEXT && request.contentType() != ContentType.LINK) {
+            throw new BusinessException(ErrorCode.CONTENT_TYPE_NOT_SUPPORTED, "Only TEXT and LINK content are supported in this implementation slice");
+        }
+        if (request.fileName() != null || request.mimeType() != null || request.fileSize() != null) {
+            throw new BusinessException(ErrorCode.INVALID_CONTENT_METADATA, "File metadata is not accepted for TEXT or LINK content");
+        }
+        if (request.contentType() == ContentType.TEXT) {
+            if (request.textContent() == null || request.externalUrl() != null) {
+                throw new BusinessException(ErrorCode.INVALID_CONTENT_METADATA, "TEXT requires text_content and cannot include external_url");
+            }
+        } else if (request.externalUrl() == null || request.textContent() != null) {
+            throw new BusinessException(ErrorCode.INVALID_CONTENT_METADATA, "LINK requires external_url and cannot include text_content");
+        } else {
+            validateExternalUrl(request.externalUrl());
+        }
+    }
+
+    private void validateExternalUrl(String value) {
+        try {
+            URI uri = new URI(value);
+            if (!uri.isAbsolute() || uri.getHost() == null
+                    || !("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme()))) {
+                throw new URISyntaxException(value, "Only absolute HTTP(S) links are allowed");
+            }
+        } catch (URISyntaxException ex) {
+            throw new BusinessException(ErrorCode.INVALID_CONTENT_METADATA, "external_url must be a valid absolute HTTP(S) URL");
+        }
+    }
+
+    private void requireTextOrLink(LessonContent content) {
+        if (content.getContentType() != ContentType.TEXT && content.getContentType() != ContentType.LINK) {
+            throw new BusinessException(ErrorCode.CONTENT_TYPE_NOT_SUPPORTED, "File content management is deferred to M2.6");
+        }
     }
 
     private User requireUser(UUID userId) {
@@ -342,4 +495,9 @@ public class CourseManagementService {
     }
     private ModuleDtos.Response toModule(CourseModule m) { return new ModuleDtos.Response(m.getId(), m.getCourse().getId(), m.getTitle(), m.getDescription(), m.getPosition(), m.isDefaultModule(), m.getCreatedAt(), m.getUpdatedAt()); }
     private LessonDtos.Response toLesson(Lesson l) { return new LessonDtos.Response(l.getId(), l.getModule().getId(), l.getTitle(), l.getDescription(), l.getPosition(), l.isRequired(), l.getCreatedAt(), l.getUpdatedAt()); }
+    private LessonContentDtos.Response toContent(LessonContent c) {
+        return new LessonContentDtos.Response(c.getId(), c.getLesson().getId(), c.getContentType(), c.getTitle(),
+                c.getTextContent(), c.getExternalUrl(), c.getFileName(), c.getMimeType(), c.getFileSize(),
+                c.getUploadStatus(), c.getPosition(), c.getVersionNumber(), c.getCreatedAt(), c.getUpdatedAt());
+    }
 }
