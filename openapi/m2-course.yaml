@@ -1313,8 +1313,8 @@ paths:
       operationId: listLessonContents
       summary: List lesson contents
       description: |
-        Students require ACTIVE enrollment in a PUBLISHED course. Return metadata without object_key in DTOs
-        or signed URLs.
+        Current M2.3 implementation permits OWNER/CO_INSTRUCTOR reads. Student access is deferred to M2.5.
+        Return metadata without object_key in DTOs or signed URLs.
       parameters:
         - { $ref: "#/components/parameters/CourseId" }
         - { $ref: "#/components/parameters/ModuleId" }
@@ -1368,8 +1368,8 @@ paths:
       operationId: createLessonContent
       summary: Create lesson content
       description: |
-        OWNER or CO_INSTRUCTOR only. Valid TEXT/LINK content may be AVAILABLE immediately; file content
-        starts as PENDING to request an upload URL.
+        Current M2.3 implementation creates TEXT/LINK only; file content creation is deferred to M2.6.
+        OWNER or CO_INSTRUCTOR only. TEXT/LINK content is AVAILABLE immediately.
       parameters:
         - { $ref: "#/components/parameters/CourseId" }
         - { $ref: "#/components/parameters/ModuleId" }
@@ -1434,8 +1434,8 @@ paths:
       operationId: getLessonContent
       summary: Read lesson content
       description:
-        Students with ACTIVE enrollment in a PUBLISHED course, or OWNER/CO_INSTRUCTOR only. Do not
-        return signed URLs.
+        Current M2.3 implementation permits OWNER/CO_INSTRUCTOR reads. Student access is deferred to M2.5.
+        Do not return signed URLs.
       parameters:
         - { $ref: "#/components/parameters/CourseId" }
         - { $ref: "#/components/parameters/ModuleId" }
@@ -1485,8 +1485,8 @@ paths:
       operationId: updateLessonContent
       summary: Update content metadata
       description: |
-        OWNER or CO_INSTRUCTOR only. TEXT/LINK may update text/url; file content may update title only.
-        PATCH cannot replace object_key or file bytes.
+        Current M2.3 implementation permits updates to TEXT/LINK only; file content updates are deferred
+        to M2.6. PATCH cannot replace object_key or file bytes.
       parameters:
         - { $ref: "#/components/parameters/CourseId" }
         - { $ref: "#/components/parameters/ModuleId" }
@@ -1543,9 +1543,9 @@ paths:
       operationId: deleteLessonContent
       summary: Delete lesson content
       description: |
-        OWNER or CO_INSTRUCTOR only. Deletion is allowed only when progress, quizzes or AI do not reference
-        the content; otherwise return 409. Clean up object storage via an asynchronous event. Do not promise
-        soft deletion because the DBML has no deleted_at field.
+        Current M2.3 implementation deletes TEXT/LINK only and returns 409 when progress, AI chunks or
+        content change history references the content. File deletion and object storage cleanup are deferred
+        to M2.6. Do not promise soft deletion because the DBML has no deleted_at field.
       parameters:
         - { $ref: "#/components/parameters/CourseId" }
         - { $ref: "#/components/parameters/ModuleId" }

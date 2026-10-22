@@ -4,6 +4,8 @@ import com.oep.corelms.repository.CourseInstructorRepository;
 import com.oep.corelms.repository.CourseModuleRepository;
 import com.oep.corelms.repository.CourseRepository;
 import com.oep.corelms.repository.LessonRepository;
+import com.oep.corelms.repository.LessonContentRepository;
+import com.oep.corelms.repository.LessonContentReferenceRepository;
 import com.oep.corelms.repository.UserRepository;
 import com.oep.coremodel.entity.course.Course;
 import com.oep.coremodel.entity.course.CourseInstructor;
@@ -37,6 +39,8 @@ class CourseManagementServiceReorderTest {
     @Mock private CourseRepository courses;
     @Mock private CourseModuleRepository modules;
     @Mock private LessonRepository lessons;
+    @Mock private LessonContentRepository contents;
+    @Mock private LessonContentReferenceRepository contentReferences;
     @Mock private CourseInstructorRepository courseInstructors;
     @Mock private UserRepository users;
 
@@ -47,7 +51,7 @@ class CourseManagementServiceReorderTest {
 
     @BeforeEach
     void setUp() {
-        service = new CourseManagementService(courses, modules, lessons, courseInstructors, users);
+        service = new CourseManagementService(courses, modules, lessons, contents, contentReferences, courseInstructors, users);
         course = new Course();
         course.setLifecycleStatus(CourseLifecycleStatus.DRAFT);
         lenient().when(courses.findById(courseId)).thenReturn(Optional.of(course));
