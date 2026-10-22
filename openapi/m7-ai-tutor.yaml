@@ -1,0 +1,740 @@
+openapi: 3.0.3
+info:
+  title: Online Education Platform — M7 AI Tutor API
+  version: 0.1.0
+  description: |
+    REVIEW DRAFT (2026-10-22). Intended external Spring Boot and internal Python/FastAPI
+    contracts; no claim that handlers or migrations have been implemented.
+
+    MVP: course-grounded RAG, own conversation history, citation, abstention and
+    course-based authorization. Frontend calls Spring Boot; FastAPI is private.
+    No general/open-domain answer mode, video transcription or AI Agent in MVP.
+
+    Student access requires PUBLISHED course and ACTIVE M3 enrollment.
+    COMPLETED access is OPEN across M2/M3: provisional M7 policy is deny.
+    WITHDRAWN, REMOVED, ARCHIVED and DISABLED deny student AI access.
+    M7 AI Tutor is Student-only. Instructors may manage content through M2 but
+    cannot use M7 chat, conversation, or status endpoints.
+
+    Public pagination and error envelope temporarily follow M2; the gateway adapts
+    M3 internal errors. Align later with common gateway standards.
+    Public endpoints use /api/v1. Internal operations override servers and
+    use serviceAuth; they MUST NOT be internet exposed.
+    For public chat routes, the gateway must verify user course entitlement and
+    forward only signed short-lived user/course claims to private M7 handlers.
+    The Python handler verifies the assertion; untrusted identity headers and
+    client-supplied user_id are not accepted.
+  x-business-decisions:
+    completed_student_access: 'OPEN: provisional ACTIVE-only; deny COMPLETED until M2/M3 approval'
+    conversation_scope: 'PROPOSED: one user, one course per conversation'
+    published_student_course: 'CONFIRMED from M2: ARCHIVED blocks even ACTIVE enrollment'
+    actor_scope: 'Student-only; instructors/admins cannot use public M7 AI Tutor endpoints'
+    supported_sources: 'PROPOSED MVP: TEXT and text-based PDF; DOCX later, no video transcription'
+    general_assistant: 'OUT OF SCOPE for initial MVP; no ungrounded response fallback'
+    content_deletion: 'AGREED: M2 makes source unavailable, waits for synchronous M7 deactivation acknowledgement, then finalizes; retry if M7 is unavailable'
+    index_readiness: 'AGREED: NOT_READY, INDEXING, READY and DEGRADED definitions use source counts as documented'
+    idempotency_retry: 'AGREED: transient pre-commit failures retry with same key; commit message pair and request state atomically'
+    index_trigger: 'OPEN: M2 outbox/event vs service-to-service enqueue'
+    common_conventions: 'TEMPORARILY AGREED: public M7 uses /api/v1 and M2 pagination/error format; align later with gateway standard'
+servers:
+  - url: /api/v1
+    description: Public API behind Spring Boot / API gateway
+security:
+  - bearerAuth: []
+tags:
+  - name: AI Tutor Status
+    description: Course-scoped readiness for a currently authorized caller.
+  - name: AI Tutor Conversations
+    description: Create, list, read and delete current caller's course-scoped conversations.
+  - name: AI Tutor Messages
+    description: List messages and submit grounded, idempotent chat turns.
+  - name: AI Tutor Internal Indexing
+    description: Private service-to-service indexing job API, not exposed through gateway.
+paths:
+  /courses/{courseId}/ai/status:
+    get:
+      tags: [AI Tutor Status]
+      operationId: getAiTutorStatus
+      summary: Read AI Tutor indexing readiness for one course
+      description: |
+        Student only: PUBLISHED + ACTIVE enrollment. Instructors and ADMIN have no
+        M7 AI Tutor access. Never expose another course's source titles.
+        NOT_READY: no queryable or pending/processing source (zero counts means no
+        eligible source; failed_sources > 0 means indexing failed). INDEXING: no
+        source is queryable yet, and at least one is pending/processing. READY:
+        every eligible source has a current queryable revision. DEGRADED: at least
+        one source is queryable while another eligible source is pending, processing
+        or failed. A course with zero eligible sources is NOT_READY with zero counts.
+      parameters:
+        - $ref: '#/components/parameters/CourseId'
+      responses:
+        '200':
+          description: AI Tutor readiness
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiTutorStatus' }
+              example:
+                course_id: 11111111-1111-4111-8111-111111111111
+                status: READY
+                ready_sources: 3
+                indexing_sources: 0
+                failed_sources: 0
+                checked_at: '2026-10-22T02:00:00Z'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+      x-error-codes: [AI_COURSE_ACCESS_DENIED, ENROLLMENT_CHECK_UNAVAILABLE]
+
+  /courses/{courseId}/ai/conversations:
+    post:
+      tags: [AI Tutor Conversations]
+      operationId: createAiConversation
+      summary: Create a conversation scoped to the authenticated user and course
+      description: |
+        The server obtains user identity from authenticated credentials, checks M2/M3
+        access, and permanently binds the conversation to user + course. No user_id
+        or arbitrary course_id is accepted in the request body.
+      parameters:
+        - $ref: '#/components/parameters/CourseId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateConversationRequest' }
+            example: { title: 'Python OOP questions' }
+      responses:
+        '201':
+          description: Conversation created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Conversation' }
+              example:
+                id: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+                course_id: 11111111-1111-4111-8111-111111111111
+                title: Python OOP questions
+                created_at: '2026-10-22T02:00:00Z'
+                updated_at: '2026-10-22T02:00:00Z'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+      x-error-codes: [AI_COURSE_ACCESS_DENIED, ENROLLMENT_CHECK_UNAVAILABLE]
+    get:
+      tags: [AI Tutor Conversations]
+      operationId: listMyAiConversations
+      summary: List my conversations for a course
+      description: |
+        Recheck current course entitlement; never list another user's chats.
+        Results sorted by updated_at descending and id descending for stable ordering.
+        Authorization still applies to historic conversations after unenrollment.
+      parameters:
+        - $ref: '#/components/parameters/CourseId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Paged conversations owned by caller
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConversationPage' }
+              example:
+                items:
+                  - id: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+                    course_id: 11111111-1111-4111-8111-111111111111
+                    title: Python OOP questions
+                    created_at: '2026-10-22T02:00:00Z'
+                    updated_at: '2026-10-22T02:05:00Z'
+                pagination: { page: 1, page_size: 20, total: 1, has_next: false }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /courses/{courseId}/ai/conversations/{conversationId}:
+    get:
+      tags: [AI Tutor Conversations]
+      operationId: getMyAiConversation
+      summary: Read metadata of my conversation
+      description: |
+        Conversation must be owned by the authenticated caller and scoped to
+        courseId. A foreign conversation or course mismatch returns 404.
+      parameters:
+        - $ref: '#/components/parameters/CourseId'
+        - $ref: '#/components/parameters/ConversationId'
+      responses:
+        '200':
+          description: Conversation metadata
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Conversation' }
+              example:
+                id: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+                course_id: 11111111-1111-4111-8111-111111111111
+                title: Python OOP questions
+                created_at: '2026-10-22T02:00:00Z'
+                updated_at: '2026-10-22T02:05:00Z'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+    delete:
+      tags: [AI Tutor Conversations]
+      operationId: deleteMyAiConversation
+      summary: Logically delete my conversation
+      description: |
+        Hide conversation and messages from public APIs and future model context
+        immediately. Proposed retention is physical purge within 30 days after a
+        user deletion and within 12 months after last activity; periods await team
+        approval.
+        Owner + course entitlement must still be checked; idempotent deletion of an
+        already-deleted conversation returns 404 (not enumerable).
+      parameters:
+        - $ref: '#/components/parameters/CourseId'
+        - $ref: '#/components/parameters/ConversationId'
+      responses:
+        '204':
+          description: Deleted; response body is empty
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+      x-open-decision: Proposed purge windows (30 days after user delete; 12 months inactivity) await approval.
+
+  /courses/{courseId}/ai/conversations/{conversationId}/messages:
+    get:
+      tags: [AI Tutor Messages]
+      operationId: listMyAiMessages
+      summary: List messages in my conversation
+      description: |
+        Messages are ordered by created_at ASC, id ASC and include citation
+        metadata but never raw object storage keys or signed URLs. Recheck
+        course access and conversation ownership on every request.
+      parameters:
+        - $ref: '#/components/parameters/CourseId'
+        - $ref: '#/components/parameters/ConversationId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Paged messages in chronological order
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessagePage' }
+              example:
+                items:
+                  - id: bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb
+                    conversation_id: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+                    role: USER
+                    content: 'What is inheritance in Python?'
+                    citations: []
+                    created_at: '2026-10-22T02:01:00Z'
+                  - id: cccccccc-cccc-4ccc-8ccc-cccccccccccc
+                    conversation_id: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+                    role: ASSISTANT
+                    content: 'Inheritance lets a child class reuse a parent class.'
+                    answer_status: ANSWERED
+                    citations:
+                      - content_id: 44444444-4444-4444-8444-444444444444
+                        lesson_id: 33333333-3333-4333-8333-333333333333
+                        chunk_id: dddddddd-dddd-4ddd-8ddd-dddddddddddd
+                        source_title: python_oop.pdf
+                        excerpt: 'Inheritance enables subclasses to use parent members.'
+                        version_number: 1
+                        page_number: 12
+                    created_at: '2026-10-22T02:01:03Z'
+                pagination: { page: 1, page_size: 20, total: 2, has_next: false }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+    post:
+      tags: [AI Tutor Messages]
+      operationId: sendAiTutorMessage
+      summary: Send a grounded question; persist an idempotent user/assistant turn
+      description: |
+        Verify user, course, conversation ownership and idempotency key before
+        retrieving evidence. Source retrieval must be constrained by verified
+        course_id and current eligible content revisions. If evidence is missing,
+        return 201 with ABSTAINED and an empty citations array; do not fallback
+        to a general LLM. If the course has no indexed eligible source yet,
+        return 409 AI_INDEX_NOT_READY without generating an answer.
+
+        Repeated Idempotency-Key with identical payload replays the same 201
+        response and does not create a second turn. Reusing it with another
+        payload returns 409 IDEMPOTENCY_CONFLICT. Concurrent in-flight duplicate
+        returns 409 AI_REQUEST_IN_PROGRESS; caller should retry the same key.
+        After a transient failure before the chat turn is committed, retrying the
+        same key and payload resumes processing. USER and ASSISTANT messages and
+        request completion are committed atomically. Authorization is checked
+        before replaying a cached response. An ambiguous provider timeout may
+        cause a repeated provider charge, but must not create a second committed turn.
+      parameters:
+        - $ref: '#/components/parameters/CourseId'
+        - $ref: '#/components/parameters/ConversationId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SendMessageRequest' }
+            example: { message: 'What is inheritance in Python?' }
+      responses:
+        '201':
+          description: User turn and corresponding grounded/abstained assistant message
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChatTurnResponse' }
+              example:
+                conversation_id: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+                user_message:
+                  id: bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb
+                  conversation_id: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+                  role: USER
+                  content: 'What is inheritance in Python?'
+                  citations: []
+                  created_at: '2026-10-22T02:01:00Z'
+                assistant_message:
+                  id: cccccccc-cccc-4ccc-8ccc-cccccccccccc
+                  conversation_id: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+                  role: ASSISTANT
+                  content: 'Inheritance lets a child class reuse a parent class.'
+                  answer_status: ANSWERED
+                  citations:
+                    - content_id: 44444444-4444-4444-8444-444444444444
+                      lesson_id: 33333333-3333-4333-8333-333333333333
+                      chunk_id: dddddddd-dddd-4ddd-8ddd-dddddddddddd
+                      source_title: python_oop.pdf
+                      excerpt: 'Inheritance enables subclasses to use parent members.'
+                      version_number: 1
+                      page_number: 12
+                  created_at: '2026-10-22T02:01:03Z'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+      x-error-codes:
+        - AI_INDEX_NOT_READY
+        - IDEMPOTENCY_CONFLICT
+        - AI_REQUEST_IN_PROGRESS
+        - AI_RATE_LIMITED
+        - AI_SERVICE_UNAVAILABLE
+
+  /internal/v1/ai/index-jobs:
+    post:
+      tags: [AI Tutor Internal Indexing]
+      operationId: enqueueAiIndexJob
+      summary: Enqueue a content indexing or invalidation job (internal only)
+      description: |
+        Only M2/event-bridge services may call this route with a validated
+        internal service token. Never expose via Spring Boot public gateway.
+        Worker fetches authoritative content metadata/version from M2 and
+        private source files; caller cannot provide an arbitrary URL/object key.
+        event_id is a durable deduplication key. Duplicate event/payload returns
+        200 with the existing job. Same event_id and different payload returns
+        409. Job delivery may also be implemented via a queue/event consumer
+        rather than HTTP; event names and delivery are OPEN.
+      servers:
+        - url: http://ai-tutor:8000
+          description: Example private container DNS; replace in deployment
+      security:
+        - serviceAuth: []
+      x-internal-only: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IndexJobRequest' }
+            example:
+              event_id: eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee
+              course_id: 11111111-1111-4111-8111-111111111111
+              lesson_id: 33333333-3333-4333-8333-333333333333
+              content_id: 44444444-4444-4444-8444-444444444444
+              version_number: 1
+              action: UPSERT
+      responses:
+        '202':
+          description: New indexing job accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IndexJob' }
+              example:
+                id: ffffffff-ffff-4fff-8fff-ffffffffffff
+                event_id: eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee
+                content_id: 44444444-4444-4444-8444-444444444444
+                version_number: 1
+                action: UPSERT
+                status: QUEUED
+                attempts: 0
+                created_at: '2026-10-22T02:02:00Z'
+                updated_at: '2026-10-22T02:02:00Z'
+        '200':
+          description: Same event already accepted; original job returned
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IndexJob' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /internal/v1/ai/index-jobs/{jobId}:
+    get:
+      tags: [AI Tutor Internal Indexing]
+      operationId: getAiIndexJob
+      summary: Get an internal indexing job status
+      description: |
+        Private operational endpoint. Job output/error fields must not leak
+        source text, private file URLs or credentials.
+      servers:
+        - url: http://ai-tutor:8000
+          description: Example private container DNS; replace in deployment
+      security:
+        - serviceAuth: []
+      x-internal-only: true
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: Current job state
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IndexJob' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /internal/v1/ai/sources/{contentId}/deactivate:
+    post:
+      tags: [AI Tutor Internal Indexing]
+      operationId: deactivateAiSource
+      summary: Synchronously remove a source revision from retrieval
+      description: |
+        M2 first makes the source unavailable, then calls this endpoint and waits
+        for 204 before finalizing deletion or replacement. A 204 confirms the
+        specified revision is no longer queryable. The operation is idempotent.
+        If M7 is unavailable, M2 keeps the source unavailable and retries later;
+        it must not finalize deletion while stale chunks remain retrievable.
+        This agreed lifecycle endpoint is private and must never be exposed via
+        the public gateway. This M2–M7 invalidation handshake is agreed for implementation.
+      servers:
+        - url: http://ai-tutor:8000
+          description: Example private container DNS; replace in deployment
+      security:
+        - serviceAuth: []
+      x-internal-only: true
+      parameters:
+        - name: contentId
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/Uuid' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [version_number]
+              properties:
+                version_number: { type: integer, minimum: 1 }
+      responses:
+        '204':
+          description: Revision is inactive and no longer queryable
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: End-user JWT, verified by Spring Boot gateway.
+    serviceAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Short-lived internal service credential, validated by FastAPI.
+  parameters:
+    CourseId:
+      name: courseId
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/Uuid' }
+      example: 11111111-1111-4111-8111-111111111111
+    ConversationId:
+      name: conversationId
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/Uuid' }
+      example: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+    JobId:
+      name: jobId
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/Uuid' }
+      example: ffffffff-ffff-4fff-8fff-ffffffffffff
+    Page:
+      name: page
+      in: query
+      description: 1-based, provisional M2 convention; common API review pending.
+      schema: { type: integer, minimum: 1, default: 1 }
+      example: 1
+    PageSize:
+      name: page_size
+      in: query
+      description: Provisional M2 convention; M3 currently uses size.
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      example: 20
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: UUID v4; keep unchanged on retry of the same send request.
+      schema: { $ref: '#/components/schemas/Uuid' }
+      example: 99999999-9999-4999-8999-999999999999
+  schemas:
+    Uuid:
+      type: string
+      format: uuid
+    Conversation:
+      type: object
+      additionalProperties: false
+      required: [id, course_id, title, created_at, updated_at]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        course_id: { $ref: '#/components/schemas/Uuid' }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    CreateConversationRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200, default: 'New chat' }
+    PageInfo:
+      type: object
+      additionalProperties: false
+      required: [page, page_size, total, has_next]
+      properties:
+        page: { type: integer, minimum: 1 }
+        page_size: { type: integer, minimum: 1, maximum: 100 }
+        total: { type: integer, minimum: 0 }
+        has_next: { type: boolean }
+    ConversationPage:
+      type: object
+      additionalProperties: false
+      required: [items, pagination]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Conversation' } }
+        pagination: { $ref: '#/components/schemas/PageInfo' }
+    AnswerStatus:
+      type: string
+      enum: [ANSWERED, ABSTAINED]
+    MessageRole:
+      type: string
+      enum: [USER, ASSISTANT]
+    Citation:
+      type: object
+      additionalProperties: false
+      description: |
+        Verified M2 content/chunk metadata. Never contains raw storage object
+        key or signed file URL. page_number only when parser provides it.
+      required: [content_id, lesson_id, chunk_id, source_title, excerpt, version_number]
+      properties:
+        content_id: { $ref: '#/components/schemas/Uuid' }
+        lesson_id: { $ref: '#/components/schemas/Uuid' }
+        chunk_id: { $ref: '#/components/schemas/Uuid' }
+        source_title: { type: string, minLength: 1, maxLength: 255 }
+        excerpt: { type: string, minLength: 1, maxLength: 1000 }
+        version_number: { type: integer, minimum: 1 }
+        page_number: { type: integer, minimum: 1, nullable: true }
+    ChatMessage:
+      type: object
+      additionalProperties: false
+      description: |
+        USER messages omit answer_status and must have empty citations.
+        ASSISTANT messages require answer_status; ANSWERED must have at least
+        one verified citation, ABSTAINED must have zero citations. Enforce this
+        conditional rule in application validation (OpenAPI 3.0 schema is broad).
+      required: [id, conversation_id, role, content, citations, created_at]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        conversation_id: { $ref: '#/components/schemas/Uuid' }
+        role: { $ref: '#/components/schemas/MessageRole' }
+        content: { type: string, minLength: 1, maxLength: 20000 }
+        answer_status: { $ref: '#/components/schemas/AnswerStatus' }
+        citations:
+          type: array
+          maxItems: 20
+          items: { $ref: '#/components/schemas/Citation' }
+        created_at: { type: string, format: date-time }
+    MessagePage:
+      type: object
+      additionalProperties: false
+      required: [items, pagination]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/ChatMessage' } }
+        pagination: { $ref: '#/components/schemas/PageInfo' }
+    SendMessageRequest:
+      type: object
+      additionalProperties: false
+      required: [message]
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 4000
+          description: Course-scoped user question; user_id/course_id cannot be specified here.
+    ChatTurnResponse:
+      type: object
+      additionalProperties: false
+      required: [conversation_id, user_message, assistant_message]
+      properties:
+        conversation_id: { $ref: '#/components/schemas/Uuid' }
+        user_message: { $ref: '#/components/schemas/ChatMessage' }
+        assistant_message: { $ref: '#/components/schemas/ChatMessage' }
+    IndexReadiness:
+      type: string
+      enum: [NOT_READY, INDEXING, READY, DEGRADED]
+    AiTutorStatus:
+      type: object
+      additionalProperties: false
+      description: |
+        ready_sources counts current queryable sources; indexing_sources counts
+        eligible sources pending or processing; failed_sources counts eligible
+        sources whose latest indexing attempt failed. NOT_READY with all counts
+        zero means no eligible sources. NOT_READY with failed_sources > 0 means
+        eligible sources exist but none is queryable. INDEXING has no queryable
+        source and indexing_sources > 0. READY means all eligible sources are
+        queryable. DEGRADED means at least one is queryable and another is pending,
+        processing or failed.
+      required: [course_id, status, ready_sources, indexing_sources, failed_sources, checked_at]
+      properties:
+        course_id: { $ref: '#/components/schemas/Uuid' }
+        status: { $ref: '#/components/schemas/IndexReadiness' }
+        ready_sources: { type: integer, minimum: 0 }
+        indexing_sources: { type: integer, minimum: 0 }
+        failed_sources: { type: integer, minimum: 0 }
+        checked_at: { type: string, format: date-time }
+    IndexAction:
+      type: string
+      enum: [UPSERT, DEACTIVATE]
+    IndexJobStatus:
+      type: string
+      enum: [QUEUED, PROCESSING, SUCCEEDED, FAILED]
+    IndexJobRequest:
+      type: object
+      additionalProperties: false
+      required: [event_id, course_id, lesson_id, content_id, version_number, action]
+      properties:
+        event_id: { $ref: '#/components/schemas/Uuid' }
+        course_id: { $ref: '#/components/schemas/Uuid' }
+        lesson_id: { $ref: '#/components/schemas/Uuid' }
+        content_id: { $ref: '#/components/schemas/Uuid' }
+        version_number: { type: integer, minimum: 1 }
+        action: { $ref: '#/components/schemas/IndexAction' }
+    IndexJob:
+      type: object
+      additionalProperties: false
+      required: [id, event_id, content_id, version_number, action, status, attempts, created_at, updated_at]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        event_id: { $ref: '#/components/schemas/Uuid' }
+        content_id: { $ref: '#/components/schemas/Uuid' }
+        version_number: { type: integer, minimum: 1 }
+        action: { $ref: '#/components/schemas/IndexAction' }
+        status: { $ref: '#/components/schemas/IndexJobStatus' }
+        attempts: { type: integer, minimum: 0 }
+        error_code: { type: string, nullable: true, maxLength: 100 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, request_id]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            request_id: { type: string }
+            details: { type: object, additionalProperties: true }
+  responses:
+    Unauthorized:
+      description: Missing/invalid end-user or internal service bearer token.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error: { code: UNAUTHORIZED, message: 'Authentication required', request_id: req_abc123, details: {} }
+    Forbidden:
+      description: Course membership, enrollment status, role or service permission denied.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error: { code: AI_COURSE_ACCESS_DENIED, message: 'Course AI Tutor access denied', request_id: req_abc123, details: {} }
+    NotFound:
+      description: Course, owned conversation, or internal job not found; foreign conversation IDs also return 404.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error: { code: AI_CONVERSATION_NOT_FOUND, message: 'Conversation not found', request_id: req_abc123, details: {} }
+    Conflict:
+      description: AI_INDEX_NOT_READY, IDEMPOTENCY_CONFLICT, AI_REQUEST_IN_PROGRESS or event conflict.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            notReady:
+              value:
+                error: { code: AI_INDEX_NOT_READY, message: 'Course materials are not indexed yet', request_id: req_abc123, details: {} }
+            keyConflict:
+              value:
+                error: { code: IDEMPOTENCY_CONFLICT, message: 'Idempotency key reused with different payload', request_id: req_abc123, details: {} }
+            processing:
+              value:
+                error: { code: AI_REQUEST_IN_PROGRESS, message: 'Request is still processing; retry with the same key', request_id: req_abc123, details: {} }
+    Unprocessable:
+      description: Invalid UUID, empty message, unsupported fields or pagination outside allowed range.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error: { code: VALIDATION_ERROR, message: 'Invalid request payload', request_id: req_abc123, details: {} }
+    RateLimited:
+      description: Per-user / per-course AI usage budget or request rate exceeded.
+      headers:
+        Retry-After:
+          description: Seconds until client may retry when a retry window is known.
+          schema: { type: integer, minimum: 1 }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error: { code: AI_RATE_LIMITED, message: 'AI Tutor request limit reached', request_id: req_abc123, details: {} }
+    ServiceUnavailable:
+      description: Enrollment/course checker, AI service or upstream model temporarily unavailable; fail closed.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            enrollmentUnavailable:
+              value:
+                error: { code: ENROLLMENT_CHECK_UNAVAILABLE, message: 'Cannot verify enrollment', request_id: req_abc123, details: {} }
+            aiUnavailable:
+              value:
+                error: { code: AI_SERVICE_UNAVAILABLE, message: 'AI Tutor is temporarily unavailable', request_id: req_abc123, details: {} }
