@@ -1267,7 +1267,7 @@ paths:
       tags: [Lessons]
       operationId: reorderLessons
       summary: Reorder module lessons
-      description: OWNER or CO_INSTRUCTOR only. All provided lesson IDs must belong to the module.
+      description: OWNER or CO_INSTRUCTOR only. ordered_ids must be a complete permutation of the module's lesson IDs.
       parameters:
         - { $ref: "#/components/parameters/CourseId" }
         - { $ref: "#/components/parameters/ModuleId" }

@@ -1,6 +1,7 @@
 package com.oep.corelms.dto.course;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
@@ -22,4 +23,8 @@ public final class LessonDtos {
                            int position, boolean isRequired, Instant createdAt, Instant updatedAt) {}
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record PageResponse(List<Response> items, CourseDtos.PageInfo pagination) {}
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record ReorderRequest(@NotEmpty List<UUID> orderedIds) {}
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record ReorderResponse(boolean success, List<UUID> orderedIds) {}
 }

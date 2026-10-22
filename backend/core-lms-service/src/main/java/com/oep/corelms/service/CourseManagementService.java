@@ -29,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.HashSet;
 import java.util.UUID;
 
 @Service
@@ -138,7 +139,10 @@ public class CourseManagementService {
 
     @Transactional
     public ModuleDtos.Response createModule(UUID actorId, UUID courseId, ModuleDtos.CreateRequest request) {
-        Course course = requireEditableCourse(courseId, actorId);
+        requireEditableCourse(courseId, actorId);
+        Course course = courses.findByIdForUpdate(courseId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Course not found"));
+        ensureCourseEditable(course);
         int position = request.position() == null ? modules.findByCourseIdOrderByPositionAsc(courseId).size() : request.position();
         if (position < 0 || modules.existsByCourseIdAndPosition(courseId, position)) {
             throw new BusinessException(ErrorCode.INVALID_MODULE_POSITION, "Module position is already used or invalid");
@@ -181,6 +185,25 @@ public class CourseManagementService {
         return toModule(modules.saveAndFlush(module));
     }
 
+    @Transactional
+    public ModuleDtos.ReorderResponse reorderModules(UUID actorId, UUID courseId, ModuleDtos.ReorderRequest request) {
+        requireInstructorCourseManager(courseId, actorId);
+        Course course = courses.findByIdForUpdate(courseId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Course not found"));
+        ensureCourseEditable(course);
+        List<CourseModule> current = modules.findByCourseIdOrderByPositionAsc(courseId);
+        List<UUID> orderedIds = request.orderedIds();
+        validatePermutation(orderedIds, current.stream().map(m -> m.getId()).toList(), ErrorCode.INVALID_MODULE_ORDER);
+        List<CourseModule> ordered = orderedIds.stream()
+                .map(id -> current.stream().filter(m -> m.getId().equals(id)).findFirst().orElseThrow())
+                .toList();
+        for (int i = 0; i < ordered.size(); i++) ordered.get(i).setPosition(-(i + 1));
+        modules.saveAllAndFlush(ordered);
+        for (int i = 0; i < ordered.size(); i++) ordered.get(i).setPosition(i);
+        modules.saveAllAndFlush(ordered);
+        return new ModuleDtos.ReorderResponse(true, List.copyOf(orderedIds));
+    }
+
     @Transactional(readOnly = true)
     public LessonDtos.PageResponse listLessons(UUID actorId, UUID courseId, UUID moduleId, int page, int pageSize) {
         requireEditableCourse(courseId, actorId);
@@ -193,7 +216,8 @@ public class CourseManagementService {
     @Transactional
     public LessonDtos.Response createLesson(UUID actorId, UUID courseId, UUID moduleId, LessonDtos.CreateRequest request) {
         requireEditableCourse(courseId, actorId);
-        CourseModule module = requireModule(courseId, moduleId);
+        CourseModule module = modules.findByIdAndCourseIdForUpdate(moduleId, courseId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_COURSE_MODULE, "Module not found in course"));
         int position = request.position() == null ? lessons.findByModuleIdOrderByPositionAsc(moduleId).size() : request.position();
         if (position < 0 || lessons.existsByModuleIdAndPosition(moduleId, position)) {
             throw new BusinessException(ErrorCode.INVALID_LESSON_POSITION, "Lesson position is already used or invalid");
@@ -227,6 +251,49 @@ public class CourseManagementService {
         if (request.description() != null) lesson.setDescription(request.description());
         if (request.isRequired() != null) lesson.setRequired(request.isRequired());
         return toLesson(lessons.saveAndFlush(lesson));
+    }
+
+    @Transactional
+    public LessonDtos.ReorderResponse reorderLessons(UUID actorId, UUID courseId, UUID moduleId, LessonDtos.ReorderRequest request) {
+        requireInstructorCourseManager(courseId, actorId);
+        modules.findByIdAndCourseIdForUpdate(moduleId, courseId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_COURSE_MODULE, "Module not found in course"));
+        List<Lesson> current = lessons.findByModuleIdOrderByPositionAsc(moduleId);
+        List<UUID> orderedIds = request.orderedIds();
+        validatePermutation(orderedIds, current.stream().map(l -> l.getId()).toList(), ErrorCode.INVALID_LESSON_ORDER);
+        List<Lesson> ordered = orderedIds.stream()
+                .map(id -> current.stream().filter(l -> l.getId().equals(id)).findFirst().orElseThrow())
+                .toList();
+        for (int i = 0; i < ordered.size(); i++) ordered.get(i).setPosition(-(i + 1));
+        lessons.saveAllAndFlush(ordered);
+        for (int i = 0; i < ordered.size(); i++) ordered.get(i).setPosition(i);
+        lessons.saveAllAndFlush(ordered);
+        return new LessonDtos.ReorderResponse(true, List.copyOf(orderedIds));
+    }
+
+    private void validatePermutation(List<UUID> requested, List<UUID> existing, ErrorCode errorCode) {
+        if (requested == null || requested.size() != existing.size()
+                || new HashSet<>(requested).size() != requested.size()
+                || !new HashSet<>(requested).equals(new HashSet<>(existing))) {
+            throw new BusinessException(errorCode, "ordered_ids must contain every direct child exactly once");
+        }
+    }
+
+    private void ensureCourseEditable(Course course) {
+        if (course.getLifecycleStatus() == CourseLifecycleStatus.ARCHIVED || course.getLifecycleStatus() == CourseLifecycleStatus.DISABLED) {
+            throw new BusinessException(ErrorCode.COURSE_NOT_EDITABLE, "Archived or disabled courses cannot be edited");
+        }
+    }
+
+    private void requireInstructorCourseManager(UUID courseId, UUID actorId) {
+        if (actorId == null) throw new BusinessException(ErrorCode.FORBIDDEN, "Course manager access is required");
+        CourseInstructor link = courseInstructors.findByIdCourseIdAndIdInstructorId(courseId, actorId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.FORBIDDEN, "Course manager access is required"));
+        if (link.getCourseRole() != CourseInstructorRole.OWNER && link.getCourseRole() != CourseInstructorRole.CO_INSTRUCTOR) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "Course manager access is required");
+        }
+        Course course = requireCourse(courseId);
+        ensureCourseEditable(course);
     }
 
     private User requireUser(UUID userId) {

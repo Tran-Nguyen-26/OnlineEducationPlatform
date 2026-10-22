@@ -14,4 +14,5 @@ public interface LessonRepository extends JpaRepository<Lesson, UUID> {
     List<Lesson> findByModuleIdOrderByPositionAsc(UUID moduleId);
     Optional<Lesson> findByIdAndModuleId(UUID id, UUID moduleId);
     boolean existsByModuleIdAndPosition(UUID moduleId, int position);
+
 }

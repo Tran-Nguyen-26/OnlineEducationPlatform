@@ -78,6 +78,12 @@ public class CourseManagementController {
         return service.updateModule(userId(jwt), courseId, moduleId, request);
     }
 
+    @PatchMapping("/courses/{courseId}/module-order")
+    public ModuleDtos.ReorderResponse reorderModules(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
+                                                       @Valid @RequestBody ModuleDtos.ReorderRequest request) {
+        return service.reorderModules(userId(jwt), courseId, request);
+    }
+
     @GetMapping("/courses/{courseId}/modules/{moduleId}/lessons")
     public LessonDtos.PageResponse listLessons(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
                                                @PathVariable UUID moduleId,
@@ -105,6 +111,13 @@ public class CourseManagementController {
                                             @PathVariable UUID moduleId, @PathVariable UUID lessonId,
                                             @Valid @RequestBody LessonDtos.UpdateRequest request) {
         return service.updateLesson(userId(jwt), courseId, moduleId, lessonId, request);
+    }
+
+    @PatchMapping("/courses/{courseId}/modules/{moduleId}/lesson-order")
+    public LessonDtos.ReorderResponse reorderLessons(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
+                                                       @PathVariable UUID moduleId,
+                                                       @Valid @RequestBody LessonDtos.ReorderRequest request) {
+        return service.reorderLessons(userId(jwt), courseId, moduleId, request);
     }
 
     private UUID userId(Jwt jwt) {
