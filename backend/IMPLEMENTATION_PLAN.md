@@ -6,14 +6,14 @@ This file tracks code implementation in the repository. A design/API contract is
 
 | Work item | Status | Notes |
 | --- | --- | --- |
-| M2.1 Course, module and lesson CRUD | Implemented; manual API smoke verified | Create/read/list/update paths for courses, modules and lessons passed against local PostgreSQL on 2026-10-22. Full backend Maven build passed with tests skipped; automated tests remain outstanding. See scope and limits below. |
+| M2.1 Course, module and lesson CRUD | Implemented; API smoke verified | Create/read/list/update paths for courses, modules and lessons passed against local PostgreSQL on 2026-10-22 and are now covered by the repeatable M2.8 gateway smoke script. See scope and limits below. |
 | M2.2 Reordering modules and lessons | Implemented | Complete-permutation APIs, parent-row locks, collision-safe two-phase position updates, and unique parent-position constraints added. Seven service unit tests pass; DB concurrency/API integration checks remain outstanding. |
 | M2.3 Lesson content CRUD | Implemented | TEXT/LINK list/create/read/update/delete and file metadata creation are available to OWNER/CO_INSTRUCTOR. Six service unit tests and gateway API smoke checks against local PostgreSQL passed; M2.6 now completes file upload, access and storage deletion. |
 | M2.4 Course lifecycle and instructor management | Implemented; unit and API smoke verified | Owner publish/unpublish/archive/restore and ADMIN disable/enable endpoints added; instructor list/add/remove added. Publish uses the OpenAPI's provisional readiness rule (at least one lesson and one AVAILABLE content item). Nine M2.4 unit tests pass, and direct Core LMS API smoke checks against PostgreSQL pass. Student instructor-list reads are covered provisionally by M2.5; ownership transfer remains out of scope. |
 | M2.5 Outline and enrollment-aware student access | Implemented provisionally; policy alignment pending | Anonymous PUBLIC + PUBLISHED outline previews and course-manager reads work in all states. Student course details, PRIVATE outlines, instructor lists, module/lesson reads and AVAILABLE content reads require an ACTIVE enrollment in a PUBLISHED course. COMPLETED access and final M3 entitlement ownership/failure semantics remain open. |
 | M2.6 File storage and signed URLs | Implemented; unit and gateway/PostgreSQL/storage smoke verified (commit `f7abc72`) | Server-managed opaque object keys, S3-compatible storage, 100 MiB/MIME policy, 10-minute PUT and 5-minute GET URLs, and metadata verification before availability. RustFS is used for local development; AWS S3 SDK adapter supports S3-compatible deployment. |
-| M2.7 Cross-module deletion/reference checks | Blocked on M3/M5/L4 integration | Lesson deletion must account for progress, quiz and assignment references. |
-| M2.8 Integration tests, API contract review and deployment | Not started | To be done after the implementation slices and shared contracts are ready. |
+| M2.7 Cross-module deletion/reference checks | Deferred; dependent data policies remain pending | Lesson deletion must account for progress, quiz and assignment references. |
+| M2.8 Integration tests, API contract review and deployment | Implemented for M2.1-M2.6; production deployment remains open | Repeatable gateway/PostgreSQL/RustFS smoke script and OpenAPI inventory/consistency tests added. M2.7 deletion routes are explicitly marked planned; production migrations and deployment configuration remain outstanding. |
 
 ## M2.1 delivered scope
 
@@ -77,6 +77,15 @@ Capacity changes and PUBLIC/PRIVATE visibility changes are rejected by course PA
 - AWS SDK v2 backs the S3-compatible `ObjectStorageService`; local Docker Compose uses RustFS. Storage endpoint, bucket, credentials and URL TTLs are environment-configurable. Production deployments must supply their own credentials and storage endpoint.
 - `mvn -pl core-lms-service -am test` passed on 2026-10-23: 35 tests, no failures/errors. Gateway API smoke testing with PostgreSQL and RustFS verified metadata creation, oversize rejection, direct PUT, pending-download denial, HEAD verification, publishing, student entitlement checks and byte-identical signed GET download. Smoke-test users, courses and objects were removed afterward.
 - Current limits: uploads use a single presigned PUT (no multipart/resumable transfer); size is authoritatively checked after upload and oversized objects are deleted at completion. Content type is checked from storage metadata; magic-byte inspection, malware scanning and immediate revocation of issued URLs are not implemented.
+
+## M2.8 delivered scope (M2.1-M2.6)
+
+- Added `backend/scripts/m2-integration-smoke.ps1`, a repeatable gateway API smoke flow using local PostgreSQL and RustFS. It covers course/module/lesson create/read/update, module and lesson reordering, TEXT/LINK content operations, signed file upload and download, publication, public outline/catalog reads and ACTIVE-enrollment access.
+- The script creates uniquely named temporary accounts and course data, deletes content through the API (including stored files), removes dependent smoke rows, and leaves Docker volumes intact. It expects the local services to be started using the instructions in `backend/README.md`.
+- Added an OpenAPI contract test that rejects duplicate YAML keys, requires unique operation IDs and response definitions, and checks the documented M2 operations against the implemented/planned inventory. It also protects the server-managed object-key and bodyless upload-completion contract.
+- Contract review found `deleteDraftCourse`, `deleteModule`, `deleteLesson` and `reorderLessonContents` in the API specification without matching controller handlers. They are marked `x-implementation-status: planned`; deletion behavior remains deferred with M2.7, and content reordering is outside the implemented M2.1-M2.6 scope.
+- `mvn -pl core-lms-service -am test` passed on 2026-10-23: 37 tests, no failures/errors. The repeatable gateway/PostgreSQL/RustFS smoke script passed the full M2.1-M2.6 flow on 2026-10-23, including uploaded/downloaded byte comparison and cleanup verification.
+- This closes repeatable integration and API contract checks for M2.1-M2.6 only. Production deployment is not complete: schema migrations, production secret management and provider-specific storage configuration remain open.
 
 ## Implementation notes
 
