@@ -40,9 +40,19 @@ public class EmailService {
         log.info("Password-reset alert email sent to {}", to);
     }
 
-    // -----------------------------------------------------------------------
-    // HTML Template builders
-    // -----------------------------------------------------------------------
+    public void sendInstructorApplicationApproved(String to, String fullName, String temporaryPassword, String loginUrl) {
+        String subject = "[OEP] Chúc mừng! Hồ sơ giảng viên của bạn đã được phê duyệt thành công";
+        String html    = buildInstructorApprovedHtml(fullName, to, temporaryPassword, loginUrl);
+        sendHtmlEmail(to, subject, html);
+        log.info("Instructor application approved email sent to {}", to);
+    }
+
+    public void sendInstructorApplicationRejected(String to, String fullName, String rejectionReason) {
+        String subject = "[OEP] Thông báo về kết quả xét duyệt hồ sơ đăng ký giảng viên";
+        String html    = buildInstructorRejectedHtml(fullName, rejectionReason);
+        sendHtmlEmail(to, subject, html);
+        log.info("Instructor application rejected email sent to {}", to);
+    }
 
     private String buildOtpEmailHtml(String fullName, String otpCode) {
         // Format OTP with spaces for readability: "842915" → "8 4 2 9 1 5"
@@ -156,9 +166,92 @@ public class EmailService {
                "</html>";
     }
 
-    // -----------------------------------------------------------------------
-    // Infrastructure
-    // -----------------------------------------------------------------------
+    private String buildInstructorApprovedHtml(String fullName, String email, String temporaryPassword, String loginUrl) {
+        String safeLoginUrl = (loginUrl != null && !loginUrl.isBlank()) ? loginUrl : "http://localhost:3000/login";
+        return "<!DOCTYPE html>" +
+               "<html lang='vi'>" +
+               "<head>" +
+               "  <meta charset='UTF-8'>" +
+               "  <title>Phê duyệt hồ sơ Giảng viên</title>" +
+               "</head>" +
+               "<body style='margin:0;padding:0;font-family:\"Segoe UI\",Arial,sans-serif;background:#f8fafc;color:#1e293b;'>" +
+               "  <table width='100%' cellpadding='0' cellspacing='0' style='background:#f8fafc;padding:32px 0;'>" +
+               "    <tr><td align='center'>" +
+               "      <table width='600' cellpadding='0' cellspacing='0' style='background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);'>" +
+               "        <tr><td style='background:linear-gradient(135deg,#1e3a8a 0%,#3b82f6 100%);padding:36px 32px;text-align:center;color:#ffffff;'>" +
+               "          <h1 style='margin:0;font-size:24px;font-weight:700;'>🎓 Nền tảng Giáo dục Trực tuyến OEP</h1>" +
+               "          <p style='margin:8px 0 0;opacity:0.9;font-size:15px;'>Thông báo Phê duyệt Đơn đăng ký Giảng viên</p>" +
+               "        </td></tr>" +
+               "        <tr><td style='padding:32px;'>" +
+               "          <p style='font-size:16px;font-weight:600;margin:0 0 16px;'>Kính gửi Thầy/Cô <strong>" + escapeHtml(fullName) + "</strong>,</p>" +
+               "          <p style='font-size:15px;line-height:1.6;color:#475569;margin:0 0 24px;'>" +
+               "            Ban Quản trị nền tảng OEP trân trọng chúc mừng Thầy/Cô! Hồ sơ đăng ký tham gia đội ngũ giảng dạy của Thầy/Cô đã được ban chuyên môn thẩm định và <strong>chính thức phê duyệt</strong>.</p>" +
+               "          <div style='background:#f1f5f9;border-left:4px solid #3b82f6;border-radius:8px;padding:20px;margin-bottom:24px;'>" +
+               "            <div style='font-weight:600;color:#1e293b;margin-bottom:12px;'>Thông tin tài khoản đăng nhập:</div>" +
+               "            <p style='margin:6px 0;font-size:14px;color:#64748b;'>Tài khoản (Email): <strong style='color:#0f172a;font-family:monospace;background:#e2e8f0;padding:2px 8px;border-radius:4px;'>" + escapeHtml(email) + "</strong></p>" +
+               "            <p style='margin:6px 0;font-size:14px;color:#64748b;'>Mật khẩu khởi tạo tạm thời: <strong style='color:#0f172a;font-family:monospace;background:#e2e8f0;padding:2px 8px;border-radius:4px;'>" + escapeHtml(temporaryPassword) + "</strong></p>" +
+               "          </div>" +
+               "          <div style='background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:14px 16px;margin-bottom:28px;font-size:14px;color:#92400e;line-height:1.5;'>" +
+               "            ⚠️ <strong>Lưu ý quan trọng:</strong> Vì lý do an toàn bảo mật, hệ thống sẽ <strong>bắt buộc Thầy/Cô đổi mật khẩu mới</strong> ngay trong lần đăng nhập đầu tiên. Vui lòng không chia sẻ mật khẩu tạm thời này với bất kỳ ai." +
+               "          </div>" +
+               "          <div style='text-align:center;margin-bottom:24px;'>" +
+               "            <a href='" + escapeHtml(safeLoginUrl) + "' style='display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:14px 32px;border-radius:8px;' target='_blank'>Đăng nhập vào Hệ thống ngay</a>" +
+               "          </div>" +
+               "          <p style='margin:0;font-size:14px;color:#64748b;line-height:1.5;'>" +
+               "            Nếu Thầy/Cô cần hỗ trợ kỹ thuật hoặc có bất kỳ câu hỏi nào, vui lòng liên hệ Bộ phận Hỗ trợ Giảng viên qua email: <a href='mailto:support@oep.edu.vn' style='color:#2563eb;'>support@oep.edu.vn</a>.</p>" +
+               "        </td></tr>" +
+               "        <tr><td style='background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;text-align:center;font-size:13px;color:#94a3b8;'>" +
+               "          © 2026 Online Education Platform (OEP). Mọi quyền được bảo lưu.<br>" +
+               "          Email này được gửi tự động, vui lòng không phản hồi trực tiếp vào thư này." +
+               "        </td></tr>" +
+               "      </table>" +
+               "    </td></tr>" +
+               "  </table>" +
+               "</body>" +
+               "</html>";
+    }
+
+    private String buildInstructorRejectedHtml(String fullName, String rejectionReason) {
+        return "<!DOCTYPE html>" +
+               "<html lang='vi'>" +
+               "<head>" +
+               "  <meta charset='UTF-8'>" +
+               "  <title>Kết quả xét duyệt hồ sơ</title>" +
+               "</head>" +
+               "<body style='margin:0;padding:0;font-family:\"Segoe UI\",Arial,sans-serif;background:#f8fafc;color:#1e293b;'>" +
+               "  <table width='100%' cellpadding='0' cellspacing='0' style='background:#f8fafc;padding:32px 0;'>" +
+               "    <tr><td align='center'>" +
+               "      <table width='600' cellpadding='0' cellspacing='0' style='background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);'>" +
+               "        <tr><td style='background:#475569;padding:32px;text-align:center;color:#ffffff;'>" +
+               "          <h1 style='margin:0;font-size:22px;font-weight:700;'>🎓 Nền tảng Giáo dục Trực tuyến OEP</h1>" +
+               "          <p style='margin:6px 0 0;opacity:0.9;font-size:14px;'>Thông báo Kết quả Xét duyệt Hồ sơ</p>" +
+               "        </td></tr>" +
+               "        <tr><td style='padding:32px;'>" +
+               "          <p style='font-size:16px;font-weight:600;margin:0 0 16px;'>Kính gửi Thầy/Cô <strong>" + escapeHtml(fullName) + "</strong>,</p>" +
+               "          <p style='font-size:15px;line-height:1.6;color:#475569;margin:0 0 20px;'>" +
+               "            Ban Quản trị nền tảng OEP xin chân thành cảm ơn sự quan tâm của Thầy/Cô đối với việc hợp tác phát triển nội dung giảng dạy cùng chúng tôi.</p>" +
+               "          <p style='font-size:15px;line-height:1.6;color:#475569;margin:0 0 20px;'>" +
+               "            Sau khi xem xét kỹ lưỡng hồ sơ đăng ký, chúng tôi rất tiếc phải thông báo rằng hồ sơ của Thầy/Cô <strong>chưa phù hợp với tiêu chuẩn xét duyệt hiện tại</strong> của nền tảng.</p>" +
+               "          <div style='background:#fef2f2;border-left:4px solid #ef4444;border-radius:8px;padding:18px;margin-bottom:24px;'>" +
+               "            <div style='font-weight:600;color:#991b1b;font-size:14px;margin-bottom:8px;'>Chi tiết lý do từ Ban Quản trị:</div>" +
+               "            <div style='font-size:14px;color:#b91c1c;line-height:1.5;font-style:italic;'>" +
+               "              \"" + escapeHtml(rejectionReason != null ? rejectionReason : "Hồ sơ chưa đạt tiêu chuẩn yêu cầu.") + "\"" +
+               "            </div>" +
+               "          </div>" +
+               "          <p style='font-size:14px;color:#475569;line-height:1.6;margin:0 0 16px;'>" +
+               "            Thầy/Cô hoàn toàn có thể cập nhật, bổ sung thêm các thông tin năng lực hoặc kinh nghiệm và gửi lại đơn đăng ký mới trên cổng thông tin của chúng tôi khi đã hoàn thiện hồ sơ.</p>" +
+               "          <p style='font-size:14px;color:#64748b;margin:0;'>" +
+               "            Kính chúc Thầy/Cô luôn dồi dào sức khỏe và đạt nhiều thành công trong sự nghiệp giáo dục.</p>" +
+               "        </td></tr>" +
+               "        <tr><td style='background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;text-align:center;font-size:13px;color:#94a3b8;'>" +
+               "          © 2026 Online Education Platform (OEP). Mọi thắc mắc vui lòng gửi về: support@oep.edu.vn" +
+               "        </td></tr>" +
+               "      </table>" +
+               "    </td></tr>" +
+               "  </table>" +
+               "</body>" +
+               "</html>";
+    }
 
     private void sendHtmlEmail(String to, String subject, String htmlBody) {
         try {

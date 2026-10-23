@@ -10,8 +10,11 @@ import com.oep.corelms.dto.auth.LoginRequest;
 import com.oep.corelms.dto.auth.RefreshTokenRequest;
 import com.oep.corelms.dto.auth.RegisterRequest;
 import com.oep.corelms.dto.auth.ResetPasswordRequest;
+import com.oep.corelms.dto.instructor.InstructorApplicationRequest;
+import com.oep.corelms.dto.instructor.InstructorApplicationResponse;
 import com.oep.corelms.service.AuthService;
 import com.oep.corelms.service.ForgotPasswordService;
+import com.oep.corelms.service.InstructorApplicationService;
 import com.oep.corelms.service.JwtService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -33,6 +36,7 @@ public class AuthController {
     private final AuthService authService;
     private final JwtService jwtService;
     private final ForgotPasswordService forgotPasswordService;
+    private final InstructorApplicationService instructorApplicationService;
 
     @PostMapping("/api/auth/register")
     public ResponseEntity<AuthResponse> register(
@@ -42,6 +46,18 @@ public class AuthController {
         String deviceInfo = servletRequest.getHeader(HttpHeaders.USER_AGENT);
         AuthResponse response = authService.register(request, deviceInfo);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/api/auth/register-teacher")
+    public ResponseEntity<Map<String, Object>> registerTeacher(
+            @Valid @RequestBody InstructorApplicationRequest request
+    ) {
+        InstructorApplicationResponse response = instructorApplicationService.submitApplication(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                "success", true,
+                "message", "Đơn đăng ký tài khoản giảng viên đã được tiếp nhận thành công. Quản trị viên sẽ xét duyệt và gửi thông tin qua email của bạn.",
+                "data", response
+        ));
     }
 
     @PostMapping("/api/auth/login")

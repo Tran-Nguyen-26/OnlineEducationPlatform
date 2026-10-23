@@ -13,4 +13,8 @@ public final class MessagingConstants {
     public static final String RK_SCORE_SYNC = "exam.score.sync";
     public static final String RK_FORGOT_PASSWORD_EMAIL = "auth.forgot-password.email";
     public static final String QUEUE_FORGOT_PASSWORD_EMAIL = "oep.worker.forgot-password-email";
+
+    public static final String RK_INSTRUCTOR_APPROVED = "instructor.application.approved";
+    public static final String RK_INSTRUCTOR_REJECTED = "instructor.application.rejected";
+    public static final String QUEUE_INSTRUCTOR_APPLICATION = "oep.worker.instructor-application";
 }
