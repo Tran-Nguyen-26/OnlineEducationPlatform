@@ -61,7 +61,9 @@ export async function registerUser(payload: RegisterRequest): Promise<AuthRespon
 
     if (!response.ok || error) {
       if (response.status === 502 || response.status === 503 || response.status === 504) {
-        throw new Error('Không thể kết nối đến máy chủ backend (502 Bad Gateway). Vui lòng đảm bảo backend đang chạy.')
+        throw new Error(
+          'Không thể kết nối đến máy chủ backend (502 Bad Gateway). Vui lòng đảm bảo backend đang chạy.'
+        )
       }
       const errData = error as ApiErrorResponse | undefined
       if (errData?.error === 'EMAIL_TAKEN' || response.status === 409) {
@@ -80,7 +82,11 @@ export async function registerUser(payload: RegisterRequest): Promise<AuthRespon
     return data as unknown as AuthResponse
   } catch (err: unknown) {
     if (err instanceof Error) {
-      if (err.message.includes('fetch') || err.message.includes('NetworkError') || err.message.includes('Failed to fetch')) {
+      if (
+        err.message.includes('fetch') ||
+        err.message.includes('NetworkError') ||
+        err.message.includes('Failed to fetch')
+      ) {
         throw new Error('Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại dịch vụ backend.')
       }
       throw err
@@ -106,7 +112,9 @@ export async function loginUser(payload: LoginRequest): Promise<AuthResponse> {
 
     if (!response.ok || error) {
       if (response.status === 502 || response.status === 503 || response.status === 504) {
-        throw new Error('Không thể kết nối đến máy chủ backend (502 Bad Gateway). Vui lòng đảm bảo backend đang chạy.')
+        throw new Error(
+          'Không thể kết nối đến máy chủ backend (502 Bad Gateway). Vui lòng đảm bảo backend đang chạy.'
+        )
       }
       const errData = error as ApiErrorResponse | undefined
       if (errData?.error === 'BAD_CREDENTIALS' || response.status === 401) {
@@ -128,7 +136,11 @@ export async function loginUser(payload: LoginRequest): Promise<AuthResponse> {
     return data as unknown as AuthResponse
   } catch (err: unknown) {
     if (err instanceof Error) {
-      if (err.message.includes('fetch') || err.message.includes('NetworkError') || err.message.includes('Failed to fetch')) {
+      if (
+        err.message.includes('fetch') ||
+        err.message.includes('NetworkError') ||
+        err.message.includes('Failed to fetch')
+      ) {
         throw new Error('Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại dịch vụ backend.')
       }
       throw err
@@ -136,4 +148,3 @@ export async function loginUser(payload: LoginRequest): Promise<AuthResponse> {
     throw new Error('Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.')
   }
 }
-

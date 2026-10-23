@@ -14,14 +14,21 @@ export function RegisterLayout() {
               <path d="M12 14l6.16-3.422A12.083 12.083 0 0112 21.93a12.083 12.083 0 01-6.16-11.352L12 14z" />
             </svg>
           </div>
-          <Link to="/" className="reg-logo-name">EduPlatform</Link>
+          <Link to="/" className="reg-logo-name">
+            EduPlatform
+          </Link>
         </div>
-
 
         {/* Hero text */}
         <div className="reg-hero">
           <span className="reg-badge">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="reg-badge-icon">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="reg-badge-icon"
+            >
               <circle cx="12" cy="12" r="10" />
               <path d="M12 6v6l4 2" />
             </svg>
@@ -44,7 +51,8 @@ export function RegisterLayout() {
           <div>
             <div className="reg-feature-card-title">Cổng Học Viên Chính Thức</div>
             <div className="reg-feature-card-desc">
-              Tham gia cùng hàng nghìn học viên tiếp cận chương trình công nghệ được kiểm chứng, môi trường thực hành đám mây và lộ trình học cá nhân hóa.
+              Tham gia cùng hàng nghìn học viên tiếp cận chương trình công nghệ được kiểm chứng, môi
+              trường thực hành đám mây và lộ trình học cá nhân hóa.
             </div>
           </div>
         </div>
@@ -60,7 +68,9 @@ export function RegisterLayout() {
             </span>
             <div>
               <div className="reg-feature-item-title">Chương Trình Công Nghệ Chọn Lọc</div>
-              <div className="reg-feature-item-desc">Các lộ trình khoa học máy tính và phát triển phần mềm được kiểm duyệt liên tục.</div>
+              <div className="reg-feature-item-desc">
+                Các lộ trình khoa học máy tính và phát triển phần mềm được kiểm duyệt liên tục.
+              </div>
             </div>
           </li>
           <li className="reg-feature-item">
@@ -72,7 +82,9 @@ export function RegisterLayout() {
             </span>
             <div>
               <div className="reg-feature-item-title">Dự Án Thực Hành Lập Trình</div>
-              <div className="reg-feature-item-desc">Triển khai dự án thực tế trực tiếp lên các cụm đám mây vi mô được xác minh.</div>
+              <div className="reg-feature-item-desc">
+                Triển khai dự án thực tế trực tiếp lên các cụm đám mây vi mô được xác minh.
+              </div>
             </div>
           </li>
           <li className="reg-feature-item">
@@ -84,7 +96,9 @@ export function RegisterLayout() {
             </span>
             <div>
               <div className="reg-feature-item-title">Chứng Chỉ Kỹ Năng Xác Thực</div>
-              <div className="reg-feature-item-desc">Chứng chỉ số chống giả mạo được các đối tác tuyển dụng công nghệ toàn cầu công nhận.</div>
+              <div className="reg-feature-item-desc">
+                Chứng chỉ số chống giả mạo được các đối tác tuyển dụng công nghệ toàn cầu công nhận.
+              </div>
             </div>
           </li>
         </ul>
@@ -101,11 +115,17 @@ export function RegisterLayout() {
           <footer className="reg-footer">
             <span>© 2024 EduPlatform Inc. Bảo lưu mọi quyền.</span>
             <span className="reg-footer-dot">•</span>
-            <a href="#" className="reg-footer-link">Chính sách bảo mật</a>
+            <a href="#" className="reg-footer-link">
+              Chính sách bảo mật
+            </a>
             <span className="reg-footer-dot">•</span>
-            <a href="#" className="reg-footer-link">Điều khoản dịch vụ</a>
+            <a href="#" className="reg-footer-link">
+              Điều khoản dịch vụ
+            </a>
             <span className="reg-footer-dot">•</span>
-            <a href="#" className="reg-footer-link">Trung tâm hỗ trợ</a>
+            <a href="#" className="reg-footer-link">
+              Trung tâm hỗ trợ
+            </a>
           </footer>
         </div>
       </main>
