@@ -23,4 +23,7 @@ public interface LessonContentRepository extends JpaRepository<LessonContent, UU
     @Query("select c from LessonContent c where c.id = :id and c.lesson.id = :lessonId")
     Optional<LessonContent> findByIdAndLessonIdForUpdate(@Param("id") UUID id, @Param("lessonId") UUID lessonId);
     boolean existsByLessonIdAndPosition(UUID lessonId, int position);
+
+    @Query("select (count(c) > 0) from LessonContent c where c.lesson.module.course.id = :courseId and c.uploadStatus = :status")
+    boolean existsAvailableInCourse(@Param("courseId") UUID courseId, @Param("status") UploadStatus status);
 }

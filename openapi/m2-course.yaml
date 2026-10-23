@@ -338,8 +338,8 @@ paths:
       operationId: publishCourse
       summary: Publish a course
       description: |
-        OWNER only. DRAFT -> PUBLISHED. Requires at least one lesson and one AVAILABLE content item or a
-        valid TEXT/LINK item; this readiness rule is a proposal pending team approval.
+        OWNER only. DRAFT -> PUBLISHED. The current implementation applies the provisional readiness rule:
+        at least one lesson and one AVAILABLE content item or a valid TEXT/LINK item. Product approval is pending.
       parameters:
         - { $ref: "#/components/parameters/CourseId" }
       responses:
@@ -382,12 +382,12 @@ paths:
         [
           INVALID_LIFECYCLE_TRANSITION,
           COURSE_NOT_READY,
-          CO_INSTRUCTOR_CANNOT_PUBLISH_COURSE,
+          COURSE_OWNER_REQUIRED,
         ]
       x-required-course-roles: [OWNER]
       x-example-forbidden-response:
         error:
-          code: CO_INSTRUCTOR_CANNOT_PUBLISH_COURSE
+          code: COURSE_OWNER_REQUIRED
           message: Course OWNER permission required
           details: {}
           request_id: req_abc123
@@ -427,7 +427,7 @@ paths:
       x-request-example: POST /api/v1/courses/11111111-1111-4111-8111-111111111111/unpublish
       x-required-course-roles: [OWNER]
       x-error-codes:
-        [CO_INSTRUCTOR_CANNOT_UNPUBLISH_COURSE, INVALID_LIFECYCLE_TRANSITION]
+        [COURSE_OWNER_REQUIRED, INVALID_LIFECYCLE_TRANSITION]
   /courses/{courseId}/archive:
     post:
       tags: [Courses]
@@ -479,10 +479,10 @@ paths:
       x-request-example: POST /api/v1/courses/11111111-1111-4111-8111-111111111111/archive
       x-required-course-roles: [OWNER]
       x-error-codes:
-        [CO_INSTRUCTOR_CANNOT_ARCHIVE_COURSE, INVALID_LIFECYCLE_TRANSITION]
+        [COURSE_OWNER_REQUIRED, INVALID_LIFECYCLE_TRANSITION]
       x-example-forbidden-response:
         error:
-          code: CO_INSTRUCTOR_CANNOT_ARCHIVE_COURSE
+          code: COURSE_OWNER_REQUIRED
           message: Course OWNER permission required
           details: {}
           request_id: req_abc123
@@ -520,7 +520,7 @@ paths:
       x-request-example: POST /api/v1/courses/11111111-1111-4111-8111-111111111111/restore
       x-required-course-roles: [OWNER]
       x-error-codes:
-        [CO_INSTRUCTOR_CANNOT_RESTORE_COURSE, INVALID_LIFECYCLE_TRANSITION]
+        [COURSE_OWNER_REQUIRED, INVALID_LIFECYCLE_TRANSITION]
   /courses/{courseId}/disable:
     post:
       tags: [Courses]
@@ -565,6 +565,7 @@ paths:
                   request_id: req_abc123
                   details: {}
       x-request-example: POST /api/v1/courses/11111111-1111-4111-8111-111111111111/disable
+      x-error-codes: [ADMIN_ROLE_REQUIRED, INVALID_LIFECYCLE_TRANSITION]
   /courses/{courseId}/enable:
     post:
       tags: [Courses]
@@ -599,6 +600,7 @@ paths:
                   request_id: req_abc123
                   details: {}
       x-request-example: POST /api/v1/courses/11111111-1111-4111-8111-111111111111/enable
+      x-error-codes: [ADMIN_ROLE_REQUIRED, INVALID_LIFECYCLE_TRANSITION]
   /courses/{courseId}/outline:
     get:
       tags: [Courses]
@@ -701,8 +703,9 @@ paths:
       operationId: listCourseInstructors
       summary: List course instructors
       description:
-        Course OWNER/CO_INSTRUCTOR or an ACTIVE student only. Shows instructor names without private
-        information.
+        Current implementation permits course OWNER/CO_INSTRUCTOR access. ACTIVE student access awaits M3
+        enrollment entitlement integration. Returns instructor IDs and course roles without private
+        account information.
       parameters:
         - { $ref: "#/components/parameters/CourseId" }
       responses:
@@ -776,6 +779,7 @@ paths:
                   request_id: req_abc123
                   details: {}
       x-request-example: POST /api/v1/courses/11111111-1111-4111-8111-111111111111/instructors
+      x-error-codes: [COURSE_OWNER_REQUIRED, INSTRUCTOR_ROLE_REQUIRED, COURSE_INSTRUCTOR_ALREADY_ASSIGNED]
   /courses/{courseId}/instructors/{instructorId}:
     delete:
       tags: [Instructors]
@@ -812,7 +816,7 @@ paths:
                   details: {}
       x-request-example: DELETE
         /api/v1/courses/11111111-1111-4111-8111-111111111111/instructors/55555555-5555-4555-8555-555555555555
-      x-error-codes: [CANNOT_REMOVE_OWNER]
+      x-error-codes: [COURSE_OWNER_REQUIRED, CANNOT_REMOVE_OWNER]
   /courses/{courseId}/modules:
     get:
       tags: [Modules]

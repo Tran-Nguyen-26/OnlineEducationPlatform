@@ -53,6 +53,55 @@ public class CourseManagementController {
         return service.updateCourse(userId(jwt), courseId, request);
     }
 
+    @PostMapping("/courses/{courseId}/publish")
+    public CourseDtos.CourseResponse publishCourse(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
+        return service.publishCourse(userId(jwt), courseId);
+    }
+
+    @PostMapping("/courses/{courseId}/unpublish")
+    public CourseDtos.CourseResponse unpublishCourse(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
+        return service.unpublishCourse(userId(jwt), courseId);
+    }
+
+    @PostMapping("/courses/{courseId}/archive")
+    public CourseDtos.CourseResponse archiveCourse(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
+        return service.archiveCourse(userId(jwt), courseId);
+    }
+
+    @PostMapping("/courses/{courseId}/restore")
+    public CourseDtos.CourseResponse restoreCourse(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
+        return service.restoreCourse(userId(jwt), courseId);
+    }
+
+    @PostMapping("/courses/{courseId}/disable")
+    public CourseDtos.CourseResponse disableCourse(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
+        return service.disableCourse(userId(jwt), courseId);
+    }
+
+    @PostMapping("/courses/{courseId}/enable")
+    public CourseDtos.CourseResponse enableCourse(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
+        return service.enableCourse(userId(jwt), courseId);
+    }
+
+    @GetMapping("/courses/{courseId}/instructors")
+    public CourseDtos.InstructorList listCourseInstructors(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
+        return service.listCourseInstructors(userId(jwt), courseId);
+    }
+
+    @PostMapping("/courses/{courseId}/instructors")
+    @ResponseStatus(HttpStatus.CREATED)
+    public CourseDtos.InstructorResponse addCoInstructor(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
+                                                         @Valid @RequestBody CourseDtos.AddInstructorRequest request) {
+        return service.addCoInstructor(userId(jwt), courseId, request);
+    }
+
+    @DeleteMapping("/courses/{courseId}/instructors/{instructorId}")
+    public CourseDtos.DeleteInstructorResponse removeCoInstructor(@AuthenticationPrincipal Jwt jwt,
+                                                                  @PathVariable UUID courseId,
+                                                                  @PathVariable UUID instructorId) {
+        return service.removeCoInstructor(userId(jwt), courseId, instructorId);
+    }
+
     @GetMapping("/courses/{courseId}/modules")
     public ModuleDtos.PageResponse listModules(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
                                                 @RequestParam(defaultValue = "1") int page,
