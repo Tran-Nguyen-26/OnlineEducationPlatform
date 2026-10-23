@@ -3,6 +3,7 @@ package com.oep.corelms.dto.course;
 import com.oep.coremodel.enums.CourseLifecycleStatus;
 import com.oep.coremodel.enums.CourseVisibility;
 import com.oep.coremodel.enums.LearningMode;
+import com.oep.coremodel.enums.CourseInstructorRole;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -46,4 +47,16 @@ public final class CourseDtos {
     public record PageInfo(int page, int pageSize, long total, boolean hasNext) {}
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record CoursePage(java.util.List<CourseResponse> items, PageInfo pagination) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record InstructorResponse(UUID instructorId, CourseInstructorRole courseRole, Instant addedAt) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record InstructorList(java.util.List<InstructorResponse> items) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record AddInstructorRequest(@NotNull UUID instructorId) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record DeleteInstructorResponse(boolean success, UUID deletedId) {}
 }

@@ -25,6 +25,7 @@ import com.oep.coremodel.enums.ContentType;
 import com.oep.coremodel.enums.LearningMode;
 import com.oep.coremodel.enums.UploadStatus;
 import com.oep.coremodel.enums.UserRole;
+import com.oep.coremodel.enums.AccountStatus;
 import com.oep.coremodel.exception.BusinessException;
 import com.oep.coremodel.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -137,6 +139,135 @@ public class CourseManagementService {
         if (request.startAt() != null) course.setStartAt(request.startAt());
         if (request.endAt() != null) course.setEndAt(request.endAt());
         return toCourse(courses.saveAndFlush(course));
+    }
+
+    @Transactional
+    public CourseDtos.CourseResponse publishCourse(UUID actorId, UUID courseId) {
+        Course course = requireCourseForUpdate(courseId);
+        requireCourseOwner(courseId, actorId);
+        requireLifecycle(course, Set.of(CourseLifecycleStatus.DRAFT));
+        if (!lessons.existsInCourse(courseId) || !contents.existsAvailableInCourse(courseId, UploadStatus.AVAILABLE)) {
+            throw new BusinessException(ErrorCode.COURSE_NOT_READY,
+                    "A course needs at least one lesson and one available content item before publishing");
+        }
+        course.setLifecycleStatus(CourseLifecycleStatus.PUBLISHED);
+        return toCourse(courses.saveAndFlush(course));
+    }
+
+    @Transactional
+    public CourseDtos.CourseResponse unpublishCourse(UUID actorId, UUID courseId) {
+        return transitionOwnerCourse(actorId, courseId, Set.of(CourseLifecycleStatus.PUBLISHED), CourseLifecycleStatus.DRAFT);
+    }
+
+    @Transactional
+    public CourseDtos.CourseResponse archiveCourse(UUID actorId, UUID courseId) {
+        return transitionOwnerCourse(actorId, courseId,
+                Set.of(CourseLifecycleStatus.DRAFT, CourseLifecycleStatus.PUBLISHED), CourseLifecycleStatus.ARCHIVED);
+    }
+
+    @Transactional
+    public CourseDtos.CourseResponse restoreCourse(UUID actorId, UUID courseId) {
+        return transitionOwnerCourse(actorId, courseId, Set.of(CourseLifecycleStatus.ARCHIVED), CourseLifecycleStatus.DRAFT);
+    }
+
+    @Transactional
+    public CourseDtos.CourseResponse disableCourse(UUID actorId, UUID courseId) {
+        Course course = requireCourseForUpdate(courseId);
+        requireAdmin(actorId);
+        requireLifecycle(course, Set.of(CourseLifecycleStatus.DRAFT, CourseLifecycleStatus.PUBLISHED));
+        course.setLifecycleStatus(CourseLifecycleStatus.DISABLED);
+        return toCourse(courses.saveAndFlush(course));
+    }
+
+    @Transactional
+    public CourseDtos.CourseResponse enableCourse(UUID actorId, UUID courseId) {
+        Course course = requireCourseForUpdate(courseId);
+        requireAdmin(actorId);
+        requireLifecycle(course, Set.of(CourseLifecycleStatus.DISABLED));
+        course.setLifecycleStatus(CourseLifecycleStatus.DRAFT);
+        return toCourse(courses.saveAndFlush(course));
+    }
+
+    @Transactional(readOnly = true)
+    public CourseDtos.InstructorList listCourseInstructors(UUID actorId, UUID courseId) {
+        requireCourse(courseId);
+        requireCourseManager(courseId, actorId);
+        List<CourseDtos.InstructorResponse> items = courseInstructors.findAllForCourse(courseId).stream()
+                .map(link -> new CourseDtos.InstructorResponse(link.getInstructor().getId(), link.getCourseRole(), link.getAddedAt()))
+                .toList();
+        return new CourseDtos.InstructorList(items);
+    }
+
+    @Transactional
+    public CourseDtos.InstructorResponse addCoInstructor(UUID actorId, UUID courseId, CourseDtos.AddInstructorRequest request) {
+        Course course = requireCourseForUpdate(courseId);
+        requireCourseOwner(courseId, actorId);
+        User instructor = requireUser(request.instructorId());
+        if (instructor.getRole() != UserRole.INSTRUCTOR || instructor.getAccountStatus() != AccountStatus.ACTIVE) {
+            throw new BusinessException(ErrorCode.INSTRUCTOR_ROLE_REQUIRED, "An active instructor account is required");
+        }
+        CourseInstructorId id = new CourseInstructorId(courseId, instructor.getId());
+        if (courseInstructors.existsById(id)) {
+            throw new BusinessException(ErrorCode.COURSE_INSTRUCTOR_ALREADY_ASSIGNED, "Instructor is already assigned to this course");
+        }
+        CourseInstructor link = new CourseInstructor();
+        link.setId(id);
+        link.setCourse(course);
+        link.setInstructor(instructor);
+        link.setCourseRole(CourseInstructorRole.CO_INSTRUCTOR);
+        link.setAddedBy(requireUser(actorId));
+        CourseInstructor saved = courseInstructors.saveAndFlush(link);
+        return new CourseDtos.InstructorResponse(instructor.getId(), saved.getCourseRole(), saved.getAddedAt());
+    }
+
+    @Transactional
+    public CourseDtos.DeleteInstructorResponse removeCoInstructor(UUID actorId, UUID courseId, UUID instructorId) {
+        requireCourseForUpdate(courseId);
+        requireCourseOwner(courseId, actorId);
+        CourseInstructor link = courseInstructors.findByIdCourseIdAndIdInstructorId(courseId, instructorId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Course instructor not found"));
+        if (link.getCourseRole() == CourseInstructorRole.OWNER) {
+            throw new BusinessException(ErrorCode.CANNOT_REMOVE_OWNER, "The course owner cannot be removed");
+        }
+        courseInstructors.delete(link);
+        return new CourseDtos.DeleteInstructorResponse(true, instructorId);
+    }
+
+    private CourseDtos.CourseResponse transitionOwnerCourse(UUID actorId, UUID courseId,
+                                                              Set<CourseLifecycleStatus> allowed,
+                                                              CourseLifecycleStatus target) {
+        Course course = requireCourseForUpdate(courseId);
+        requireCourseOwner(courseId, actorId);
+        requireLifecycle(course, allowed);
+        course.setLifecycleStatus(target);
+        return toCourse(courses.saveAndFlush(course));
+    }
+
+    private void requireLifecycle(Course course, Set<CourseLifecycleStatus> allowed) {
+        if (!allowed.contains(course.getLifecycleStatus())) {
+            throw new BusinessException(ErrorCode.INVALID_LIFECYCLE_TRANSITION,
+                    "Cannot transition course from " + course.getLifecycleStatus());
+        }
+    }
+
+    private Course requireCourseForUpdate(UUID courseId) {
+        return courses.findByIdForUpdate(courseId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Course not found"));
+    }
+
+    private void requireCourseOwner(UUID courseId, UUID actorId) {
+        if (actorId == null) throw new BusinessException(ErrorCode.COURSE_OWNER_REQUIRED, "Course OWNER permission required");
+        CourseInstructor link = courseInstructors.findByIdCourseIdAndIdInstructorId(courseId, actorId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.COURSE_OWNER_REQUIRED, "Course OWNER permission required"));
+        if (link.getCourseRole() != CourseInstructorRole.OWNER) {
+            throw new BusinessException(ErrorCode.COURSE_OWNER_REQUIRED, "Course OWNER permission required");
+        }
+    }
+
+    private void requireAdmin(UUID actorId) {
+        if (actorId == null || requireUser(actorId).getRole() != UserRole.ADMIN) {
+            throw new BusinessException(ErrorCode.ADMIN_ROLE_REQUIRED, "ADMIN role required");
+        }
     }
 
     @Transactional(readOnly = true)
