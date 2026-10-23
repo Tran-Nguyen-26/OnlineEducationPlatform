@@ -18,7 +18,13 @@ function getPasswordStrength(password: string): { level: number; label: string }
 }
 
 const strengthColors = ['', '#ef4444', '#f97316', '#eab308', '#10b981']
-const strengthColorNames = ['', 'reg-strength-weak', 'reg-strength-fair', 'reg-strength-good', 'reg-strength-strong']
+const strengthColorNames = [
+  '',
+  'reg-strength-weak',
+  'reg-strength-fair',
+  'reg-strength-good',
+  'reg-strength-strong',
+]
 
 export default function RegisterStudentPage() {
   const navigate = useNavigate()
@@ -91,12 +97,20 @@ export default function RegisterStudentPage() {
       {/* Page header */}
       <div className="reg-form-header">
         <h2 className="reg-form-title">Tạo Tài Khoản Học Viên</h2>
-        <p className="reg-form-subtitle">Tham gia EduPlatform và bắt đầu hành trình học tập của bạn ngay hôm nay.</p>
+        <p className="reg-form-subtitle">
+          Tham gia EduPlatform và bắt đầu hành trình học tập của bạn ngay hôm nay.
+        </p>
       </div>
 
       {error && (
         <div className="reg-alert-error" role="alert">
-          <svg className="reg-alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            className="reg-alert-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <circle cx="12" cy="12" r="10" />
             <line x1="12" y1="8" x2="12" y2="12" />
             <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -196,13 +210,14 @@ export default function RegisterStudentPage() {
                   <div
                     key={i}
                     className="reg-strength-bar"
-                    style={{ backgroundColor: i <= strength.level ? strengthColors[strength.level] : '#e5e7eb' }}
+                    style={{
+                      backgroundColor:
+                        i <= strength.level ? strengthColors[strength.level] : '#e5e7eb',
+                    }}
                   />
                 ))}
               </div>
-              <span
-                className={`reg-strength-text ${strengthColorNames[strength.level]}`}
-              >
+              <span className={`reg-strength-text ${strengthColorNames[strength.level]}`}>
                 {strength.label}
               </span>
             </div>
@@ -238,7 +253,7 @@ export default function RegisterStudentPage() {
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="••••••••••••••"
               className={`reg-input reg-input-with-icon reg-input-with-toggle${
-                confirmPassword && !passwordsMatch ? ' reg-input-error' : ''
+                confirmPassword && !passwordsMatch ? 'reg-input-error' : ''
               }`}
             />
             <button
@@ -273,7 +288,9 @@ export default function RegisterStudentPage() {
           </span>
           <span className="reg-section-title">HỒ SƠ CÁ NHÂN</span>
         </div>
-        <p className="reg-section-desc">Cho chúng tôi biết thêm về bạn. Bạn có thể cập nhật hồ sơ sau.</p>
+        <p className="reg-section-desc">
+          Cho chúng tôi biết thêm về bạn. Bạn có thể cập nhật hồ sơ sau.
+        </p>
 
         {/* Full Name */}
         <div className="reg-field">
@@ -307,7 +324,9 @@ export default function RegisterStudentPage() {
         <div className="reg-two-col">
           <div className="reg-field">
             <div className="reg-label-row">
-              <label htmlFor="regPhone" className="reg-label">Số điện thoại</label>
+              <label htmlFor="regPhone" className="reg-label">
+                Số điện thoại
+              </label>
               <span className="reg-optional">Tùy chọn</span>
             </div>
             <div className="reg-input-wrap">
@@ -328,7 +347,9 @@ export default function RegisterStudentPage() {
           </div>
           <div className="reg-field">
             <div className="reg-label-row">
-              <label htmlFor="regDob" className="reg-label">Ngày sinh</label>
+              <label htmlFor="regDob" className="reg-label">
+                Ngày sinh
+              </label>
               <span className="reg-optional">Tùy chọn</span>
             </div>
             <input
@@ -344,7 +365,9 @@ export default function RegisterStudentPage() {
         {/* School / Organization */}
         <div className="reg-field">
           <div className="reg-label-row">
-            <label htmlFor="regSchool" className="reg-label">Trường / Tổ chức</label>
+            <label htmlFor="regSchool" className="reg-label">
+              Trường / Tổ chức
+            </label>
             <span className="reg-optional">Tùy chọn</span>
           </div>
           <div className="reg-input-wrap">
@@ -370,7 +393,9 @@ export default function RegisterStudentPage() {
         {/* About You */}
         <div className="reg-field">
           <div className="reg-label-row">
-            <label htmlFor="regAbout" className="reg-label">Giới thiệu bản thân</label>
+            <label htmlFor="regAbout" className="reg-label">
+              Giới thiệu bản thân
+            </label>
             <span className="reg-optional">Tùy chọn</span>
           </div>
           <textarea
@@ -384,16 +409,24 @@ export default function RegisterStudentPage() {
         </div>
 
         {/* Submit */}
-        <button
-          type="submit"
-          disabled={loading}
-          className="reg-submit-btn"
-        >
+        <button type="submit" disabled={loading} className="reg-submit-btn">
           {loading ? (
             <>
               <svg className="reg-spinner" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" />
-                <path d="M12 2a10 10 0 0110 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeOpacity="0.25"
+                />
+                <path
+                  d="M12 2a10 10 0 0110 10"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                />
               </svg>
               Đang tạo tài khoản…
             </>
@@ -404,7 +437,9 @@ export default function RegisterStudentPage() {
 
         <p className="reg-signin-link">
           Đã có tài khoản?{' '}
-          <Link to="/login" className="reg-signin-link-a">Đăng nhập</Link>
+          <Link to="/login" className="reg-signin-link-a">
+            Đăng nhập
+          </Link>
         </p>
       </form>
     </>

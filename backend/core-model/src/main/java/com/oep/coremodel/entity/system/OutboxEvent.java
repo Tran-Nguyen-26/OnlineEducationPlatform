@@ -1,24 +1,26 @@
 package com.oep.coremodel.entity.system;
 
 import com.oep.coremodel.entity.BaseEntity;
+import com.oep.coremodel.enums.OutboxStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.type.SqlTypes;
-import com.oep.coremodel.enums.*;
 
-import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.UUID;
 
 @Getter
 @Setter
 @Entity
-@Table(name = "outbox_events", indexes = {@Index(name = "idx_outbox_events_status_created_at", columnList = "status, created_at")})
+@Table(
+    name = "outbox_events",
+    indexes = {
+        @Index(name = "idx_outbox_events_status_created_at", columnList = "status, created_at")
+    }
+)
 public class OutboxEvent extends BaseEntity {
 
     @Column(name = "aggregate_type", nullable = false, length = 100)
@@ -48,3 +50,4 @@ public class OutboxEvent extends BaseEntity {
     @Column(name = "processed_at", nullable = true)
     private Instant processedAt;
 }
+

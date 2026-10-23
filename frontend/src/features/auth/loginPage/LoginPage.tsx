@@ -18,9 +18,7 @@ export default function LoginPage() {
   )
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [rememberMe, setRememberMe] = useState(
-    Boolean(localStorage.getItem('remembered_email'))
-  )
+  const [rememberMe, setRememberMe] = useState(Boolean(localStorage.getItem('remembered_email')))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(navState?.message ?? '')
@@ -99,7 +97,13 @@ export default function LoginPage() {
           {/* Alerts */}
           {success && (
             <div className="lp-alert lp-alert--success">
-              <svg className="lp-alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                className="lp-alert-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
                 <polyline points="22 4 12 14.01 9 11.01" />
               </svg>
@@ -108,7 +112,13 @@ export default function LoginPage() {
           )}
           {error && (
             <div className="lp-alert lp-alert--error">
-              <svg className="lp-alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                className="lp-alert-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <circle cx="12" cy="12" r="10" />
                 <line x1="12" y1="8" x2="12" y2="12" />
                 <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -119,7 +129,9 @@ export default function LoginPage() {
 
           {/* Email */}
           <div className="lp-field">
-            <label htmlFor="lp-email" className="lp-label">Email</label>
+            <label htmlFor="lp-email" className="lp-label">
+              Email
+            </label>
             <div className="lp-input-wrap">
               <span className="lp-input-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -142,7 +154,9 @@ export default function LoginPage() {
 
           {/* Password */}
           <div className="lp-field">
-            <label htmlFor="lp-password" className="lp-label">Mật khẩu</label>
+            <label htmlFor="lp-password" className="lp-label">
+              Mật khẩu
+            </label>
             <div className="lp-input-wrap">
               <span className="lp-input-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -193,19 +207,22 @@ export default function LoginPage() {
               />
               Ghi nhớ đăng nhập
             </label>
-            <a href="#" className="lp-forgot">Quên mật khẩu?</a>
+            <a href="#" className="lp-forgot">
+              Quên mật khẩu?
+            </a>
           </div>
 
           {/* Submit */}
-          <button
-            id="lp-submit"
-            type="submit"
-            disabled={loading}
-            className="lp-submit-btn"
-          >
+          <button id="lp-submit" type="submit" disabled={loading} className="lp-submit-btn">
             {loading ? (
               <>
-                <svg className="lp-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <svg
+                  className="lp-spinner"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
                   <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
                 </svg>
                 Đang đăng nhập...
@@ -248,8 +265,7 @@ export default function LoginPage() {
 
           {/* Signup link */}
           <p className="lp-signup-link">
-            Chưa có tài khoản?{' '}
-            <Link to="/choose-role">Tạo tài khoản</Link>
+            Chưa có tài khoản? <Link to="/choose-role">Tạo tài khoản</Link>
           </p>
         </form>
       </div>

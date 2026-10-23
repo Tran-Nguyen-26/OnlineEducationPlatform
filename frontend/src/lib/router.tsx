@@ -55,8 +55,6 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: <RegisterLayout />,
-    children: [
-      { path: 'register', element: withSuspense(RegisterPage) },
-    ],
+    children: [{ path: 'register', element: withSuspense(RegisterPage) }],
   },
 ])

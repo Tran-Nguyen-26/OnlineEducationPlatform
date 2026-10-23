@@ -27,4 +27,5 @@ dist-ssr
 .env
 .env.*
 !.env.example
-
+# Generated Mock Specs
+.openapi-mock-combined.yaml
