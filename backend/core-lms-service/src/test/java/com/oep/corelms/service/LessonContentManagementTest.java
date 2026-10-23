@@ -9,6 +9,7 @@ import com.oep.corelms.repository.LessonContentReferenceRepository;
 import com.oep.corelms.repository.LessonContentRepository;
 import com.oep.corelms.repository.LessonRepository;
 import com.oep.corelms.repository.UserRepository;
+import com.oep.corelms.storage.ObjectStorageService;
 import com.oep.coremodel.entity.course.Course;
 import com.oep.coremodel.entity.course.CourseInstructor;
 import com.oep.coremodel.entity.course.CourseModule;
@@ -35,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
@@ -50,6 +52,7 @@ class LessonContentManagementTest {
     @Mock private CourseInstructorRepository courseInstructors;
     @Mock private UserRepository users;
     @Mock private EnrollmentRepository enrollments;
+    @Mock private ObjectStorageService objectStorage;
 
     private final UUID actorId = UUID.randomUUID();
     private final UUID courseId = UUID.randomUUID();
@@ -63,7 +66,7 @@ class LessonContentManagementTest {
 
     @BeforeEach
     void setUp() {
-        service = new CourseManagementService(courses, modules, lessons, contents, contentReferences, courseInstructors, users, enrollments);
+        service = new CourseManagementService(courses, modules, lessons, contents, contentReferences, courseInstructors, users, enrollments, objectStorage);
         course.setId(courseId);
         course.setLifecycleStatus(CourseLifecycleStatus.DRAFT);
         module.setId(moduleId);
@@ -117,11 +120,31 @@ class LessonContentManagementTest {
     }
 
     @Test
-    void rejectsFileCreationInThisSlice() {
-        BusinessException error = assertThrows(BusinessException.class, () -> service.createLessonContent(actorId, courseId, moduleId,
-                lessonId, new LessonContentDtos.CreateRequest(ContentType.PDF, "PDF", null, null, "a.pdf", "application/pdf", 50L, null)));
+    void createsFileContentAsPendingAndRejectsUnsupportedMetadata() {
+        when(contents.findByLessonIdOrderByPositionAsc(lessonId)).thenReturn(List.of());
+        when(contents.existsByLessonIdAndPosition(lessonId, 0)).thenReturn(false);
+        when(contents.saveAndFlush(any(LessonContent.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertEquals(ErrorCode.CONTENT_TYPE_NOT_SUPPORTED, error.getCode());
+        var response = service.createLessonContent(actorId, courseId, moduleId, lessonId,
+                new LessonContentDtos.CreateRequest(ContentType.PDF, "PDF", null, null, "a.pdf", "application/pdf", 50L, null));
+
+        assertEquals(ContentType.PDF, response.contentType());
+        assertEquals(UploadStatus.PENDING, response.uploadStatus());
+        assertEquals("a.pdf", response.fileName());
+        verify(contents).saveAndFlush(argThat(content -> content.getObjectKey() == null));
+
+        BusinessException error = assertThrows(BusinessException.class, () -> service.createLessonContent(actorId, courseId, moduleId,
+                lessonId, new LessonContentDtos.CreateRequest(ContentType.PDF, "Bad", null, null, "a.pdf", "text/plain", 50L, 1)));
+        assertEquals(ErrorCode.UNSUPPORTED_MEDIA_TYPE, error.getCode());
+    }
+
+    @Test
+    void rejectsFileMetadataAboveTheLimit() {
+        BusinessException error = assertThrows(BusinessException.class, () -> service.createLessonContent(actorId, courseId, moduleId,
+                lessonId, new LessonContentDtos.CreateRequest(ContentType.PDF, "Too large", null, null,
+                        "large.pdf", "application/pdf", FileUploadPolicy.MAX_FILE_SIZE_BYTES + 1, null)));
+
+        assertEquals(ErrorCode.UPLOAD_TOO_LARGE, error.getCode());
         verify(contents, never()).saveAndFlush(any(LessonContent.class));
     }
 
@@ -165,6 +188,20 @@ class LessonContentManagementTest {
         assertEquals(true, response.success());
         assertEquals(text.getId(), response.deletedId());
         verify(contents).delete(text);
+    }
+
+    @Test
+    void deletesUnreferencedFileAndItsStoredObject() {
+        LessonContent file = content(ContentType.PDF, 0);
+        file.setObjectKey("opaque/object-key");
+        when(contents.findByIdAndLessonIdForUpdate(file.getId(), lessonId)).thenReturn(Optional.of(file));
+        when(contentReferences.isReferenced(file.getId())).thenReturn(false);
+
+        var response = service.deleteLessonContent(actorId, courseId, moduleId, lessonId, file.getId());
+
+        assertEquals(true, response.success());
+        verify(objectStorage).delete("opaque/object-key");
+        verify(contents).delete(file);
     }
 
     private LessonContent content(ContentType type, int position) {

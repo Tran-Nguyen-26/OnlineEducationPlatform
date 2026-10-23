@@ -12,6 +12,7 @@ import com.oep.corelms.repository.LessonRepository;
 import com.oep.corelms.repository.LessonContentRepository;
 import com.oep.corelms.repository.LessonContentReferenceRepository;
 import com.oep.corelms.repository.UserRepository;
+import com.oep.corelms.storage.ObjectStorageService;
 import com.oep.coremodel.entity.course.Course;
 import com.oep.coremodel.entity.course.CourseInstructor;
 import com.oep.coremodel.entity.course.CourseInstructorId;
@@ -55,6 +56,7 @@ public class CourseManagementService {
     private final CourseInstructorRepository courseInstructors;
     private final UserRepository users;
     private final EnrollmentRepository enrollments;
+    private final ObjectStorageService objectStorage;
 
     @Transactional
     public CourseDtos.CourseResponse createCourse(UUID actorId, CourseDtos.CreateCourseRequest request) {
@@ -455,7 +457,10 @@ public class CourseManagementService {
         content.setTitle(request.title());
         content.setTextContent(request.textContent());
         content.setExternalUrl(request.externalUrl());
-        content.setUploadStatus(UploadStatus.AVAILABLE);
+        content.setFileName(request.fileName());
+        content.setMimeType(request.mimeType());
+        content.setFileSize(request.fileSize());
+        content.setUploadStatus(isFileContent(request.contentType()) ? UploadStatus.PENDING : UploadStatus.AVAILABLE);
         content.setPosition(position);
         content.setCreatedBy(actor);
         content.setUpdatedBy(actor);
@@ -500,9 +505,13 @@ public class CourseManagementService {
         Lesson lesson = requireEditableLesson(actorId, courseId, moduleId, lessonId);
         LessonContent content = contents.findByIdAndLessonIdForUpdate(contentId, lesson.getId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_CONTENT, "Content not found in lesson"));
-        requireTextOrLink(content);
         if (contentReferences.isReferenced(contentId)) {
             throw new BusinessException(ErrorCode.CONTENT_IN_USE, "Content is referenced by progress, AI data or change history");
+        }
+        if (isFileContent(content.getContentType()) && content.getObjectKey() != null) {
+            objectStorage.delete(content.getObjectKey());
+        } else {
+            requireTextOrLink(content);
         }
         contents.delete(content);
         return new LessonContentDtos.DeleteResponse(true, contentId);
@@ -576,8 +585,24 @@ public class CourseManagementService {
     }
 
     private void validateCreateContent(LessonContentDtos.CreateRequest request) {
+        if (isFileContent(request.contentType())) {
+            if (request.textContent() != null || request.externalUrl() != null
+                    || request.fileName() == null || request.fileName().isBlank()
+                    || request.mimeType() == null || request.fileSize() == null) {
+                throw new BusinessException(ErrorCode.INVALID_CONTENT_METADATA,
+                        "File content requires file_name, mime_type and file_size and cannot include text or external URL");
+            }
+            if (!FileUploadPolicy.isAllowed(request.contentType(), request.mimeType())) {
+                throw new BusinessException(ErrorCode.UNSUPPORTED_MEDIA_TYPE,
+                        "mime_type is not supported for this file content type");
+            }
+            if (request.fileSize() > FileUploadPolicy.MAX_FILE_SIZE_BYTES) {
+                throw new BusinessException(ErrorCode.UPLOAD_TOO_LARGE, "Maximum file size is 100 MiB");
+            }
+            return;
+        }
         if (request.contentType() != ContentType.TEXT && request.contentType() != ContentType.LINK) {
-            throw new BusinessException(ErrorCode.CONTENT_TYPE_NOT_SUPPORTED, "Only TEXT and LINK content are supported in this implementation slice");
+            throw new BusinessException(ErrorCode.CONTENT_TYPE_NOT_SUPPORTED, "Unsupported content type");
         }
         if (request.fileName() != null || request.mimeType() != null || request.fileSize() != null) {
             throw new BusinessException(ErrorCode.INVALID_CONTENT_METADATA, "File metadata is not accepted for TEXT or LINK content");
@@ -607,8 +632,20 @@ public class CourseManagementService {
 
     private void requireTextOrLink(LessonContent content) {
         if (content.getContentType() != ContentType.TEXT && content.getContentType() != ContentType.LINK) {
-            throw new BusinessException(ErrorCode.CONTENT_TYPE_NOT_SUPPORTED, "File content management is deferred to M2.6");
+            throw new BusinessException(ErrorCode.CONTENT_TYPE_NOT_SUPPORTED, "File metadata can only be changed through the upload flow");
         }
+    }
+
+    public void assertCourseManagerAccess(UUID courseId, UUID actorId) {
+        requireInstructorAssociation(courseId, actorId);
+    }
+
+    public void assertCourseReadAccess(UUID courseId, UUID actorId) {
+        requireCourseReadAccess(requireCourse(courseId), actorId);
+    }
+
+    private boolean isFileContent(ContentType type) {
+        return FileUploadPolicy.isFileContent(type);
     }
 
     private User requireUser(UUID userId) {

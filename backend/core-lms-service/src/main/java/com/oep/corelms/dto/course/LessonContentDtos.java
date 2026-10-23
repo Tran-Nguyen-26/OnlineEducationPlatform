@@ -11,6 +11,7 @@ import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.Map;
 
 public final class LessonContentDtos {
     private LessonContentDtos() {}
@@ -41,4 +42,11 @@ public final class LessonContentDtos {
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record DeleteResponse(boolean success, UUID deletedId) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record UploadUrlResponse(String uploadUrl, String method, Map<String, String> requiredHeaders,
+                                    Instant expiresAt) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record AccessUrlResponse(String accessUrl, String method, Instant expiresAt, String fileName) {}
 }

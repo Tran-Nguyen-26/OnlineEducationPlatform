@@ -1375,8 +1375,9 @@ paths:
       operationId: createLessonContent
       summary: Create lesson content
       description: |
-        Current M2.3 implementation creates TEXT/LINK only; file content creation is deferred to M2.6.
-        OWNER or CO_INSTRUCTOR only. TEXT/LINK content is AVAILABLE immediately.
+        OWNER or CO_INSTRUCTOR only. TEXT/LINK content is AVAILABLE immediately. File content is created
+        PENDING with validated MIME type and declared size (up to 100 MiB), then becomes AVAILABLE only
+        after storage verification.
       parameters:
         - { $ref: "#/components/parameters/CourseId" }
         - { $ref: "#/components/parameters/ModuleId" }
@@ -1533,6 +1534,7 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/Unprocessable" }
         "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
         "500":
           description: Internal server error
           content:
@@ -1551,9 +1553,10 @@ paths:
       operationId: deleteLessonContent
       summary: Delete lesson content
       description: |
-        Current M2.3 implementation deletes TEXT/LINK only and returns 409 when progress, AI chunks or
-        content change history references the content. File deletion and object storage cleanup are deferred
-        to M2.6. Do not promise soft deletion because the DBML has no deleted_at field.
+        Deletes TEXT/LINK or file content after checking progress, AI chunks and content change history
+        references. For file content, the server removes the stored object before deleting its metadata.
+        Storage failure returns 503 and leaves metadata intact. Do not promise soft deletion because the
+        DBML has no deleted_at field.
       parameters:
         - { $ref: "#/components/parameters/CourseId" }
         - { $ref: "#/components/parameters/ModuleId" }
@@ -1573,6 +1576,7 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/Unprocessable" }
         "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
         "500":
           description: Internal server error
           content:
@@ -1640,21 +1644,12 @@ paths:
       operationId: issueUploadUrl
       summary: Get a presigned content upload URL
       description: |
-        OWNER or CO_INSTRUCTOR only. Content must be a file in PENDING or FAILED state. Validate MIME type
-        and size; the proposed trial limit of <= 100 MiB is pending team approval. Return a presigned PUT
-        URL valid for 10 minutes. Store object_key server-side; clients use the signed URL and
-        required_headers without a raw object key.
+        OWNER or CO_INSTRUCTOR only. File metadata is recorded when the content item is created. Content
+        must be a file in PENDING or FAILED state. The server generates and stores an opaque object key;
+        clients receive a presigned PUT URL valid for 10 minutes and must send the declared Content-Type.
+        The maximum file size is 100 MiB.
       parameters:
         - { $ref: "#/components/parameters/ContentId" }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/UploadUrlRequest" }
-            example:
-              file_name: lecture1.pdf
-              mime_type: application/pdf
-              file_size: 2100000
       responses:
         "200":
           description: Success
@@ -1673,7 +1668,7 @@ paths:
         "422": { $ref: "#/components/responses/Unprocessable" }
         "409": { $ref: "#/components/responses/Conflict" }
         "413": { $ref: "#/components/responses/PayloadTooLarge" }
-        "415": { $ref: "#/components/responses/UnsupportedMedia" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
         "500":
           description: Internal server error
           content:
@@ -1694,18 +1689,11 @@ paths:
       operationId: completeContentUpload
       summary: Confirm a content upload
       description: |
-        OWNER or CO_INSTRUCTOR only. Verify storage HEAD/metadata server-side; transition PENDING ->
-        UPLOADED -> AVAILABLE (verification may be asynchronous). Do not trust the client's assertion that
-        the upload completed.
+        OWNER or CO_INSTRUCTOR only. The request has no body. The server uses its stored object key and
+        verifies storage HEAD size and Content-Type before transitioning PENDING -> AVAILABLE. It rejects
+        missing objects and metadata mismatches; clients cannot submit or select an object key.
       parameters:
         - { $ref: "#/components/parameters/ContentId" }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/CompleteUploadRequest" }
-            example:
-              object_key: courses/11111111-1111-4111-8111-111111111111/contents/44444444-4444-4444-8444-444444444444/v1/lecture1.pdf
       responses:
         "200":
           description: Success
@@ -1734,6 +1722,7 @@ paths:
         "409": { $ref: "#/components/responses/Conflict" }
         "413": { $ref: "#/components/responses/PayloadTooLarge" }
         "415": { $ref: "#/components/responses/UnsupportedMedia" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
         "500":
           description: Internal server error
           content:
@@ -1746,17 +1735,17 @@ paths:
                   request_id: req_abc123
                   details: {}
       x-request-example: POST /api/v1/contents/44444444-4444-4444-8444-444444444444/complete-upload
-      x-error-codes: [UPLOAD_OBJECT_NOT_FOUND, INVALID_UPLOAD_STATE]
+      x-error-codes: [UPLOAD_OBJECT_NOT_FOUND, UPLOAD_METADATA_MISMATCH, UPLOAD_TOO_LARGE, INVALID_UPLOAD_STATE]
   /contents/{contentId}/access-url:
     get:
       tags: [Files]
       operationId: getContentAccessUrl
       summary: Get a presigned content access URL
       description: |
-        OWNER/CO_INSTRUCTOR or students with valid L3 entitlement in a PUBLISHED course. Student access is
-        provisionally ACTIVE-only while COMPLETED access remains OPEN. PRIVATE students must first enroll
-        through L3's minimal MVP invite-code flow. ARCHIVED blocks students even with ACTIVE enrollment.
-        Content upload_status must be AVAILABLE. No streaming; return a short-lived presigned GET URL.
+        OWNER/CO_INSTRUCTOR/ADMIN or students with ACTIVE enrollment in a PUBLISHED course. Student access
+        currently checks the local enrollment table and provisionally denies COMPLETED. PRIVATE students
+        must first enroll through L3's minimal MVP invite-code flow. ARCHIVED blocks students even with ACTIVE enrollment.
+        Content upload_status must be AVAILABLE. No streaming; return a 5-minute presigned GET URL.
         Previously issued URLs may remain valid until expiry after removal, unpublish or archive; revocation
         is not immediate.
       parameters:
@@ -2217,8 +2206,9 @@ components:
       required: [content_type]
       description:
         TEXT requires text_content; LINK requires external_url; file types
-        (VIDEO/PDF/SLIDE/DOCUMENT/FILE) require file_name, mime_type and file_size. Cross-field validation is
-        performed by the backend.
+        (VIDEO/PDF/SLIDE/DOCUMENT/FILE) require file_name, mime_type and file_size. Allowed MIME types are
+        checked against the content type, and file_size must not exceed 100 MiB. File content starts PENDING
+        and becomes AVAILABLE only after the server verifies the stored object.
     UpdateContent:
       type: object
       properties:
@@ -2229,7 +2219,7 @@ components:
           type: string
         external_url: { type: string, format: uri }
       description:
-        Only TEXT/LINK metadata can be edited. Replacing a file requires a new version; direct
+        Only TEXT/LINK metadata can be edited. File content cannot be replaced with PATCH; direct
         object_key replacement is not allowed by the API.
     Positions:
       type: object
@@ -2257,17 +2247,6 @@ components:
           type: boolean
         deleted_id: { type: string, format: uuid }
       required: [success, deleted_id]
-    UploadUrlRequest:
-      type: object
-      properties:
-        file_name:
-          type: string
-          minLength: 1
-          maxLength: 255
-        mime_type:
-          type: string
-        file_size: { type: integer, minimum: 1 }
-      required: [file_name, mime_type, file_size]
     UploadUrlResponse:
       type: object
       properties:
@@ -2282,15 +2261,6 @@ components:
             type: string
         expires_at: { type: string, format: date-time }
       required: [upload_url, method, required_headers, expires_at]
-    CompleteUploadRequest:
-      type: object
-      properties:
-        object_key:
-          type: string
-      required: [object_key]
-      description:
-        The object key is issued by M2. The backend verifies storage HEAD, MIME, size and owner
-        before confirmation.
     AccessUrlResponse:
       type: object
       properties:

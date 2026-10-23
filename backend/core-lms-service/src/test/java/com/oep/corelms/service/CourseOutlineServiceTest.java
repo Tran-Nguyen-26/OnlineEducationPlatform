@@ -8,6 +8,7 @@ import com.oep.corelms.repository.LessonContentReferenceRepository;
 import com.oep.corelms.repository.LessonContentRepository;
 import com.oep.corelms.repository.LessonRepository;
 import com.oep.corelms.repository.UserRepository;
+import com.oep.corelms.storage.ObjectStorageService;
 import com.oep.coremodel.entity.course.Course;
 import com.oep.coremodel.entity.course.CourseInstructor;
 import com.oep.coremodel.entity.course.CourseModule;
@@ -47,6 +48,7 @@ class CourseOutlineServiceTest {
     @Mock private CourseInstructorRepository courseInstructors;
     @Mock private UserRepository users;
     @Mock private EnrollmentRepository enrollments;
+    @Mock private ObjectStorageService objectStorage;
 
     private CourseManagementService service;
     private final UUID courseId = UUID.randomUUID();
@@ -55,7 +57,7 @@ class CourseOutlineServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new CourseManagementService(courses, modules, lessons, contents, contentReferences, courseInstructors, users, enrollments);
+        service = new CourseManagementService(courses, modules, lessons, contents, contentReferences, courseInstructors, users, enrollments, objectStorage);
         course = new Course();
         course.setId(courseId);
         when(courses.findById(courseId)).thenReturn(Optional.of(course));

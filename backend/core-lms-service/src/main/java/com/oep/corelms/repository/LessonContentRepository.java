@@ -20,6 +20,9 @@ public interface LessonContentRepository extends JpaRepository<LessonContent, UU
     List<LessonContent> findByLessonIdOrderByPositionAsc(UUID lessonId);
     Optional<LessonContent> findByIdAndLessonId(UUID id, UUID lessonId);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select c from LessonContent c where c.id = :id")
+    Optional<LessonContent> findByIdForUpdate(@Param("id") UUID id);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select c from LessonContent c where c.id = :id and c.lesson.id = :lessonId")
     Optional<LessonContent> findByIdAndLessonIdForUpdate(@Param("id") UUID id, @Param("lessonId") UUID lessonId);
     boolean existsByLessonIdAndPosition(UUID lessonId, int position);

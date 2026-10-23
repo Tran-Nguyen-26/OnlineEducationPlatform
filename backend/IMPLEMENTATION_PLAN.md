@@ -8,10 +8,10 @@ This file tracks code implementation in the repository. A design/API contract is
 | --- | --- | --- |
 | M2.1 Course, module and lesson CRUD | Implemented; manual API smoke verified | Create/read/list/update paths for courses, modules and lessons passed against local PostgreSQL on 2026-10-22. Full backend Maven build passed with tests skipped; automated tests remain outstanding. See scope and limits below. |
 | M2.2 Reordering modules and lessons | Implemented | Complete-permutation APIs, parent-row locks, collision-safe two-phase position updates, and unique parent-position constraints added. Seven service unit tests pass; DB concurrency/API integration checks remain outstanding. |
-| M2.3 Lesson TEXT/LINK content CRUD | Implemented | TEXT/LINK list/create/read/update/delete available to OWNER/CO_INSTRUCTOR. Six service unit tests and gateway API smoke checks against local PostgreSQL pass. File operations and student entitlement reads stay in M2.5/M2.6. |
+| M2.3 Lesson content CRUD | Implemented | TEXT/LINK list/create/read/update/delete and file metadata creation are available to OWNER/CO_INSTRUCTOR. Six service unit tests and gateway API smoke checks against local PostgreSQL passed; file storage operations are delivered in M2.6. |
 | M2.4 Course lifecycle and instructor management | Implemented; unit and API smoke verified | Owner publish/unpublish/archive/restore and ADMIN disable/enable endpoints added; instructor list/add/remove added. Publish uses the OpenAPI's provisional readiness rule (at least one lesson and one AVAILABLE content item). Nine M2.4 unit tests pass, and direct Core LMS API smoke checks against PostgreSQL pass. Student instructor-list reads are covered provisionally by M2.5; ownership transfer remains out of scope. |
 | M2.5 Outline and enrollment-aware student access | Implemented provisionally; policy alignment pending | Anonymous PUBLIC + PUBLISHED outline previews and course-manager reads work in all states. Student course details, PRIVATE outlines, instructor lists, module/lesson reads and AVAILABLE content reads require an ACTIVE enrollment in a PUBLISHED course. COMPLETED access and final M3 entitlement ownership/failure semantics remain open. |
-| M2.6 File storage and signed URLs | Blocked on contract | `complete-upload` currently asks the caller for `object_key` while the upload response intentionally hides it. Storage provider, limits and URL TTLs also need a decision. |
+| M2.6 File storage and signed URLs | Implemented; unit and gateway/PostgreSQL/storage smoke verified | Server-managed opaque object keys, S3-compatible storage, 100 MiB/MIME policy, 10-minute PUT and 5-minute GET URLs, and metadata verification before availability. RustFS is used for local development; AWS S3 SDK adapter supports S3-compatible deployment. |
 | M2.7 Cross-module deletion/reference checks | Blocked on M3/M5/L4 integration | Lesson deletion must account for progress, quiz and assignment references. |
 | M2.8 Integration tests, API contract review and deployment | Not started | To be done after the implementation slices and shared contracts are ready. |
 
@@ -66,6 +66,17 @@ Capacity changes and PUBLIC/PRIVATE visibility changes are rejected by course PA
 - Student reads of non-preview course details, outlines, instructor lists, modules, lessons and lesson contents use the local enrollment table and require an ACTIVE enrollment in a PUBLISHED course. Student content lists/details include only `AVAILABLE` items. COMPLETED remains denied provisionally.
 - Read authorization runs against the primary database so replication lag cannot preserve stale ACTIVE enrollment or PUBLISHED state. Public catalog reads remain eligible for the read replica; course details, outlines and learning reads use the primary for authorization.
 - Final COMPLETED policy, M3 entitlement service ownership, and dependency-failure mapping remain pending. PRIVATE enrollment still relies on L3 completing its invite-code flow before creating the enrollment row.
+
+## M2.6 delivered scope
+
+- File content metadata is created in `PENDING`; allowed content types are VIDEO, PDF, SLIDE, DOCUMENT and FILE with MIME allow-lists. Maximum declared and uploaded size is 100 MiB.
+- The server generates an opaque random object key and never returns it in API responses. OWNER/CO_INSTRUCTOR can request a presigned PUT URL (10-minute default) and must send the declared `Content-Type`.
+- `POST /api/v1/contents/{contentId}/complete-upload` has no request body. The service checks storage object existence, size and `Content-Type`, deletes invalid uploads, and only then marks content `AVAILABLE`.
+- OWNER/CO_INSTRUCTOR/ADMIN and provisionally ACTIVE students of PUBLISHED courses can request a presigned GET URL (5-minute default) for AVAILABLE files. Student access follows the M2.5 local-enrollment policy. Existing signed URLs may remain valid until expiry.
+- File deletion removes the stored object before removing metadata. Storage errors fail the operation rather than silently leaving a successful metadata deletion.
+- AWS SDK v2 backs the S3-compatible `ObjectStorageService`; local Docker Compose uses RustFS. Storage endpoint, bucket, credentials and URL TTLs are environment-configurable. Production deployments must supply their own credentials and storage endpoint.
+- `mvn -pl core-lms-service -am test` passed on 2026-10-23: 35 tests, no failures/errors. Gateway API smoke testing with PostgreSQL and RustFS verified metadata creation, oversize rejection, direct PUT, pending-download denial, HEAD verification, publishing, student entitlement checks and byte-identical signed GET download. Smoke-test users, courses and objects were removed afterward.
+- Current limits: uploads use a single presigned PUT (no multipart/resumable transfer); size is authoritatively checked after upload and oversized objects are deleted at completion. Content type is checked from storage metadata; magic-byte inspection, malware scanning and immediate revocation of issued URLs are not implemented.
 
 ## Implementation notes
 

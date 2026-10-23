@@ -27,6 +27,24 @@ services:
     image: redis:7
     ports: ["6379:6379"]
 
+  rustfs:
+    image: rustfs/rustfs:1.0.3
+    command: ["/data"]
+    environment:
+      RUSTFS_ACCESS_KEY: oep
+      RUSTFS_SECRET_KEY: oep-minio-secret
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_OBS_LOGGER_LEVEL: error
+      RUSTFS_OBS_LOG_DIRECTORY: /var/log/rustfs/
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - rustfsdata:/data
+      - rustfslogs:/var/log/rustfs
+
   rabbitmq:
     image: rabbitmq:3-management
     environment:
@@ -37,3 +55,5 @@ services:
 volumes:
   pgdata:
   pgdata-replica:
+  rustfsdata:
+  rustfslogs:

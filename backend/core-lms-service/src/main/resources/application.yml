@@ -19,6 +19,14 @@ spring:
     password: ${RABBIT_PASSWORD:oep}
 
 oep:
+  storage:
+    endpoint: ${OEP_STORAGE_ENDPOINT:http://localhost:9000}
+    access-key: ${OEP_STORAGE_ACCESS_KEY:oep}
+    secret-key: ${OEP_STORAGE_SECRET_KEY:oep-minio-secret}
+    bucket: ${OEP_STORAGE_BUCKET:oep-course-content}
+    region: ${OEP_STORAGE_REGION:us-east-1}
+    upload-url-ttl-seconds: ${OEP_STORAGE_UPLOAD_URL_TTL_SECONDS:600}
+    access-url-ttl-seconds: ${OEP_STORAGE_ACCESS_URL_TTL_SECONDS:300}
   datasource:
     routing-enabled: true
     primary:
