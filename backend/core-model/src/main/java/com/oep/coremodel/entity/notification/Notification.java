@@ -18,7 +18,8 @@ import java.util.UUID;
 @Table(
     name = "notifications",
     indexes = {
-        @Index(name = "idx_notifications_user_id_is_read_created_at", columnList = "user_id, is_read, created_at")
+        @Index(name = "idx_notifications_user_id_is_read_created_at", columnList = "user_id, is_read, created_at"),
+        @Index(name = "idx_notifications_user_id_created_at", columnList = "user_id, created_at")
     },
     uniqueConstraints = {
         @UniqueConstraint(name = "uq_notifications_dedupe_key", columnNames = {"dedupe_key"})

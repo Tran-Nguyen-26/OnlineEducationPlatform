@@ -23,13 +23,13 @@ CREATE TABLE IF NOT EXISTS notifications (
     CONSTRAINT uq_notifications_dedupe_key UNIQUE (dedupe_key)
 );
 
--- Core composite index for fast inbox polling (user_id, is_read, created_at)
+-- Core composite index for fast inbox polling of unread notifications (user_id, is_read, created_at)
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id_is_read_created_at
 ON notifications (user_id, is_read, created_at DESC);
 
--- Unique index enforcing deduplication across retried workers
-CREATE UNIQUE INDEX IF NOT EXISTS uq_notifications_dedupe_key
-ON notifications (dedupe_key);
+-- Secondary index for querying all user notifications regardless of read state
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id_created_at
+ON notifications (user_id, created_at DESC);
 
 -- Partial index for 90-day read notifications archival/cleanup cron
 CREATE INDEX IF NOT EXISTS idx_notifications_cleanup
@@ -92,9 +92,6 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
     reminder_before_minutes INT DEFAULT 1440,
     CONSTRAINT uq_notification_preferences_user_id_event_type UNIQUE (user_id, event_type)
 );
-
-CREATE UNIQUE INDEX IF NOT EXISTS uq_notification_preferences_user_id_event_type
-ON notification_preferences (user_id, event_type);
 
 CREATE INDEX IF NOT EXISTS idx_notification_preferences_user_id
 ON notification_preferences (user_id);

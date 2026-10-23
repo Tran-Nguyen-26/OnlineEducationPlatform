@@ -9,6 +9,8 @@ import com.oep.coremodel.entity.system.AuditLog;
 import com.oep.coremodel.enums.AuditAction;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,8 +57,8 @@ public class AuditService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public AuditLog record(UUID actorId, AuditAction action, String targetType, UUID targetId, Object metadata) {
-        if (actorId == null || action == null || targetType == null || targetId == null) {
-            log.warn("Skipping audit log recording: mandatory parameter is null (actorId={}, action={}, targetType={}, targetId={})",
+        if (actorId == null || action == null || targetType == null || targetType.isBlank() || targetId == null) {
+            log.warn("Skipping audit log recording: mandatory parameter is null or blank (actorId={}, action={}, targetType={}, targetId={})",
                     actorId, action, targetType, targetId);
             return null;
         }
@@ -76,7 +78,7 @@ public class AuditService {
             AuditLog logEntry = new AuditLog();
             logEntry.setActor(actor);
             logEntry.setAction(action);
-            logEntry.setTargetType(targetType);
+            logEntry.setTargetType(targetType.trim());
             logEntry.setTargetId(targetId);
             logEntry.setMetadata(jsonMetadata);
 
@@ -110,6 +112,18 @@ public class AuditService {
     }
 
     /**
+     * Retrieves paginated audit trail records for a specific actor, ordered by creation time descending.
+     *
+     * @param actorId  User UUID of the actor
+     * @param pageable Pagination and sorting specifications
+     * @return Page of matching audit logs
+     */
+    @Transactional(readOnly = true)
+    public Page<AuditLog> getLogsByActor(UUID actorId, Pageable pageable) {
+        return auditLogRepository.findByActorIdOrderByCreatedAtDesc(actorId, pageable);
+    }
+
+    /**
      * Retrieves audit trail records for a specific actor, ordered by creation time descending.
      *
      * @param actorId User UUID of the actor
@@ -118,6 +132,19 @@ public class AuditService {
     @Transactional(readOnly = true)
     public List<AuditLog> getLogsByActor(UUID actorId) {
         return auditLogRepository.findByActorIdOrderByCreatedAtDesc(actorId);
+    }
+
+    /**
+     * Retrieves paginated audit trail records for a specific target entity, ordered by creation time descending.
+     *
+     * @param targetType Type name of the target
+     * @param targetId   UUID of the target
+     * @param pageable   Pagination and sorting specifications
+     * @return Page of matching audit logs
+     */
+    @Transactional(readOnly = true)
+    public Page<AuditLog> getLogsByTarget(String targetType, UUID targetId, Pageable pageable) {
+        return auditLogRepository.findByTargetTypeAndTargetIdOrderByCreatedAtDesc(targetType, targetId, pageable);
     }
 
     /**
@@ -130,6 +157,18 @@ public class AuditService {
     @Transactional(readOnly = true)
     public List<AuditLog> getLogsByTarget(String targetType, UUID targetId) {
         return auditLogRepository.findByTargetTypeAndTargetIdOrderByCreatedAtDesc(targetType, targetId);
+    }
+
+    /**
+     * Retrieves paginated audit trail records for a specific audit action, ordered by creation time descending.
+     *
+     * @param action   Classified audit action
+     * @param pageable Pagination and sorting specifications
+     * @return Page of matching audit logs
+     */
+    @Transactional(readOnly = true)
+    public Page<AuditLog> getLogsByAction(AuditAction action, Pageable pageable) {
+        return auditLogRepository.findByActionOrderByCreatedAtDesc(action, pageable);
     }
 
     /**

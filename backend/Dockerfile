@@ -45,7 +45,7 @@ RUN addgroup -S -g 10001 appgroup && \
 WORKDIR /app
 
 # Copy executable jar from builder
-COPY --from=builder --chown=appuser:appgroup /workspace/core-lms-service/target/core-lms-service-0.1.0-SNAPSHOT.jar app.jar
+COPY --from=builder --chown=appuser:appgroup /workspace/core-lms-service/target/core-lms-service-*.jar app.jar
 
 # Switch to non-root user
 USER appuser:appgroup
@@ -57,10 +57,12 @@ EXPOSE 8081
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD wget -q --spider http://localhost:8081/actuator/health || exit 1
 
-# Optimized JVM memory and GC flags for container environments
+# Optimized JVM memory, GC, and diagnostic flags for container environments
 ENTRYPOINT ["java", \
   "-XX:+UseG1GC", \
   "-XX:MaxRAMPercentage=75.0", \
+  "-XX:+HeapDumpOnOutOfMemoryError", \
+  "-XX:HeapDumpPath=/tmp/heapdump.hprof", \
   "-Djava.security.egd=file:/dev/./urandom", \
   "-jar", \
   "app.jar"]

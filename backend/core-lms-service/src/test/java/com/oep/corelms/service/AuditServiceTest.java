@@ -16,6 +16,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Map;
@@ -137,13 +141,29 @@ class AuditServiceTest {
     }
 
     @Test
-    @DisplayName("Should skip and return null when mandatory parameters are null")
+    @DisplayName("Should skip and return null when mandatory parameters are null or blank")
     void record_MissingMandatoryFields_SkipsAndReturnsNull() {
         assertNull(auditService.record(null, AuditAction.DISABLE_USER, "USER", targetId, null));
         assertNull(auditService.record(actorId, null, "USER", targetId, null));
         assertNull(auditService.record(actorId, AuditAction.DISABLE_USER, null, targetId, null));
+        assertNull(auditService.record(actorId, AuditAction.DISABLE_USER, "", targetId, null));
+        assertNull(auditService.record(actorId, AuditAction.DISABLE_USER, "   ", targetId, null));
         assertNull(auditService.record(actorId, AuditAction.DISABLE_USER, "USER", null, null));
         verifyNoInteractions(auditLogRepository);
+    }
+
+    @Test
+    @DisplayName("Should query audit logs by actorId with pagination")
+    void getLogsByActor_WithPagination_CallsRepository() {
+        Pageable pageable = PageRequest.of(0, 10);
+        AuditLog log1 = new AuditLog();
+        Page<AuditLog> page = new PageImpl<>(List.of(log1), pageable, 1);
+        when(auditLogRepository.findByActorIdOrderByCreatedAtDesc(actorId, pageable)).thenReturn(page);
+
+        Page<AuditLog> result = auditService.getLogsByActor(actorId, pageable);
+
+        assertEquals(1, result.getTotalElements());
+        verify(auditLogRepository).findByActorIdOrderByCreatedAtDesc(actorId, pageable);
     }
 
     @Test
@@ -159,6 +179,21 @@ class AuditServiceTest {
     }
 
     @Test
+    @DisplayName("Should query audit logs by targetType and targetId with pagination")
+    void getLogsByTarget_WithPagination_CallsRepository() {
+        Pageable pageable = PageRequest.of(0, 10);
+        AuditLog log1 = new AuditLog();
+        Page<AuditLog> page = new PageImpl<>(List.of(log1), pageable, 1);
+        when(auditLogRepository.findByTargetTypeAndTargetIdOrderByCreatedAtDesc("COURSE", targetId, pageable))
+                .thenReturn(page);
+
+        Page<AuditLog> result = auditService.getLogsByTarget("COURSE", targetId, pageable);
+
+        assertEquals(1, result.getTotalElements());
+        verify(auditLogRepository).findByTargetTypeAndTargetIdOrderByCreatedAtDesc("COURSE", targetId, pageable);
+    }
+
+    @Test
     @DisplayName("Should query audit logs by targetType and targetId")
     void getLogsByTarget_CallsRepository() {
         AuditLog log1 = new AuditLog();
@@ -169,6 +204,21 @@ class AuditServiceTest {
 
         assertEquals(1, logs.size());
         verify(auditLogRepository).findByTargetTypeAndTargetIdOrderByCreatedAtDesc("COURSE", targetId);
+    }
+
+    @Test
+    @DisplayName("Should query audit logs by action with pagination")
+    void getLogsByAction_WithPagination_CallsRepository() {
+        Pageable pageable = PageRequest.of(0, 10);
+        AuditLog log1 = new AuditLog();
+        Page<AuditLog> page = new PageImpl<>(List.of(log1), pageable, 1);
+        when(auditLogRepository.findByActionOrderByCreatedAtDesc(AuditAction.REGRADE, pageable))
+                .thenReturn(page);
+
+        Page<AuditLog> result = auditService.getLogsByAction(AuditAction.REGRADE, pageable);
+
+        assertEquals(1, result.getTotalElements());
+        verify(auditLogRepository).findByActionOrderByCreatedAtDesc(AuditAction.REGRADE, pageable);
     }
 
     @Test

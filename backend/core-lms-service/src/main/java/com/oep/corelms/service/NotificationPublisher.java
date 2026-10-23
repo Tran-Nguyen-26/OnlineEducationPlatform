@@ -113,6 +113,16 @@ public class NotificationPublisher {
             String actionUrl,
             Map<String, Object> extraMetadata
     ) {
+        if (recipientUserId == null) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "recipientUserId must not be null");
+        }
+        if (title == null || title.isBlank()) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "title must not be null or empty");
+        }
+        if (message == null || message.isBlank()) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "message must not be null or empty");
+        }
+
         String dedupeKey = computeDedupeKey(eventType, targetId, recipientUserId);
 
         Map<String, Object> payload = new HashMap<>();

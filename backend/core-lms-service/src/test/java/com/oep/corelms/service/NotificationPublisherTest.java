@@ -155,4 +155,82 @@ class NotificationPublisherTest {
         assertEquals(ErrorCode.VALIDATION_FAILED, ex.getCode());
         verify(outboxEventRepository, never()).save(any(OutboxEvent.class));
     }
+
+    @Test
+    @DisplayName("Should throw BusinessException when recipientUserId is null in publishNotificationEvent")
+    void publishNotificationEvent_NullRecipientUserId_ThrowsBusinessException() {
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                notificationPublisher.publishNotificationEvent(
+                        "ASSIGNMENT_GRADED",
+                        aggregateId,
+                        null,
+                        "Title",
+                        "Message",
+                        null,
+                        null
+                )
+        );
+        assertEquals(ErrorCode.VALIDATION_FAILED, ex.getCode());
+        assertTrue(ex.getMessage().contains("recipientUserId"));
+    }
+
+    @Test
+    @DisplayName("Should throw BusinessException when title is null or blank in publishNotificationEvent")
+    void publishNotificationEvent_NullOrBlankTitle_ThrowsBusinessException() {
+        BusinessException exNull = assertThrows(BusinessException.class, () ->
+                notificationPublisher.publishNotificationEvent(
+                        "ASSIGNMENT_GRADED",
+                        aggregateId,
+                        recipientUserId,
+                        null,
+                        "Message",
+                        null,
+                        null
+                )
+        );
+        assertEquals(ErrorCode.VALIDATION_FAILED, exNull.getCode());
+
+        BusinessException exBlank = assertThrows(BusinessException.class, () ->
+                notificationPublisher.publishNotificationEvent(
+                        "ASSIGNMENT_GRADED",
+                        aggregateId,
+                        recipientUserId,
+                        "   ",
+                        "Message",
+                        null,
+                        null
+                )
+        );
+        assertEquals(ErrorCode.VALIDATION_FAILED, exBlank.getCode());
+    }
+
+    @Test
+    @DisplayName("Should throw BusinessException when message is null or blank in publishNotificationEvent")
+    void publishNotificationEvent_NullOrBlankMessage_ThrowsBusinessException() {
+        BusinessException exNull = assertThrows(BusinessException.class, () ->
+                notificationPublisher.publishNotificationEvent(
+                        "ASSIGNMENT_GRADED",
+                        aggregateId,
+                        recipientUserId,
+                        "Title",
+                        null,
+                        null,
+                        null
+                )
+        );
+        assertEquals(ErrorCode.VALIDATION_FAILED, exNull.getCode());
+
+        BusinessException exBlank = assertThrows(BusinessException.class, () ->
+                notificationPublisher.publishNotificationEvent(
+                        "ASSIGNMENT_GRADED",
+                        aggregateId,
+                        recipientUserId,
+                        "Title",
+                        "   ",
+                        null,
+                        null
+                )
+        );
+        assertEquals(ErrorCode.VALIDATION_FAILED, exBlank.getCode());
+    }
 }

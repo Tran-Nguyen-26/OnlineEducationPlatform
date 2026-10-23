@@ -77,14 +77,18 @@ function mergeOpenApiSpecs() {
             const doc = load(content);
             if (!doc) continue;
 
-            // Merge paths
+            // Merge paths with collision detection
             if (doc.paths) {
                 for (const [route, methods] of Object.entries(doc.paths)) {
                     if (!merged.paths[route]) {
-                        merged.paths[route] = methods;
+                        merged.paths[route] = { ...methods };
                     } else {
-                        // Merge HTTP methods under same route
-                        merged.paths[route] = { ...merged.paths[route], ...methods };
+                        for (const [method, def] of Object.entries(methods)) {
+                            if (merged.paths[route][method]) {
+                                console.warn(`   ⚠️ Conflict detected: ${method.toUpperCase()} ${route} in ${file} overrides previous specification`);
+                            }
+                            merged.paths[route][method] = def;
+                        }
                     }
                 }
             }
