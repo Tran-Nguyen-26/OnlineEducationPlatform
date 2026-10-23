@@ -1,0 +1,625 @@
+Thời gian,Nhiệm vụ,Mô tả chi tiết,Vai trò,Deadline,Đầu ra,Hoàn thành,Thành viên đảm nhận,Ngoại lệ đã kiểm tra,Luồng
+Ngày 1–3 (3 ngày),[L0 · UI/UX] Design system và wireframe luồng chính,"1. Xây design system: 1 màu chính, 1 màu phụ, 4 màu trạng thái (success, warning, error, info), type scale 6 cấp (H1–caption), lưới 8 px và 12 component nền (Button, Input, Select, Checkbox, Card, Table, Modal, Toast, Tabs, Progress bar, Badge, Pagination), mỗi component đủ trạng thái default / hover / focus / disabled / error.
+2. Vẽ wireframe 12 luồng: đăng nhập, đăng ký, danh sách khóa học, chi tiết khóa học, trang học, course builder, làm quiz, nộp bài tập, dashboard giảng viên, thông báo, chat AI Tutor, quản trị Admin; mỗi luồng có sơ đồ chuyển màn hình.",UI/UX,,"1. Công việc: Xây design system: 1 màu chính, 1 màu phụ, 4 màu trạng thái (success, warning, error, info), type scale 6 cấp (H1–caption), lưới 8 px và 12 component nền (Button, Input, Select, Checkbox, Card, Table, Modal, Toast, Tabs, Progress bar, Badge, Pagination), mỗi component đủ trạng thái default / hover / focus / disabled / error.",☐,,,L0
+,,,,,"2. Công việc: Vẽ wireframe 12 luồng: đăng nhập, đăng ký, danh sách khóa học, chi tiết khóa học, trang học, course builder, làm quiz, nộp bài tập, dashboard giảng viên, thông báo, chat AI Tutor, quản trị Admin; mỗi luồng có sơ đồ chuyển màn hình.",☐,,,L0
+,,,,,"3. Figma: 1 file có page Design System với ≥ 12 component, mỗi component ≥ 4 trạng thái.",☐,,,L0
+,,,,,"4. Figma: ≥ 12 wireframe luồng chính kèm sơ đồ flow, đã được cả nhóm duyệt trong buổi họp cuối ngày 3.",☐,,,L0
+,,,,,"5. Ngoại lệ: bộ ≥ 5 trạng thái chuẩn dùng lại cho mọi màn hình (loading, empty, lỗi mạng, 403, 404).",☐,,,L0
+,,,,,"6. Phi chức năng: design token (màu, spacing, radius, font) xuất JSON; tương phản chữ thường ≥ 4.5:1 (WCAG AA); khung thiết kế cho 3 breakpoint 360 / 768 / 1280 px.",☐,,,L0
+Ngày 4–8 (5 ngày),"[L0 · UI/UX] Hi-fi: Auth, catalog, trang học, course builder","1. Thiết kế hi-fi 12 màn hình: đăng nhập, đăng ký, đổi mật khẩu bắt buộc, hồ sơ cá nhân, danh sách khóa học, chi tiết khóa học, Khóa học của tôi, lesson viewer (video / PDF / text / link), cây nội dung khóa học, course builder, quản lý nội dung bài, cấu hình quy tắc hoàn thành.
+2. Làm bản mobile 360 px cho 6 màn học viên chính và dựng 3 prototype click-through: (a) đăng ký → ghi danh → xem bài, (b) giảng viên tạo khóa → upload → xuất bản, (c) đổi mật khẩu lần đầu của Instructor.",UI/UX,,"1. Công việc: Thiết kế hi-fi 12 màn hình: đăng nhập, đăng ký, đổi mật khẩu bắt buộc, hồ sơ cá nhân, danh sách khóa học, chi tiết khóa học, Khóa học của tôi, lesson viewer (video / PDF / text / link), cây nội dung khóa học, course builder, quản lý nội dung bài, cấu hình quy tắc hoàn thành.",☐,Quốc,,L0
+,,,,,"2. Công việc: Làm bản mobile 360 px cho 6 màn học viên chính và dựng 3 prototype click-through: (a) đăng ký → ghi danh → xem bài, (b) giảng viên tạo khóa → upload → xuất bản, (c) đổi mật khẩu lần đầu của Instructor.",☐,,,L0
+,,,,,"3. Figma: 12 màn hình hi-fi bản desktop 1280 px, 6 màn bản mobile 360 px.",☐,,,L0
+,,,,,4. Figma: 3 prototype click-through chạy được từ đầu đến cuối.,☐,,,L0
+,,,,,"5. Ngoại lệ: mỗi màn có đủ loading / empty / error; lesson viewer thêm 3 trạng thái (URL hết hạn, file đang xử lý, mất mạng); course builder thêm trạng thái upload thất bại và hủy upload.",☐,,,L0
+,,,,,"6. Phi chức năng: spec bàn giao ghi rõ spacing, kích thước, trạng thái; ảnh minh họa mỗi ảnh ≤ 200 KB; bàn giao cho L1–L3 trước hết ngày 8.",☐,,,L0
+Ngày 9–15 (7 ngày),"[L0 · UI/UX] Hi-fi: Quiz, bài tập, dashboard, thông báo, AI Tutor, Admin","1. Thiết kế hi-fi 11 màn hình: làm quiz, kết quả quiz, soạn quiz, nộp bài tập, chấm bài tập, dashboard giảng viên, chuông và danh sách thông báo, chat AI Tutor, quản lý user (Admin), thống kê Admin, thống kê chi phí AI.
+2. Thiết kế riêng các trạng thái đặc thù: đồng hồ đếm ngược quiz (cảnh báo đỏ khi còn ≤ 60 giây), nộp muộn, hết giờ, AI bị khóa khi quiz đang làm, AI từ chối câu hỏi ngoài phạm vi.",UI/UX,,"1. Công việc: Thiết kế hi-fi 11 màn hình: làm quiz, kết quả quiz, soạn quiz, nộp bài tập, chấm bài tập, dashboard giảng viên, chuông và danh sách thông báo, chat AI Tutor, quản lý user (Admin), thống kê Admin, thống kê chi phí AI.",☐,,,L0
+,,,,,"2. Công việc: Thiết kế riêng các trạng thái đặc thù: đồng hồ đếm ngược quiz (cảnh báo đỏ khi còn ≤ 60 giây), nộp muộn, hết giờ, AI bị khóa khi quiz đang làm, AI từ chối câu hỏi ngoài phạm vi.",☐,,,L0
+,,,,,"3. Figma: 11 màn hình hi-fi bản desktop, 5 màn bản mobile (làm quiz, nộp bài, thông báo, chat AI, kết quả quiz).",☐,,,L0
+,,,,,"4. Ngoại lệ: ≥ 8 trạng thái đặc thù có thiết kế riêng (hết giờ, nộp trùng, nộp muộn, mất mạng khi làm quiz, AI bị khóa, AI từ chối, quá hạn mức AI, quiz bị khóa chỉnh sửa).",☐,,,L0
+,,,,,"5. Phi chức năng: spec bàn giao cho L1, L3, L4, L5 trước hết ngày 15; chữ tối thiểu 14 px, vùng bấm tối thiểu 44 × 44 px.",☐,,,L0
+,,,,,"6. Tài liệu: checklist UI QA 25 mục (khoảng cách, màu, trạng thái, responsive, chữ, bàn phím) dùng cho các đợt QA sau.",☐,,,L0
+Ngày 16–22 (7 ngày),[L0 · UI/UX] UI QA đợt 1: đối chiếu code với Figma,"1. Duyệt tất cả màn hình đã code (auth, catalog, course builder, trang học, hồ sơ) trên staging theo checklist 25 mục.
+2. Tạo issue có ảnh chụp đối chiếu Figma, gắn mức độ (cao / trung bình / thấp) và giao cho luồng sở hữu màn hình.",UI/UX,,"1. Công việc: Duyệt tất cả màn hình đã code (auth, catalog, course builder, trang học, hồ sơ) trên staging theo checklist 25 mục.",☐,,,L0
+,,,,,"2. Công việc: Tạo issue có ảnh chụp đối chiếu Figma, gắn mức độ (cao / trung bình / thấp) và giao cho luồng sở hữu màn hình.",☐,,,L0
+,,,,,"3. Tài liệu: danh sách issue UI đợt 1 trên Kanban, mỗi issue có ảnh và mức độ.",☐,,,L0
+,,,,,4. Test: ≥ 90% màn hình đã code được duyệt; 100% issue mức cao được phản hồi trong ≤ 2 ngày.,☐,,,L0
+,,,,,"5. Phi chức năng: kiểm tra 3 breakpoint (360 / 768 / 1280 px) và 2 trình duyệt (Chrome, Safari hoặc Firefox) cho mỗi màn.",☐,,,L0
+,,,,,6. Tài liệu: cập nhật design system với ≥ 3 trường hợp phát sinh.,☐,,,L0
+Ngày 23–29 (7 ngày),[L0 · UI/UX] UI QA đợt 2 và responsive / mobile,"1. Kiểm tra lại các issue đợt 1; duyệt các màn mới (quiz, bài tập, dashboard giảng viên, thông báo, chấm bài).
+2. Kiểm tra mobile (360 px), thao tác bàn phím (Tab, Enter, Esc) và tương phản màu trên toàn bộ màn đã code.",UI/UX,,"1. Công việc: Kiểm tra lại các issue đợt 1; duyệt các màn mới (quiz, bài tập, dashboard giảng viên, thông báo, chấm bài).",☐,,,L0
+,,,,,"2. Công việc: Kiểm tra mobile (360 px), thao tác bàn phím (Tab, Enter, Esc) và tương phản màu trên toàn bộ màn đã code.",☐,,,L0
+,,,,,3. Tài liệu: danh sách issue đợt 2 và trạng thái đã sửa; ≥ 80% issue đợt 1 đã đóng.,☐,,,L0
+,,,,,"4. Test: báo cáo responsive 360 / 768 / 1280 px cho ≥ 15 màn hình, mỗi màn có kết quả đạt / chưa đạt.",☐,,,L0
+,,,,,5. Phi chức năng: 0 lỗi tương phản mức nghiêm trọng (< 3:1) còn tồn tại; toàn bộ form thao tác được bằng bàn phím.,☐,,,L0
+Ngày 30–36 (7 ngày),"[L0 · UI/UX] Hoàn thiện trạng thái AI Tutor, accessibility và polish","1. Hoàn thiện thiết kế các trạng thái AI Tutor: đang sinh câu trả lời, trích dẫn nguồn (liên kết tới bài học), bị khóa vì quiz, bị tắt ở bài học, từ chối, hết hạn mức, lỗi.
+2. Rà soát accessibility toàn bộ: nhãn form, thứ tự focus, thông báo cho trình đọc màn hình (aria-live) ở toast và chat.",UI/UX,,"1. Công việc: Hoàn thiện thiết kế các trạng thái AI Tutor: đang sinh câu trả lời, trích dẫn nguồn (liên kết tới bài học), bị khóa vì quiz, bị tắt ở bài học, từ chối, hết hạn mức, lỗi.",☐,,,L0
+,,,,,"2. Công việc: Rà soát accessibility toàn bộ: nhãn form, thứ tự focus, thông báo cho trình đọc màn hình (aria-live) ở toast và chat.",☐,,,L0
+,,,,,3. Figma: cập nhật ≥ 7 trạng thái AI Tutor đã bàn giao cho L1.,☐,,,L0
+,,,,,4. Test: checklist accessibility 20 mục đã chạy trên ≥ 10 màn hình chính.,☐,,,L0
+,,,,,"5. Phi chức năng: kiểm tra bằng công cụ Lighthouse / axe, điểm accessibility ≥ 90 trên ≥ 5 trang chính.",☐,,,L0
+,,,,,"6. Tài liệu: danh sách polish ưu tiên giao lại cho các luồng, tối đa 15 mục.",☐,,,L0
+Ngày 37–43 (7 ngày),[L0 · UI/UX] Usability test và sửa UX,"1. Chọn 3–5 người ngoài nhóm (ít nhất 2 người đóng vai học viên, 1 người đóng vai giảng viên), giao 5 nhiệm vụ: ghi danh, xem bài, làm quiz, nộp bài, hỏi AI Tutor.
+2. Ghi nhận thời gian hoàn thành, số lỗi thao tác, điểm vướng và tổng hợp danh sách sửa ưu tiên.",UI/UX,,"1. Công việc: Chọn 3–5 người ngoài nhóm (ít nhất 2 người đóng vai học viên, 1 người đóng vai giảng viên), giao 5 nhiệm vụ: ghi danh, xem bài, làm quiz, nộp bài, hỏi AI Tutor.",☐,,,L0
+,,,,,"2. Công việc: Ghi nhận thời gian hoàn thành, số lỗi thao tác, điểm vướng và tổng hợp danh sách sửa ưu tiên.",☐,,,L0
+,,,,,"3. Tài liệu: báo cáo usability test (≥ 3 người, ≥ 5 nhiệm vụ mỗi người).",☐,,,L0
+,,,,,4. Test: tỷ lệ hoàn thành nhiệm vụ ≥ 80%; thời gian trung bình ghi danh → xem bài ≤ 2 phút.,☐,,,L0
+,,,,,"5. Tài liệu: danh sách sửa UX ≥ 10 mục, mỗi mục có người nhận và mức ưu tiên.",☐,,,L0
+,,,,,6. Phi chức năng: ghi lại các điểm gây khó hiểu để làm cơ sở cho hướng dẫn sử dụng.,☐,,,L0
+Ngày 44–50 (7 ngày),"[L0 · UI/UX] Slide demo, kịch bản demo và hướng dẫn sử dụng","1. Chuẩn bị bộ slide thuyết trình ≤ 20 slide (bài toán, kiến trúc, NFR, demo, kết quả load test, AI, chi phí, bài học) và kịch bản demo từng bước.
+2. Viết hướng dẫn sử dụng ngắn cho 3 vai trò (Student, Instructor, Admin), mỗi vai trò 1 trang có ảnh chụp.",UI/UX,,"1. Công việc: Chuẩn bị bộ slide thuyết trình ≤ 20 slide (bài toán, kiến trúc, NFR, demo, kết quả load test, AI, chi phí, bài học) và kịch bản demo từng bước.",☐,,,L0
+,,,,,"2. Công việc: Viết hướng dẫn sử dụng ngắn cho 3 vai trò (Student, Instructor, Admin), mỗi vai trò 1 trang có ảnh chụp.",☐,,,L0
+,,,,,"3. Tài liệu: bộ slide ≤ 20 slide, đã được cả nhóm duyệt.",☐,,,L0
+,,,,,"4. Tài liệu: kịch bản demo ≤ 15 phút, có bước, người thao tác và thời gian cho từng bước.",☐,,,L0
+,,,,,"5. Tài liệu: hướng dẫn sử dụng 3 vai trò, tổng ≤ 6 trang.",☐,,,L0
+,,,,,"6. Phi chức năng: kịch bản demo có phương án dự phòng cho ≥ 3 sự cố (mất mạng, tài khoản demo lỗi, AI chậm).",☐,,,L0
+Ngày 51–53 (3 ngày),[L0 · UI/UX] UI QA cuối trên production,"1. Duyệt toàn bộ màn hình trên môi trường production, đối chiếu Figma, ghi lỗi giao diện còn lại.
+2. Kiểm tra dữ liệu demo hiển thị đẹp (ảnh khóa học, tiêu đề, văn bản không bị tràn).",UI/UX,,"1. Công việc: Duyệt toàn bộ màn hình trên môi trường production, đối chiếu Figma, ghi lỗi giao diện còn lại.",☐,,,L0
+,,,,,"2. Công việc: Kiểm tra dữ liệu demo hiển thị đẹp (ảnh khóa học, tiêu đề, văn bản không bị tràn).",☐,,,L0
+,,,,,3. Tài liệu: danh sách lỗi cuối và trạng thái đã sửa; 0 lỗi mức cao còn tồn tại.,☐,,,L0
+,,,,,"4. Test: duyệt ≥ 25 màn hình trên production, 3 breakpoint.",☐,,,L0
+,,,,,5. Phi chức năng: 0 lỗi vỡ bố cục ở 360 px và 1280 px; thời gian tải trang chính (LCP) ≤ 2.5 giây trên mạng 4G giả lập.,☐,,,L0
+Ngày 1–3 (3 ngày),[L1 · Core] Khởi tạo project Spring Boot (modular monolith),"1. Tạo cấu trúc package theo module: iam, course, enrollment, quiz, assignment, notification, ai, common (8 package, mỗi module có controller / service / repository / entity / dto).
+2. Viết BaseEntity (id UUID, createdAt, updatedAt), ApiResponse, GlobalExceptionHandler, cấu hình HikariCP, profile dev / prod, docker-compose (Postgres 16 + pgvector, LocalStack cho S3 / SQS), Flyway baseline.",Code BE,,"1. Công việc: Tạo cấu trúc package theo module: iam, course, enrollment, quiz, assignment, notification, ai, common (8 package, mỗi module có controller / service / repository / entity / dto).",☐,,,L1
+,,,,,"2. Công việc: Viết BaseEntity (id UUID, createdAt, updatedAt), ApiResponse, GlobalExceptionHandler, cấu hình HikariCP, profile dev / prod, docker-compose (Postgres 16 + pgvector, LocalStack cho S3 / SQS), Flyway baseline.",☐,,,L1
+,,,,,"3. BE: repo build thành công trong ≤ 3 phút; docker compose up chạy đủ 3 dịch vụ (Postgres, LocalStack, app); /actuator/health trả UP trong ≤ 60 giây sau khi khởi động.",☐,,,L1
+,,,,,4. NF: Đảm bảo clean architectture,☐,,,
+,,,,,"5. Ngoại lệ: handler chuẩn cho 5 nhóm lỗi — validation 400, không tìm thấy 404, xung đột 409, cấm truy cập 403, lỗi hệ thống 500 — với mã lỗi thống nhất dạng JSON {code, message, traceId}; 500 không lộ stack trace.",☐,,,L1
+,,,,,"6. Tối ưu: HikariCP maximumPoolSize 20, connectionTimeout 3 giây, query timeout 5 giây, ghi trong application.yml.",☐,,,L1
+,,,,,"7. Test: ≥ 5 test cho exception handler (mỗi loại lỗi 1 test), CI chạy xanh.",☐,,,L1
+Ngày 1–3 (3 ngày),"[L1 · M1 IAM] Entity, enum dùng chung và migration Module 1","1. Tạo toàn bộ 19 enum dùng chung theo đặc tả (user_role, account_status, auth_provider, …) và entity + repository cho 4 bảng users, user_profiles, auth_identities, refresh_tokens.
+2. Viết Flyway V1 tạo 4 bảng đúng ràng buộc (UNIQUE email, FK, default, timestamptz) và push trong ngày 3 để các luồng khác dùng chung enum.",Code BE,,"1. Công việc: Tạo toàn bộ 19 enum dùng chung theo đặc tả (user_role, account_status, auth_provider, …) và entity + repository cho 4 bảng users, user_profiles, auth_identities, refresh_tokens.",☐,,,L1
+,,,,,"2. Công việc: Viết Flyway V1 tạo 4 bảng đúng ràng buộc (UNIQUE email, FK, default, timestamptz) và push trong ngày 3 để các luồng khác dùng chung enum.",☐,,,L1
+,,,,,3. BE: 19 enum và 4 entity build được; migration V1 chạy thành công trên DB trống trong ≤ 10 giây.,☐,,,L1
+,,,,,4. Test: ≥ 4 test mapping entity bằng Testcontainers (1 test mỗi bảng).,☐,,,L1
+,,,,,5. Ngoại lệ: email trùng bị chặn bằng UNIQUE và trả 409; email được chuẩn hóa chữ thường trước khi lưu.,☐,,,L1
+,,,,,6. Phi chức năng: index UNIQUE trên users.email và refresh_tokens.token_hash đã tạo; tên migration theo quy ước V{module}_{số}__mô_tả.,☐,,,L1
+Ngày 4–8 (5 ngày),"[L1 · M1 IAM] Auth backend: đăng ký, đăng nhập, refresh, đăng xuất","1. Đăng ký Student (mật khẩu băm Argon2id hoặc bcrypt), đăng nhập trả access token 15 phút và refresh token 14 ngày (lưu hash SHA-256), refresh có xoay vòng (rotation), đăng xuất thu hồi token, đổi mật khẩu thu hồi toàn bộ refresh token.
+2. Phân quyền RBAC 3 vai trò (STUDENT / INSTRUCTOR / ADMIN) bằng annotation; chặn mọi API khác khi must_change_password = true.",Code BE,,"1. Công việc: Đăng ký Student (mật khẩu băm Argon2id hoặc bcrypt), đăng nhập trả access token 15 phút và refresh token 14 ngày (lưu hash SHA-256), refresh có xoay vòng (rotation), đăng xuất thu hồi token, đổi mật khẩu thu hồi toàn bộ refresh token.",☐,,,L1
+,,,,,2. Công việc: Phân quyền RBAC 3 vai trò (STUDENT / INSTRUCTOR / ADMIN) bằng annotation; chặn mọi API khác khi must_change_password = true.,☐,,,L1
+,,,,,"3. BE: 5 endpoint /auth/register, /login, /refresh, /logout, /change-password chạy được, có OpenAPI.",☐,,,L1
+,,,,,"4. Test: ≥ 20 test (unit + integration), coverage service IAM ≥ 70%.",☐,,,L1
+,,,,,"5. Ngoại lệ: sai mật khẩu 401 (thông báo chung, không lộ email có tồn tại), tài khoản DISABLED 403, refresh token đã thu hồi hoặc hết hạn 401, dùng lại refresh token cũ thì thu hồi cả chuỗi phiên, email trùng 409.",☐,,,L1
+,,,,,6. Bảo mật: không log mật khẩu hay token; mật khẩu tối thiểu 8 ký tự; kiểm tra bằng test rằng response không chứa password_hash.,☐,,,L1
+,,,,,7. Tối ưu: p95 đăng nhập ≤ 500 ms tại 20 RPS (đo bằng k6 trên staging).,☐,,,L1
+Ngày 4–8 (5 ngày),"[L1 · FE shell] Layout, route guard, auth store và API client","1. Dựng layout chung (sidebar / topbar theo vai trò), route guard theo vai trò, auth store, axios interceptor tự refresh token, trang lỗi 403 / 404 / 500; sinh client TypeScript từ OpenAPI.
+2. Cấu hình mock server từ OpenAPI để các luồng khác phát triển song song; quy ước thư mục features/<module> cho 5 luồng.",Code FE,,"1. Công việc: Dựng layout chung (sidebar / topbar theo vai trò), route guard theo vai trò, auth store, axios interceptor tự refresh token, trang lỗi 403 / 404 / 500; sinh client TypeScript từ OpenAPI.",☐,,,L1
+,,,,,2. Công việc: Cấu hình mock server từ OpenAPI để các luồng khác phát triển song song; quy ước thư mục features/<module> cho 5 luồng.,☐,,,L1
+,,,,,"3. FE: app khung chạy được với 3 layout (Student, Instructor, Admin), 4 loại route guard, trang lỗi 403 / 404 / 500.",☐,,,L1
+,,,,,"4. Ngoại lệ: khi 5 request cùng nhận 401, chỉ gửi đúng 1 request refresh (single-flight); refresh thất bại thì chuyển về đăng nhập và giữ lại URL đang xem.",☐,,,L1
+,,,,,"5. Tối ưu: lazy load route theo module, bundle ban đầu ≤ 250 KB gzip.",☐,,,L1
+,,,,,6. Test: ≥ 6 test cho route guard và interceptor; CI lint + build FE xanh.,☐,,,L1
+Ngày 9–15 (7 ngày),[L1 · M1 IAM] Admin và onboarding Instructor (BE),"1. Admin tạo tài khoản Instructor kèm mật khẩu tạm (must_change_password = true), khóa / mở khóa tài khoản; mọi thao tác ghi audit_logs qua AuditService.
+2. Khi tài khoản bị DISABLED thì thu hồi toàn bộ refresh token và chặn cả access token còn hạn (kiểm tra trạng thái có cache ngắn).",Code BE,,"1. Công việc: Admin tạo tài khoản Instructor kèm mật khẩu tạm (must_change_password = true), khóa / mở khóa tài khoản; mọi thao tác ghi audit_logs qua AuditService.",☐,,,L1
+,,,,,2. Công việc: Khi tài khoản bị DISABLED thì thu hồi toàn bộ refresh token và chặn cả access token còn hạn (kiểm tra trạng thái có cache ngắn).,☐,,,L1
+,,,,,"3. BE: 4 endpoint /admin/users (tạo Instructor, disable, enable, danh sách có phân trang) kèm test, ≥ 10 test.",☐,,,L1
+,,,,,"4. Ngoại lệ: Admin không đổi role hay mật khẩu người khác (403), không tự khóa chính mình (409), tài khoản DISABLED bị chặn trong ≤ 60 giây kể cả khi access token còn hạn.",☐,,,L1
+,,,,,"5. Bảo mật: mỗi thao tác khóa / mở khóa có 1 dòng audit_logs (actor, target, lý do, thời điểm).",☐,,,L1
+,,,,,6. Tối ưu: cache trạng thái tài khoản TTL 60 giây; số truy vấn DB cho mỗi request đã xác thực ≤ 1.,☐,,,L1
+Ngày 9–15 (7 ngày),"[L1 · M1 IAM] Màn hình Auth, hồ sơ và quản lý user (FE)","1. Làm 6 màn hình: đăng nhập, đăng ký, bắt buộc đổi mật khẩu lần đầu, hồ sơ cá nhân (upload avatar bằng presigned URL), Admin quản lý user (danh sách, khóa / mở khóa), trạng thái lỗi.
+2. Nối với API thật, thay mock bằng backend M1.",Code FE,,"1. Công việc: Làm 6 màn hình: đăng nhập, đăng ký, bắt buộc đổi mật khẩu lần đầu, hồ sơ cá nhân (upload avatar bằng presigned URL), Admin quản lý user (danh sách, khóa / mở khóa), trạng thái lỗi.",☐,,,L1
+,,,,,"2. Công việc: Nối với API thật, thay mock bằng backend M1.",☐,,,L1
+,,,,,"3. FE: 6 màn hình theo Figma, dùng API thật.",☐,,,L1
+,,,,,"4. Ngoại lệ: hiển thị lỗi theo mã (401 sai mật khẩu, 409 email trùng, 429 quá số lần thử), chống submit đúp (khóa nút khi đang gửi), chuyển hướng bắt buộc đổi mật khẩu.",☐,,,L1
+,,,,,5. Tối ưu: validation phía client giảm ≥ 50% request lỗi 400; avatar giới hạn ≤ 2 MB.,☐,,,L1
+,,,,,6. Test: ≥ 8 test component và 1 E2E (đăng ký → đăng nhập → đăng xuất).,☐,,,L1
+Ngày 9–15 (7 ngày),"[L1 · Security] API gateway: filter xác thực, rate limit và correlation-id","1. Dựng filter chain tập trung: xác thực JWT, rate limit (đăng nhập 10 request / phút / IP và khóa tạm 15 phút sau 5 lần sai; chung 100 request / phút / người dùng), correlation-id X-Request-Id, security headers, CORS whitelist, validation đầu vào.
+2. Viết ADR so sánh AWS API Gateway với ALB + filter trong ứng dụng (chi phí, độ trễ, độ phức tạp).",Security,,"1. Công việc: Dựng filter chain tập trung: xác thực JWT, rate limit (đăng nhập 10 request / phút / IP và khóa tạm 15 phút sau 5 lần sai; chung 100 request / phút / người dùng), correlation-id X-Request-Id, security headers, CORS whitelist, validation đầu vào.",☐,,,L1
+,,,,,"2. Công việc: Viết ADR so sánh AWS API Gateway với ALB + filter trong ứng dụng (chi phí, độ trễ, độ phức tạp).",☐,,,L1
+,,,,,3. API Gateway: filter chain hoạt động cho mọi module; mọi response có header X-Request-Id; log có traceId.,☐,,,L1
+,,,,,4. Ngoại lệ: vượt rate limit trả 429 kèm Retry-After; CORS chỉ cho phép đúng domain frontend; request có body > 1 MB bị từ chối 413.,☐,,,L1
+,,,,,5. Test: ≥ 8 test rate limit và CORS; thử 200 request đăng nhập sai trong 1 phút thì ≥ 90% bị 429.,☐,,,L1
+,,,,,"6. Tài liệu: ADR cổng API (≥ 2 phương án, có bảng chi phí hàng tháng ước tính).",☐,,,L1
+Ngày 16–22 (7 ngày),[L1 · Core] Kiểm tra ranh giới module bằng ArchUnit,"1. Viết ArchUnit test cấm module A truy cập repository hoặc entity của module B; chỉ được đi qua các interface đã chốt (EnrollmentChecker, CourseAccessGuard, AuditService, NotificationPublisher).
+2. Lập danh sách file dùng chung (pom.xml, SecurityConfig, application.yml) với người chịu trách nhiệm và review chéo PR giữa 5 luồng.",Code BE,,"1. Công việc: Viết ArchUnit test cấm module A truy cập repository hoặc entity của module B; chỉ được đi qua các interface đã chốt (EnrollmentChecker, CourseAccessGuard, AuditService, NotificationPublisher).",☐,,,L1
+,,,,,"2. Công việc: Lập danh sách file dùng chung (pom.xml, SecurityConfig, application.yml) với người chịu trách nhiệm và review chéo PR giữa 5 luồng.",☐,,,L1
+,,,,,3. BE: ≥ 6 luật ArchUnit chạy trong CI; PR vi phạm ranh giới bị CI chặn.,☐,,,L1
+,,,,,4. Test: 0 vi phạm ranh giới tại thời điểm hết ngày 22.,☐,,,L1
+,,,,,5. Phi chức năng: thời gian CI ≤ 10 phút; mỗi PR có ≥ 1 reviewer; 100% PR vào main qua review.,☐,,,L1
+,,,,,6. Tài liệu: danh sách file dùng chung và người chịu trách nhiệm.,☐,,,L1
+Ngày 23–29 (7 ngày),[L1 · M1 IAM] Admin: thống kê toàn trường và vô hiệu hóa khóa học (BE + FE),"1. BE: endpoint thống kê toàn trường (tổng khóa học, ghi danh, hoàn thành) và chuyển khóa học sang DISABLED kèm lý do bắt buộc, ghi audit_logs.
+2. FE: dashboard Admin (số liệu, danh sách khóa học, nút vô hiệu hóa); Admin chỉ xem, không sửa nội dung bài giảng.",Code FE+BE,,"1. Công việc: BE: endpoint thống kê toàn trường (tổng khóa học, ghi danh, hoàn thành) và chuyển khóa học sang DISABLED kèm lý do bắt buộc, ghi audit_logs.",☐,,,L1
+,,,,,"2. Công việc: FE: dashboard Admin (số liệu, danh sách khóa học, nút vô hiệu hóa); Admin chỉ xem, không sửa nội dung bài giảng.",☐,,,L1
+,,,,,3. BE: /admin/stats và /admin/courses/{id}/disable kèm ≥ 8 test.,☐,,,L1
+,,,,,4. FE: dashboard Admin theo Figma với ≥ 4 thẻ số liệu và 1 bảng khóa học có phân trang 20 dòng / trang.,☐,,,L1
+,,,,,5. Ngoại lệ: khóa DISABLED biến mất khỏi catalog trong ≤ 60 giây và học viên mất quyền xem ngay; thiếu lý do trả 400; thao tác của người không phải Admin trả 403.,☐,,,L1
+,,,,,"6. Tối ưu: số liệu thống kê tính bằng 1 truy vấn tổng hợp, cache 60 giây, p95 ≤ 300 ms với 1000 khóa học.",☐,,,L1
+Ngày 30–36 (7 ngày),[L1 · M10 AI] AI chat API và guardrails (BE),"1. Tạo ai_conversations, ai_messages; prompt template bắt buộc trích dẫn cited_chunk_ids; gọi LLM dạng stream (SSE); ghi prompt_tokens, completion_tokens, latency_ms, is_refused cho mỗi tin nhắn.
+2. Guardrails: khóa hoàn toàn khi học viên có quiz IN_PROGRESS; yêu cầu enrollment ACTIVE; từ chối câu hỏi ngoài phạm vi khóa học; chống prompt injection (tách system prompt và ngữ cảnh, coi nội dung tài liệu là dữ liệu); giảng viên bật / tắt AI theo bài học.",AI,,"1. Công việc: Tạo ai_conversations, ai_messages; prompt template bắt buộc trích dẫn cited_chunk_ids; gọi LLM dạng stream (SSE); ghi prompt_tokens, completion_tokens, latency_ms, is_refused cho mỗi tin nhắn.",☐,,,L1
+,,,,,"2. Công việc: Guardrails: khóa hoàn toàn khi học viên có quiz IN_PROGRESS; yêu cầu enrollment ACTIVE; từ chối câu hỏi ngoài phạm vi khóa học; chống prompt injection (tách system prompt và ngữ cảnh, coi nội dung tài liệu là dữ liệu); giảng viên bật / tắt AI theo bài học.",☐,,,L1
+,,,,,"3. BE: /ai/conversations và /ai/conversations/{id}/messages (SSE) chạy được, ≥ 12 test.",☐,,,L1
+,,,,,"4. Ngoại lệ: quiz đang làm 403, LLM timeout sau 20 giây thì trả thông báo thân thiện và retry tối đa 2 lần, vượt hạn mức 30 câu hỏi / giờ / người dùng thì 429, tài liệu chứa lệnh giả mạo không làm lộ system prompt.",☐,,,L1
+,,,,,5. Bảo mật: 10 mẫu prompt injection trong bộ test đều bị chặn hoặc bị bỏ qua; học viên không đọc được hội thoại của người khác (403).,☐,,,L1
+,,,,,"6. Tối ưu: giới hạn context ≤ 4.000 token, cắt lịch sử còn 6 lượt gần nhất; first-token p95 ≤ 3 giây, trọn câu p95 ≤ 10 giây.",☐,,,L1
+Ngày 30–36 (7 ngày),[L1 · M10 AI] AI chat widget (FE),"1. Làm khung chat trong trang học: hiển thị streaming, trích dẫn dạng liên kết tới bài học, trạng thái bị khóa khi đang làm quiz, trạng thái từ chối và lỗi.
+2. Nối với API chat (SSE) và hiển thị lịch sử hội thoại khi mở lại.",Code FE,,"1. Công việc: Làm khung chat trong trang học: hiển thị streaming, trích dẫn dạng liên kết tới bài học, trạng thái bị khóa khi đang làm quiz, trạng thái từ chối và lỗi.",☐,,,L1
+,,,,,2. Công việc: Nối với API chat (SSE) và hiển thị lịch sử hội thoại khi mở lại.,☐,,,L1
+,,,,,"3. FE: chat widget theo Figma, tích hợp trong trang học, hỗ trợ ≥ 7 trạng thái.",☐,,,L1
+,,,,,"4. Ngoại lệ: mất kết nối giữa chừng cho phép gửi lại, AI bị khóa hiển thị lý do, bài học bị tắt AI hiển thị thông báo, chống gửi 2 câu hỏi cùng lúc.",☐,,,L1
+,,,,,5. Tối ưu: render streaming theo lô 50 ms để không giật; tải lịch sử ≤ 20 tin nhắn / lần.,☐,,,L1
+,,,,,6. Test: ≥ 6 test component và 1 E2E (hỏi → nhận trích dẫn → bấm vào bài học).,☐,,,L1
+Ngày 37–43 (7 ngày),[L1 · Security] Threat model và OWASP checklist,"1. Lập threat model STRIDE cho 5 luồng: đăng nhập, upload, quiz, bài tập, AI Tutor; rà theo OWASP ASVS (broken access control, IDOR, injection, cấu hình sai).
+2. Ghi mỗi rủi ro với mức độ, khả năng xảy ra và biện pháp giảm thiểu; tạo issue cho lỗ hổng phát hiện.",Security,,"1. Công việc: Lập threat model STRIDE cho 5 luồng: đăng nhập, upload, quiz, bài tập, AI Tutor; rà theo OWASP ASVS (broken access control, IDOR, injection, cấu hình sai).",☐,,,L1
+,,,,,"2. Công việc: Ghi mỗi rủi ro với mức độ, khả năng xảy ra và biện pháp giảm thiểu; tạo issue cho lỗ hổng phát hiện.",☐,,,L1
+,,,,,"3. Tài liệu: threat model có sơ đồ luồng dữ liệu và ≥ 15 rủi ro, mỗi rủi ro có mức độ và biện pháp.",☐,,,L1
+,,,,,4. Tài liệu: checklist OWASP ≥ 20 mục đã đánh giá đạt / chưa đạt.,☐,,,L1
+,,,,,5. Ngoại lệ: mỗi rủi ro mức cao có ≥ 1 test hoặc kiểm tra tương ứng.,☐,,,L1
+,,,,,6. Phi chức năng: 100% lỗ hổng mức cao có người nhận và hạn sửa trong ≤ 5 ngày.,☐,,,L1
+Ngày 37–43 (7 ngày),[L1 · Security] Kiểm thử phân quyền tự động,"1. Viết test ma trận 3 vai trò (Student / Instructor / Admin) × ≥ 40 endpoint; IDOR (học viên A đọc enrollment / attempt / bài nộp của B); JWT giả hoặc hết hạn; tái sử dụng refresh token; XSS ở text_content.
+2. Đưa bộ test vào CI để mọi PR đều chạy.",Security,,1. Công việc: Viết test ma trận 3 vai trò (Student / Instructor / Admin) × ≥ 40 endpoint; IDOR (học viên A đọc enrollment / attempt / bài nộp của B); JWT giả hoặc hết hạn; tái sử dụng refresh token; XSS ở text_content.,☐,,,L1
+,,,,,2. Công việc: Đưa bộ test vào CI để mọi PR đều chạy.,☐,,,L1
+,,,,,"3. Test: ≥ 120 case phân quyền (3 vai trò × ≥ 40 endpoint) chạy trong CI, thời gian ≤ 5 phút.",☐,,,L1
+,,,,,"4. Ngoại lệ: ≥ 12 case IDOR đều trả 403 hoặc 404 đúng quy ước, không lộ thông tin sự tồn tại.",☐,,,L1
+,,,,,5. Bảo mật: 5 mẫu XSS bị escape; JWT giả hoặc hết hạn trả 401 trong 100% case.,☐,,,L1
+,,,,,6. Tài liệu: báo cáo kết quả và danh sách lỗi đã sửa.,☐,,,L1
+Ngày 44–50 (7 ngày),[L1 · P3] Tài liệu Security và DevOps,"1. Tổng hợp threat model, IAM, CI/CD, containerization, IaC, chiến lược deploy và rollback thành tài liệu P3.
+2. Bổ sung bằng chứng: ảnh chụp pipeline, kết quả quét lỗ hổng, kết quả test phân quyền.",Docs / Kiến trúc,,"1. Công việc: Tổng hợp threat model, IAM, CI/CD, containerization, IaC, chiến lược deploy và rollback thành tài liệu P3.",☐,,,L1
+,,,,,"2. Công việc: Bổ sung bằng chứng: ảnh chụp pipeline, kết quả quét lỗ hổng, kết quả test phân quyền.",☐,,,L1
+,,,,,"3. Tài liệu: P3 hoàn chỉnh đủ 6 mục theo đề (threat model, IAM, CI/CD, containerization, IaC, deploy / rollback).",☐,,,L1
+,,,,,4. Tài liệu: ≥ 5 ảnh hoặc log bằng chứng đi kèm.,☐,,,L1
+,,,,,"5. Phi chức năng: tài liệu ≤ 20 trang, mọi số liệu có nguồn đo; được ≥ 2 thành viên review.",☐,,,L1
+Ngày 51–53 (3 ngày),[L1 · Security] Rà soát bảo mật cuối trên production,"1. Kiểm tra cấu hình production: secrets, CORS, rate limit, quyền IAM, S3 không public, log không lộ dữ liệu nhạy cảm.
+2. Chạy lại bộ test phân quyền và quét lỗ hổng trên bản phát hành.",Security,,"1. Công việc: Kiểm tra cấu hình production: secrets, CORS, rate limit, quyền IAM, S3 không public, log không lộ dữ liệu nhạy cảm.",☐,,,L1
+,,,,,2. Công việc: Chạy lại bộ test phân quyền và quét lỗ hổng trên bản phát hành.,☐,,,L1
+,,,,,3. Test: checklist bảo mật cuối 20 mục đạt 100%.,☐,,,L1
+,,,,,4. Ngoại lệ: 0 lỗ hổng mức cao hoặc nghiêm trọng còn mở.,☐,,,L1
+,,,,,"5. Phi chức năng: 0 secret trong repo (quét bằng công cụ); 0 endpoint không yêu cầu xác thực ngoài danh sách cho phép (login, register, health).",☐,,,L1
+Ngày 1–3 (3 ngày),[L2 · M2 Course] Viết OpenAPI và rà ERD Module 2,"1. Viết hợp đồng OpenAPI cho course, module, lesson, content, upload, access-url; rà ERD 4 tầng Course → Module → Lesson → Content và ma trận quyền Owner / Co-Instructor / Student.
+2. Thống nhất với L3 interface kiểm tra enrollment ACTIVE (EnrollmentChecker) và với L5 danh mục sự kiện phát ra.",Code BE,,"1. Công việc: Viết hợp đồng OpenAPI cho course, module, lesson, content, upload, access-url; rà ERD 4 tầng Course → Module → Lesson → Content và ma trận quyền Owner / Co-Instructor / Student.",☐,,,L2
+,,,,,2. Công việc: Thống nhất với L3 interface kiểm tra enrollment ACTIVE (EnrollmentChecker) và với L5 danh mục sự kiện phát ra.,☐,,,L2
+,,,,,"3. BE: openapi/m2-course.yaml được merge, ≥ 20 endpoint, mỗi endpoint có ví dụ request / response.",☐,,,L2
+,,,,,4. Tài liệu: ma trận quyền Module 2 (3 vai trò × các thao tác) được duyệt.,☐,,,L2
+,,,,,"5. Ngoại lệ: danh sách mã lỗi của module (403 Co-Instructor xóa khóa học, 409 đổi trạng thái vòng đời không hợp lệ, 413 / 415 khi upload) ghi trong OpenAPI.",☐,,,L2
+,,,,,"6. Phi chức năng: quy ước phân trang (mặc định 20, tối đa 100) và định dạng lỗi thống nhất với common.",☐,,,L2
+Ngày 4–8 (5 ngày),"[L2 · M2 Course] Entity và CRUD khóa học, chương, bài, nội dung text / link","1. Tạo entity, repository, migration V2 cho 6 bảng Module 2; CRUD course, course_modules (có module mặc định), lessons, lesson_contents loại TEXT / LINK; sắp xếp theo position; chuyển trạng thái DRAFT → PUBLISHED → ARCHIVED.
+2. Phân quyền Owner / Co-Instructor trong từng thao tác và ghi audit khi đổi trạng thái vòng đời.",Code BE,,"1. Công việc: Tạo entity, repository, migration V2 cho 6 bảng Module 2; CRUD course, course_modules (có module mặc định), lessons, lesson_contents loại TEXT / LINK; sắp xếp theo position; chuyển trạng thái DRAFT → PUBLISHED → ARCHIVED.",☐,Quốc,,L2
+,,,,,2. Công việc: Phân quyền Owner / Co-Instructor trong từng thao tác và ghi audit khi đổi trạng thái vòng đời.,☐,,,L2
+,,,,,"3. BE: API CRUD đầy đủ 4 tầng, ≥ 25 test, coverage service ≥ 70%.",☐,,,L2
+,,,,,4. Ngoại lệ: Co-Instructor xóa khóa học hoặc đổi chủ trả 403; xuất bản khóa không có bài học trả 409; position trùng được chuẩn hóa tự động.,☐,,,L2
+,,,,,"5. Tối ưu: lấy cây khóa học (≤ 10 chương, ≤ 100 bài) bằng ≤ 3 truy vấn (không N+1); p95 ≤ 300 ms.",☐,,,L2
+,,,,,6. Bảo mật: nội dung text_content được làm sạch HTML (sanitize) để chống XSS.,☐,,,L2
+Ngày 4–8 (5 ngày),[L2 · M10 AI] ADR kiến trúc AI Tutor và PoC,"1. Chọn LLM và embedding model (vector 1536 chiều theo đặc tả), thư viện trích xuất text (PDFBox / Tika), cách gọi LLM (streaming), chiến lược chunking 500–1000 token có overlap 100, ngưỡng từ chối.
+2. Làm PoC: nhúng 1 file PDF mẫu (≥ 20 trang) và truy vấn bằng pgvector với chỉ mục HNSW.",AI,,"1. Công việc: Chọn LLM và embedding model (vector 1536 chiều theo đặc tả), thư viện trích xuất text (PDFBox / Tika), cách gọi LLM (streaming), chiến lược chunking 500–1000 token có overlap 100, ngưỡng từ chối.",☐,,,L2
+,,,,,2. Công việc: Làm PoC: nhúng 1 file PDF mẫu (≥ 20 trang) và truy vấn bằng pgvector với chỉ mục HNSW.,☐,,,L2
+,,,,,"3. Tài liệu: ADR-AI-001 so sánh ≥ 2 LLM và ≥ 2 embedding model (chất lượng, chi phí / 1M token, độ trễ).",☐,,,L2
+,,,,,4. BE: PoC truy vấn cosine trả top-5 chunk đúng cho ≥ 8 / 10 câu hỏi thử.,☐,,,L2
+,,,,,5. Phi chức năng: ước tính chi phí cho 1.000 câu hỏi và cho nhúng 100 tài liệu.,☐,,,L2
+,,,,,6. Ngoại lệ: xác định cách xử lý PDF scan hoặc không có text (đánh dấu và báo giảng viên).,☐,,,L2
+Ngày 9–15 (7 ngày),[L2 · M2 Course] Upload media qua S3 presigned URL (BE),"1. Làm API cấp presigned PUT (giới hạn mime và dung lượng: video ≤ 2 GB, PDF / slide ≤ 50 MB), API xác nhận upload (PENDING → UPLOADED → AVAILABLE, FAILED), lưu object_key, file_name, mime_type, file_size, duration_seconds.
+2. Hỗ trợ multipart upload (mỗi phần 10 MB) cho video lớn; job dọn file PENDING quá 24 giờ.",Code BE,,"1. Công việc: Làm API cấp presigned PUT (giới hạn mime và dung lượng: video ≤ 2 GB, PDF / slide ≤ 50 MB), API xác nhận upload (PENDING → UPLOADED → AVAILABLE, FAILED), lưu object_key, file_name, mime_type, file_size, duration_seconds.",☐,,,L2
+,,,,,2. Công việc: Hỗ trợ multipart upload (mỗi phần 10 MB) cho video lớn; job dọn file PENDING quá 24 giờ.,☐,,,L2
+,,,,,"3. BE: /contents/{id}/upload-url và /confirm-upload chạy với LocalStack, ≥ 12 test.",☐,,,L2
+,,,,,"4. Ngoại lệ: mime không hợp lệ 415, quá dung lượng 413, presigned hết hạn sau 15 phút, upload dở dang bị job dọn sau 24 giờ, xác nhận khi file chưa có trên S3 trả 409.",☐,,,L2
+,,,,,5. Bảo mật: không lưu file trong DB; presigned URL chỉ cho đúng 1 object_key và đúng mime; object_key sinh ngẫu nhiên (UUID).,☐,,,L2
+,,,,,6. Tối ưu: upload video 500 MB hoàn tất ở chế độ multipart với 3 phần song song.,☐,,,L2
+Ngày 9–15 (7 ngày),[L2 · M2 Course] Course builder cho giảng viên (FE),"1. Làm màn hình tạo khóa học, chương, bài; kéo thả đổi thứ tự; upload tài liệu có thanh tiến trình; chuyển trạng thái xuất bản.
+2. Co-Instructor không thấy nút xóa khóa học và đổi chủ.",Code FE,,"1. Công việc: Làm màn hình tạo khóa học, chương, bài; kéo thả đổi thứ tự; upload tài liệu có thanh tiến trình; chuyển trạng thái xuất bản.",☐,,,L2
+,,,,,2. Công việc: Co-Instructor không thấy nút xóa khóa học và đổi chủ.,☐,,,L2
+,,,,,"3. FE: 5 màn hình theo Figma (danh sách khóa, builder, soạn nội dung, upload, xuất bản).",☐,,,L2
+,,,,,"4. Ngoại lệ: upload thất bại cho phép thử lại, hủy upload giữa chừng, mất kết nối khi lưu thứ tự thì giữ nháp và báo lỗi.",☐,,,L2
+,,,,,"5. Tối ưu: lưu thứ tự theo lô (1 request cho mỗi lần kéo thả xong), nháp tự lưu mỗi 30 giây.",☐,,,L2
+,,,,,6. Test: ≥ 8 test component và 1 E2E (tạo khóa → thêm bài → upload PDF → xuất bản).,☐,,,L2
+Ngày 16–22 (7 ngày),[L2 · M2 Course] CloudFront signed URL và kiểm soát truy cập nội dung (BE),"1. Student chỉ nhận signed URL ngắn hạn khi enrollment ACTIVE và khóa PUBLISHED / ARCHIVED; không bao giờ trả object_key hay URL S3 gốc.
+2. Cấu hình CloudFront với OAC, S3 chặn truy cập công khai; viết test phân quyền.",Code BE,,1. Công việc: Student chỉ nhận signed URL ngắn hạn khi enrollment ACTIVE và khóa PUBLISHED / ARCHIVED; không bao giờ trả object_key hay URL S3 gốc.,☐,,,L2
+,,,,,"2. Công việc: Cấu hình CloudFront với OAC, S3 chặn truy cập công khai; viết test phân quyền.",☐,,,L2
+,,,,,"3. BE: /lessons/{id}/contents/{cid}/access-url chạy được, ≥ 12 test phân quyền.",☐,,,L2
+,,,,,"4. Ngoại lệ: chưa ghi danh hoặc bị REMOVED 403, khóa DISABLED 404, file chưa AVAILABLE 409, URL hết hạn để FE xin lại.",☐,,,L2
+,,,,,5. API Gateway: CloudFront phân phối nội dung; S3 chỉ cho phép truy cập qua OAC; 100% request trực tiếp tới S3 bị từ chối.,☐,,,L2
+,,,,,"6. Tối ưu: TTL signed URL 10 phút; cache-control cho PDF / slide, cache hit rate CloudFront ≥ 80% trong thử nghiệm.",☐,,,L2
+Ngày 16–22 (7 ngày),"[L2 · M2 Course] Lesson viewer: video, PDF, text, link (FE)","1. Làm trình xem theo content_type (video, PDF, text, link), tab nội dung và cây khóa học bên cạnh; tự xin lại signed URL khi hết hạn.
+2. Cung cấp điểm gắn hook useLessonProgress cho L3 và hook hiển thị nút AI Tutor cho L1.",Code FE,,"1. Công việc: Làm trình xem theo content_type (video, PDF, text, link), tab nội dung và cây khóa học bên cạnh; tự xin lại signed URL khi hết hạn.",☐,,,L2
+,,,,,2. Công việc: Cung cấp điểm gắn hook useLessonProgress cho L3 và hook hiển thị nút AI Tutor cho L1.,☐,,,L2
+,,,,,"3. FE: trang học xem được 4 loại nội dung theo Figma, mobile 360 px dùng được.",☐,,,L2
+,,,,,"4. Ngoại lệ: URL hết hạn tự làm mới 1 lần rồi mới báo lỗi, file đang xử lý hiển thị trạng thái chờ, mất mạng khi stream hiển thị thông báo và nút thử lại.",☐,,,L2
+,,,,,"5. Tối ưu: lazy load trình xem PDF và video, preload bài kế tiếp; thời gian bắt đầu phát video ≤ 3 giây trên mạng 4G.",☐,,,L2
+,,,,,6. Test: ≥ 8 test component và 1 E2E (mở bài → xem PDF → chuyển bài).,☐,,,L2
+Ngày 16–22 (7 ngày),[L2 · M2 Course] Quy tắc hoàn thành bài (lesson_completion_rules),"1. BE: CRUD quy tắc quan hệ 1-1 với lesson (thời gian tối thiểu, % video tối thiểu mặc định 80, require_quiz, require_assignment).
+2. FE: màn hình cấu hình trong course builder cho từng bài.",Code FE+BE,,"1. Công việc: BE: CRUD quy tắc quan hệ 1-1 với lesson (thời gian tối thiểu, % video tối thiểu mặc định 80, require_quiz, require_assignment).",☐,,,L2
+,,,,,2. Công việc: FE: màn hình cấu hình trong course builder cho từng bài.,☐,,,L2
+,,,,,3. BE: /lessons/{id}/completion-rule kèm ≥ 6 test.,☐,,,L2
+,,,,,"4. FE: màn hình cấu hình quy tắc theo Figma, hiển thị mô tả cách tính.",☐,,,L2
+,,,,,"5. Ngoại lệ: phần trăm ngoài khoảng 0–100 trả 400, quy tắc tham chiếu quiz / assignment không tồn tại trả 409, tạo trùng quy tắc cho 1 bài trả 409.",☐,,,L2
+,,,,,6. Phi chức năng: thay đổi quy tắc không làm đổi trạng thái đã hoàn thành của học viên cũ (có ghi chú trong giao diện).,☐,,,L2
+Ngày 23–29 (7 ngày),[L2 · M2 Course] Tìm kiếm khóa học và cache catalog,"1. Làm tìm kiếm theo từ khóa (Postgres full-text hoặc trigram), lọc visibility / status, phân trang keyset.
+2. Thêm cache dữ liệu nóng (Caffeine hoặc Redis) chỉ khi đo được lợi ích; ghi kết quả đo vào ADR.",Code BE,,"1. Công việc: Làm tìm kiếm theo từ khóa (Postgres full-text hoặc trigram), lọc visibility / status, phân trang keyset.",☐,,,L2
+,,,,,2. Công việc: Thêm cache dữ liệu nóng (Caffeine hoặc Redis) chỉ khi đo được lợi ích; ghi kết quả đo vào ADR.,☐,,,L2
+,,,,,"3. BE: /courses/search chạy được, ≥ 8 test.",☐,,,L2
+,,,,,4. Ngoại lệ: cache bị xóa khi khóa đổi trạng thái hoặc visibility trong ≤ 5 giây; từ khóa rỗng hoặc ký tự đặc biệt không gây lỗi 500.,☐,,,L2
+,,,,,"5. Tối ưu: với 10.000 khóa học, p95 tìm kiếm ≤ 200 ms; so sánh EXPLAIN và thời gian trước / sau khi thêm index và cache.",☐,,,L2
+,,,,,"6. Tài liệu: ADR cache catalog (kết quả đo, TTL, chính sách xóa cache).",☐,,,L2
+Ngày 30–36 (7 ngày),[L2 · M10 AI] AI ingestion pipeline (BE),"1. Khi lesson_content chuyển AVAILABLE (qua outbox / SQS) thì chạy job trích xuất text (PDF / DOCX / PPT / TEXT), chunk 500–1000 token, tạo embedding, ghi ai_document_chunks và HNSW index (vector_cosine_ops).
+2. Idempotent: reindex khi version_number đổi và xóa chunk cũ; theo dõi trạng thái xử lý và cho giảng viên xem.",AI,,"1. Công việc: Khi lesson_content chuyển AVAILABLE (qua outbox / SQS) thì chạy job trích xuất text (PDF / DOCX / PPT / TEXT), chunk 500–1000 token, tạo embedding, ghi ai_document_chunks và HNSW index (vector_cosine_ops).",☐,,,L2
+,,,,,2. Công việc: Idempotent: reindex khi version_number đổi và xóa chunk cũ; theo dõi trạng thái xử lý và cho giảng viên xem.,☐,,,L2
+,,,,,3. BE: pipeline chạy bất đồng bộ; API xem trạng thái index cho giảng viên; ≥ 10 test.,☐,,,L2
+,,,,,"4. Ngoại lệ: file không trích được text thì đánh dấu và báo giảng viên, lỗi API embedding retry backoff 3 lần rồi vào DLQ, tài liệu bị xóa thì xóa chunk liên quan, xử lý lại cùng nội dung không tạo chunk trùng.",☐,,,L2
+,,,,,5. Tối ưu: tài liệu 50 trang được index trong ≤ 3 phút; batch embedding 32 chunk / request; tối đa 3 job song song.,☐,,,L2
+,,,,,6. Phi chức năng: chi phí embedding cho 100 tài liệu được đo và ghi lại.,☐,,,L2
+Ngày 30–36 (7 ngày),[L2 · M10 AI] AI retrieval có cô lập dữ liệu theo khóa học,"1. Truy vấn pgvector luôn lọc theo course_id (ưu tiên lesson_id đang mở) bằng composite index; lấy top-5 chunk có ngưỡng cosine ≥ 0.75, rerank tùy chọn.
+2. Đảm bảo không bao giờ trả chunk của khóa học khác; tinh chỉnh tham số HNSW (m, ef_search).",AI,,"1. Công việc: Truy vấn pgvector luôn lọc theo course_id (ưu tiên lesson_id đang mở) bằng composite index; lấy top-5 chunk có ngưỡng cosine ≥ 0.75, rerank tùy chọn.",☐,,,L2
+,,,,,"2. Công việc: Đảm bảo không bao giờ trả chunk của khóa học khác; tinh chỉnh tham số HNSW (m, ef_search).",☐,,,L2
+,,,,,"3. BE: hàm retrieve(courseId, lessonId, query) kèm ≥ 8 test, trong đó ≥ 3 test cô lập dữ liệu giữa 2 khóa học.",☐,,,L2
+,,,,,4. Ngoại lệ: không đủ bằng chứng (dưới ngưỡng) thì trả kết quả rỗng để chat từ chối; lỗi nhúng câu hỏi trả thông báo thân thiện.,☐,,,L2
+,,,,,5. Bảo mật: 0 chunk của khóa khác xuất hiện trong 100 truy vấn kiểm thử chéo.,☐,,,L2
+,,,,,6. Tối ưu: p95 truy vấn vector ≤ 150 ms trên 20.000 chunk; Recall@5 ≥ 0.85 trên tập đánh giá.,☐,,,L2
+Ngày 37–43 (7 ngày),[L2 · M10 AI] Bộ dữ liệu đánh giá và chạy đánh giá AI Tutor,"1. Tạo 80 câu hỏi: 40 trong phạm vi, 15 ngoài phạm vi, 10 cố tình prompt injection, 15 hỏi chéo khóa học; gán đáp án chuẩn và chunk chuẩn.
+2. Đo Recall@5 và MRR cho retrieval; groundedness, correctness, chất lượng trích dẫn và tỷ lệ từ chối đúng cho câu trả lời; so sánh ≥ 3 cấu hình (chunk size, top-k).",AI,,"1. Công việc: Tạo 80 câu hỏi: 40 trong phạm vi, 15 ngoài phạm vi, 10 cố tình prompt injection, 15 hỏi chéo khóa học; gán đáp án chuẩn và chunk chuẩn.",☐,,,L2
+,,,,,"2. Công việc: Đo Recall@5 và MRR cho retrieval; groundedness, correctness, chất lượng trích dẫn và tỷ lệ từ chối đúng cho câu trả lời; so sánh ≥ 3 cấu hình (chunk size, top-k).",☐,,,L2
+,,,,,3. Tài liệu: dataset 80 câu hỏi và script chạy lặp lại được.,☐,,,L2
+,,,,,"4. Test: Recall@5 ≥ 0.85, MRR ≥ 0.70, groundedness ≥ 90%, từ chối đúng câu ngoài phạm vi ≥ 95%, chặn 10 / 10 mẫu injection.",☐,,,L2
+,,,,,5. Ngoại lệ: danh sách các trường hợp AI trả lời sai và cách giảm thiểu.,☐,,,L2
+,,,,,6. Tài liệu: báo cáo đánh giá có bảng so sánh ≥ 3 cấu hình và kết luận chọn cấu hình nào.,☐,,,L2
+Ngày 37–43 (7 ngày),"[L2 · M10 AI] Phân tích token, độ trễ và chi phí AI","1. Đo p50 / p95 độ trễ, số token trung bình mỗi câu hỏi, chi phí cho 1.000 câu hỏi; dự báo theo 100 / 500 / 1.000 học viên.
+2. Đề xuất và áp dụng tối ưu: giảm top-k, cắt context, model nhỏ hơn cho câu đơn giản.",AI,,"1. Công việc: Đo p50 / p95 độ trễ, số token trung bình mỗi câu hỏi, chi phí cho 1.000 câu hỏi; dự báo theo 100 / 500 / 1.000 học viên.",☐,,,L2
+,,,,,"2. Công việc: Đề xuất và áp dụng tối ưu: giảm top-k, cắt context, model nhỏ hơn cho câu đơn giản.",☐,,,L2
+,,,,,3. Tài liệu: bảng chi phí và độ trễ AI cho 3 quy mô học viên.,☐,,,L2
+,,,,,"4. Tối ưu: giảm ≥ 20% token đầu vào hoặc chi phí / câu hỏi sau tối ưu, có số đo trước / sau.",☐,,,L2
+,,,,,"5. Phi chức năng: first-token p95 ≤ 3 giây, trọn câu p95 ≤ 10 giây; hạn mức 30 câu hỏi / giờ / người dùng được kiểm chứng.",☐,,,L2
+Ngày 44–50 (7 ngày),[L2 · P5] Tài liệu AI Engineering,"1. Viết kiến trúc AI, dataset và kết quả đánh giá, guardrails, phân tích độ trễ và chi phí token thành tài liệu P5.
+2. Bổ sung bằng chứng: log kiểm thử injection, ảnh chụp dashboard chi phí.",Docs / Kiến trúc,,"1. Công việc: Viết kiến trúc AI, dataset và kết quả đánh giá, guardrails, phân tích độ trễ và chi phí token thành tài liệu P5.",☐,,,L2
+,,,,,"2. Công việc: Bổ sung bằng chứng: log kiểm thử injection, ảnh chụp dashboard chi phí.",☐,,,L2
+,,,,,"3. Tài liệu: P5 hoàn chỉnh đủ 4 mục theo đề (AI architecture, evaluation, security / guardrails, latency & token-cost).",☐,,,L2
+,,,,,"4. Tài liệu: ≥ 3 bảng số liệu đo thật (đánh giá, độ trễ, chi phí).",☐,,,L2
+,,,,,5. Phi chức năng: tài liệu ≤ 15 trang; được ≥ 2 thành viên review.,☐,,,L2
+"L3 · Ghi danh và tiến độ (M3), bài tập (M5)",,,,,,,,,
+Ngày 1–3 (3 ngày),[L3 · M3+M5] Viết OpenAPI và rà ERD Module 3 và Module 5,"1. Viết hợp đồng API ghi danh, progress (heartbeat), assignment, submission, grade; rà ERD 6 bảng (enrollments, lesson_progress, assignments, assignment_submissions, submission_files, assignment_grades).
+2. Thống nhất với L2 hook kiểm tra enrollment ACTIVE và với L4 cách tính hoàn thành bài khi require_quiz / require_assignment.",Code BE,,"1. Công việc: Viết hợp đồng API ghi danh, progress (heartbeat), assignment, submission, grade; rà ERD 6 bảng (enrollments, lesson_progress, assignments, assignment_submissions, submission_files, assignment_grades).",☑,,,L3
+,,,,,2. Công việc: Thống nhất với L2 hook kiểm tra enrollment ACTIVE và với L4 cách tính hoàn thành bài khi require_quiz / require_assignment.,☑,,,L3
+,,,,,"3. BE: openapi/m3-enrollment.yaml và m5-assignment.yaml được merge, ≥ 18 endpoint, có ví dụ request / response.",☑,,,L3
+,,,,,4. Tài liệu: sơ đồ trạng thái enrollment (ACTIVE / COMPLETED / WITHDRAWN / REMOVED) và quy tắc chuyển trạng thái.,☑,,,L3
+,,,,,"5. Ngoại lệ: danh sách mã lỗi (đầy sĩ số 409, ghi danh trùng, nộp quá hạn 403, vượt số lần nộp 409) ghi trong OpenAPI.",☑,,,L3
+,,,,,"6. Phi chức năng: chốt tần suất heartbeat 15 giây, mục tiêu 50 RPS và định dạng idempotency cho progress.",☑,,,L3
+Ngày 4–8 (5 ngày),[L3 · M3 Enroll] Entity và API ghi danh với khóa sĩ số,"1. Tạo entity enrollments, lesson_progress, migration V3; API ghi danh cho khóa PUBLIC + PUBLISHED; withdraw (học viên) và remove (giảng viên).
+2. Chống vượt capacity bằng khóa dòng (SELECT … FOR UPDATE) hoặc cập nhật nguyên tử; UNIQUE(course_id, student_id) chống ghi danh trùng.",Code BE,,"1. Công việc: Tạo entity enrollments, lesson_progress, migration V3; API ghi danh cho khóa PUBLIC + PUBLISHED; withdraw (học viên) và remove (giảng viên).",☑,,,L3
+,,,,,"2. Công việc: Chống vượt capacity bằng khóa dòng (SELECT … FOR UPDATE) hoặc cập nhật nguyên tử; UNIQUE(course_id, student_id) chống ghi danh trùng.",☑,,,L3
+,,,,,"3. BE: /enrollments (tạo, rút, loại, danh sách) kèm ≥ 15 test.",☑,,,L3
+,,,,,"4. Test: 200 request ghi danh đồng thời vào khóa còn 50 chỗ thì đúng 50 thành công, 150 nhận 409, 0 vượt sĩ số.",☑,,"Có test PostgreSQL, chưa chạy",L3
+,,,,,"5. Ngoại lệ: khóa chưa PUBLISHED hoặc PRIVATE 403 / 409, ghi danh lặp trả lại bản ghi cũ (idempotent), học viên REMOVED không tự ghi danh lại (403).",☑,,,L3
+,,,,,"6. Tối ưu: index (course_id, status) cho đếm sĩ số; p95 ghi danh ≤ 300 ms ở 50 RPS.",☑,,máy Quyết không cài được  docker nên chưa test được thông số chính xác,L3
+Ngày 9–15 (7 ngày),[L3 · M3 Enroll] Progress API idempotent upsert (BE),"1. API heartbeat mỗi 15 giây gồm lesson_id, vị trí video, thời gian tích lũy; INSERT … ON CONFLICT (enrollment_id, lesson_id) DO UPDATE.
+2. Chỉ cộng thời gian hợp lệ (cắt delta tối đa 30 giây mỗi nhịp) để chống cộng trùng khi retry; lưu last_content_id để resume.",Code BE,,"1. Công việc: API heartbeat mỗi 15 giây gồm lesson_id, vị trí video, thời gian tích lũy; INSERT … ON CONFLICT (enrollment_id, lesson_id) DO UPDATE.",☐,,,L3
+,,,,,2. Công việc: Chỉ cộng thời gian hợp lệ (cắt delta tối đa 30 giây mỗi nhịp) để chống cộng trùng khi retry; lưu last_content_id để resume.,☐,,,L3
+,,,,,3. BE: /progress/heartbeat chạy được kèm ≥ 12 test trùng lặp và đồng thời.,☐,,,L3
+,,,,,"4. Ngoại lệ: heartbeat trùng hoặc đến muộn không cộng hai lần, enrollment WITHDRAWN / REMOVED bị chặn 403 nhưng giữ lịch sử, delta bất thường bị cắt.",☐,,,L3
+,,,,,5. Test: gửi 100 heartbeat giống hệt nhau thì time_spent_seconds chỉ tăng đúng 1 lần.,☐,,,L3
+,,,,,6. Tối ưu: chịu ≥ 50 RPS với p95 ≤ 200 ms trên staging; mỗi heartbeat dùng đúng 1 câu lệnh ghi.,☐,,,L3
+Ngày 9–15 (7 ngày),[L3 · M3 Enroll] Catalog khóa học và ghi danh (FE),"1. Làm danh sách khóa PUBLIC (tìm kiếm cơ bản, phân trang 20 / trang), trang chi tiết, nút ghi danh, trang Khóa học của tôi, rút khỏi khóa.
+2. Nối với API thật của Module 3 và 2.",Code FE,,"1. Công việc: Làm danh sách khóa PUBLIC (tìm kiếm cơ bản, phân trang 20 / trang), trang chi tiết, nút ghi danh, trang Khóa học của tôi, rút khỏi khóa.",☐,,,L3
+,,,,,2. Công việc: Nối với API thật của Module 3 và 2.,☐,,,L3
+,,,,,"3. FE: 4 màn hình theo Figma, dùng API thật.",☐,,,L3
+,,,,,"4. Ngoại lệ: đầy sĩ số hiển thị rõ ràng, bấm đúp không ghi danh hai lần, danh sách rỗng có trạng thái empty.",☐,,,L3
+,,,,,5. Tối ưu: phân trang và cache React Query (staleTime 30 giây) cho catalog; thời gian hiển thị danh sách ≤ 1 giây.,☐,,,L3
+,,,,,6. Test: ≥ 6 test component và 1 E2E (tìm khóa → ghi danh → thấy trong Khóa học của tôi).,☐,,,L3
+Ngày 16–22 (7 ngày),[L3 · M3 Enroll] Hook theo dõi tiến độ (FE) và tính hoàn thành bài / khóa (BE),"1. FE: hook useLessonProgress gửi heartbeat mỗi 15 giây, tạm dừng khi tab ẩn, xếp hàng và retry khi mất mạng.
+2. BE: đánh giá hoàn thành theo quy tắc (thời gian, % video, quiz, assignment); khi mọi bài bắt buộc xong thì enrollment chuyển COMPLETED.",Code FE+BE,,"1. Công việc: FE: hook useLessonProgress gửi heartbeat mỗi 15 giây, tạm dừng khi tab ẩn, xếp hàng và retry khi mất mạng.",☐,,,L3
+,,,,,"2. Công việc: BE: đánh giá hoàn thành theo quy tắc (thời gian, % video, quiz, assignment); khi mọi bài bắt buộc xong thì enrollment chuyển COMPLETED.",☐,,,L3
+,,,,,3. FE: hook dùng được trong lesson viewer và thanh tiến độ khóa học.,☐,,,L3
+,,,,,4. BE: logic hoàn thành bài và khóa kèm ≥ 12 test.,☐,,,L3
+,,,,,"5. Ngoại lệ: mất mạng thì xếp hàng gửi lại mà không cộng trùng, bài is_required = false không chặn hoàn thành khóa, Instructor không thể đánh dấu hoàn thành thay học viên (403).",☐,,,L3
+,,,,,"6. Tối ưu: debounce phía client, tối đa 4 heartbeat / phút / bài; tính tiến độ khóa bằng 1 truy vấn.",☐,,,L3
+Ngày 16–22 (7 ngày),[L3 · M5 Assignment] Assignment backend,"1. CRUD assignment; nộp bài với UNIQUE(assignment_id, enrollment_id): nộp lại ghi đè, tăng submission_count tối đa max_submissions, is_late theo giờ server, allow_late_submission.
+2. Presigned upload cho submission_files (tối đa 5 file, mỗi file ≤ 20 MB).",Code BE,,"1. Công việc: CRUD assignment; nộp bài với UNIQUE(assignment_id, enrollment_id): nộp lại ghi đè, tăng submission_count tối đa max_submissions, is_late theo giờ server, allow_late_submission.",☐,,,L3
+,,,,,"2. Công việc: Presigned upload cho submission_files (tối đa 5 file, mỗi file ≤ 20 MB).",☐,,,L3
+,,,,,3. BE: /assignments và /submissions chạy được kèm ≥ 15 test.,☐,,,L3
+,,,,,"4. Ngoại lệ: quá hạn khi không cho nộp muộn 403, vượt số lần nộp 409, xác nhận nộp khi file chưa AVAILABLE 409, allow_text / allow_files bị tắt 400, file vượt 20 MB 413.",☐,,,L3
+,,,,,5. Bảo mật: học viên chỉ đọc bài nộp của chính mình; giảng viên chỉ đọc bài của khóa mình dạy.,☐,,,L3
+,,,,,"6. Tối ưu: index (assignment_id, status) cho danh sách chờ chấm; danh sách 500 bài nộp p95 ≤ 300 ms.",☐,,,L3
+Ngày 16–22 (7 ngày),[L3 · M5 Assignment] Màn hình nộp bài tập (FE),"1. Làm màn hình xem đề, nhập văn bản, upload file có tiến trình, xác nhận nộp, xem trạng thái và điểm của chính mình.
+2. Hiển thị đếm ngược hạn nộp theo giờ server.",Code FE,,"1. Công việc: Làm màn hình xem đề, nhập văn bản, upload file có tiến trình, xác nhận nộp, xem trạng thái và điểm của chính mình.",☐,,,L3
+,,,,,2. Công việc: Hiển thị đếm ngược hạn nộp theo giờ server.,☐,,,L3
+,,,,,"3. FE: 3 màn hình theo Figma (đề bài, nộp bài, kết quả).",☐,,,L3
+,,,,,"4. Ngoại lệ: nộp lại có cảnh báo ghi đè, upload thất bại cho phép thử lại, quá hạn hiển thị rõ có hoặc không được nộp muộn.",☐,,,L3
+,,,,,"5. Tối ưu: chặn upload trùng, giới hạn dung lượng ngay phía client; hỗ trợ 5 file song song.",☐,,,L3
+,,,,,6. Test: ≥ 6 test component và 1 E2E (nộp bài → nộp lại → xem điểm).,☐,,,L3
+Ngày 23–29 (7 ngày),[L3 · M3 Enroll] Instructor dashboard (BE + FE),"1. BE: truy vấn tổng hợp tiến độ từng học viên, tỷ lệ hoàn thành của lớp, điểm quiz và assignment.
+2. FE: dashboard giảng viên (bảng học viên, biểu đồ hoàn thành, bộ lọc).",Code FE+BE,,"1. Công việc: BE: truy vấn tổng hợp tiến độ từng học viên, tỷ lệ hoàn thành của lớp, điểm quiz và assignment.",☐,,,L3
+,,,,,"2. Công việc: FE: dashboard giảng viên (bảng học viên, biểu đồ hoàn thành, bộ lọc).",☐,,,L3
+,,,,,3. BE: /instructor/courses/{id}/progress và /summary kèm ≥ 8 test.,☐,,,L3
+,,,,,4. FE: dashboard giảng viên theo Figma với ≥ 3 biểu đồ / thẻ và bảng phân trang 20 dòng.,☐,,,L3
+,,,,,"5. Ngoại lệ: chỉ giảng viên của khóa mới xem được (403), lớp chưa có học viên hiển thị empty.",☐,,,L3
+,,,,,6. Tối ưu: lớp 1.000 học viên p95 ≤ 500 ms nhờ truy vấn tổng hợp / cache TTL 60 giây.,☐,,,L3
+Ngày 23–29 (7 ngày),[L3 · M5 Assignment] Chấm điểm và chấm lại (BE + FE),"1. Giảng viên xem bài nộp, tải file qua signed URL, chấm điểm (không vượt max_score) và nhận xét.
+2. Regrade lưu previous_score, regraded_at, regrade_reason; ghi audit và gửi thông báo ASSIGNMENT_GRADED.",Code FE+BE,,"1. Công việc: Giảng viên xem bài nộp, tải file qua signed URL, chấm điểm (không vượt max_score) và nhận xét.",☐,,,L3
+,,,,,"2. Công việc: Regrade lưu previous_score, regraded_at, regrade_reason; ghi audit và gửi thông báo ASSIGNMENT_GRADED.",☐,,,L3
+,,,,,3. BE: /submissions/{id}/grade và /regrade kèm ≥ 10 test.,☐,,,L3
+,,,,,"4. FE: màn hình chấm bài theo Figma (xem bài, nhập điểm, nhận xét, regrade).",☐,,,L3
+,,,,,"5. Ngoại lệ: điểm lớn hơn max_score 400, regrade bài chưa có điểm 409, học viên chỉ xem điểm của chính mình 403, hai giảng viên chấm cùng lúc thì dùng kiểm tra phiên bản để phát hiện xung đột 409.",☐,,,L3
+,,,,,6. Phi chức năng: mỗi lần chấm lại có 1 dòng audit và 1 thông báo cho học viên trong ≤ 60 giây.,☐,,,L3
+Ngày 30–36 (7 ngày),[L3 · M3 Enroll] Tối ưu đường truyền nóng progress và load test,"1. Viết kịch bản k6 mô phỏng 1.000 học viên gửi heartbeat 15 giây một lần (≈ 67 RPS) trong 10 phút.
+2. Phân tích EXPLAIN các truy vấn upsert, điều chỉnh index, pool và batch; chạy lại để so sánh.",QA/Test,,1. Công việc: Viết kịch bản k6 mô phỏng 1.000 học viên gửi heartbeat 15 giây một lần (≈ 67 RPS) trong 10 phút.,☐,,,L3
+,,,,,"2. Công việc: Phân tích EXPLAIN các truy vấn upsert, điều chỉnh index, pool và batch; chạy lại để so sánh.",☐,,,L3
+,,,,,"3. Test: script k6 và báo cáo p95 / p99, tỷ lệ lỗi trước và sau tối ưu.",☐,,,L3
+,,,,,4. Tối ưu: sau tối ưu p95 heartbeat ≤ 200 ms và tỷ lệ lỗi < 0.5% tại 67 RPS.,☐,,,L3
+,,,,,"5. Ngoại lệ: DB chậm đột ngột (giả lập 2 giây) không làm treo toàn ứng dụng (timeout 5 giây, các API khác vẫn phản hồi).",☐,,,L3
+,,,,,6. Tài liệu: thay đổi được ghi vào ADR của module (≥ 1 ADR).,☐,,,L3
+Ngày 37–43 (7 ngày),[L3 · M3+M5] Kịch bản lỗi Module 3 và Module 5,"1. Chạy 5 kịch bản: heartbeat trùng, mạng chập chờn retry, race ghi danh khi gần đầy sĩ số, nộp bài ghi đè đồng thời, upload dở dang.
+2. Ghi bằng chứng và sửa lỗi phát hiện, viết test hồi quy.",QA/Test,,"1. Công việc: Chạy 5 kịch bản: heartbeat trùng, mạng chập chờn retry, race ghi danh khi gần đầy sĩ số, nộp bài ghi đè đồng thời, upload dở dang.",☐,,,L3
+,,,,,"2. Công việc: Ghi bằng chứng và sửa lỗi phát hiện, viết test hồi quy.",☐,,,L3
+,,,,,"3. Test: bằng chứng chạy 5 kịch bản (log, ảnh hoặc kết quả test).",☐,,,L3
+,,,,,"4. Ngoại lệ: 0 bản ghi trùng, 0 vượt sĩ số, 0 mất bài nộp trong các kịch bản đồng thời (mỗi kịch bản chạy ≥ 100 lần).",☐,,,L3
+,,,,,"5. Tài liệu: bảng kịch bản (nguyên nhân, kết quả mong đợi, kết quả thực tế, trạng thái).",☐,,,L3
+,,,,,6. Phi chức năng: mọi lỗi phát hiện có test hồi quy trong CI.,☐,,,L3
+Ngày 44–50 (7 ngày),[L3 · M3+M5] ADR và tài liệu module,"1. Viết ADR: khóa dòng so với cập nhật nguyên tử khi ghi danh, idempotent upsert cho progress, quy tắc nộp ghi đè.
+2. Mô tả data ownership, sync / async và API của Module 3 và 5.",Docs / Kiến trúc,,"1. Công việc: Viết ADR: khóa dòng so với cập nhật nguyên tử khi ghi danh, idempotent upsert cho progress, quy tắc nộp ghi đè.",☐,,,L3
+,,,,,"2. Công việc: Mô tả data ownership, sync / async và API của Module 3 và 5.",☐,,,L3
+,,,,,"3. Tài liệu: ≥ 3 ADR (mỗi ADR có bối cảnh, phương án, trade-off, quyết định).",☐,,,L3
+,,,,,4. Tài liệu: mô tả API và data model của Module 3 và 5 kèm sơ đồ ERD.,☐,,,L3
+,,,,,5. Phi chức năng: số liệu trong ADR lấy từ kết quả load test thật.,☐,,,L3
+L4 · Quiz engine (M4),,,,,,,,,
+Ngày 1–3 (3 ngày),[L4 · M4 Quiz] Viết OpenAPI và rà ERD Module 4,"1. Viết hợp đồng API soạn quiz, bắt đầu attempt, lưu và nộp đáp án, kết quả, điều chỉnh điểm; rà ERD 8 bảng Module 4.
+2. Chốt cấu trúc snapshot_payload và nguyên tắc Zero-Trust: không trả is_correct về client, giờ thi do server quyết định.",Code BE,,"1. Công việc: Viết hợp đồng API soạn quiz, bắt đầu attempt, lưu và nộp đáp án, kết quả, điều chỉnh điểm; rà ERD 8 bảng Module 4.",☐,,,L4
+,,,,,"2. Công việc: Chốt cấu trúc snapshot_payload và nguyên tắc Zero-Trust: không trả is_correct về client, giờ thi do server quyết định.",☐,,,L4
+,,,,,"3. BE: openapi/m4-quiz.yaml được merge, ≥ 14 endpoint, có ví dụ request / response.",☐,,,L4
+,,,,,"4. Tài liệu: đặc tả cấu trúc snapshot_payload (đề, thứ tự câu, thứ tự đáp án, điểm) và sơ đồ trạng thái attempt (IN_PROGRESS → SUBMITTED / TIMED_OUT → GRADED).",☐,,,L4
+,,,,,"5. Ngoại lệ: danh sách mã lỗi (hết lượt 409, quá hạn 403, nộp trùng, hết giờ) ghi trong OpenAPI.",☐,,,L4
+,,,,,6. Phi chức năng: mục tiêu 1.000 attempt bắt đầu trong 60 giây; payload đề gửi về client không chứa is_correct (kiểm chứng bằng test).,☐,,,L4
+Ngày 4–8 (5 ngày),"[L4 · M4 Quiz] Entity và CRUD ngân hàng câu hỏi, câu hỏi, quiz","1. Tạo entity và migration cho 5 bảng question_banks, questions, question_options, quizzes, quiz_questions; hỗ trợ 3 dạng TRUE_FALSE, SINGLE_CHOICE, MULTIPLE_CHOICE.
+2. Cờ is_locked tự bật khi có attempt đầu tiên; phân quyền theo giảng viên của khóa.",Code BE,,"1. Công việc: Tạo entity và migration cho 5 bảng question_banks, questions, question_options, quizzes, quiz_questions; hỗ trợ 3 dạng TRUE_FALSE, SINGLE_CHOICE, MULTIPLE_CHOICE.",☐,,,L4
+,,,,,2. Công việc: Cờ is_locked tự bật khi có attempt đầu tiên; phân quyền theo giảng viên của khóa.,☐,,,L4
+,,,,,"3. BE: API soạn quiz và câu hỏi cho giảng viên kèm ≥ 20 test, coverage service ≥ 70%.",☐,,,L4
+,,,,,"4. Ngoại lệ: câu hỏi phải có ≥ 1 đáp án đúng (SINGLE_CHOICE đúng 1), sửa quiz đã is_locked trả 409, API học viên không trả is_correct.",☐,,,L4
+,,,,,5. Bảo mật: giảng viên khóa khác không soạn hay xem được quiz (403).,☐,,,L4
+,,,,,"6. Tối ưu: index quiz_questions theo (quiz_id, position); lấy quiz 50 câu bằng ≤ 3 truy vấn.",☐,,,L4
+Ngày 9–15 (7 ngày),[L4 · M4 Quiz] Bắt đầu attempt và snapshot (BE),"1. API start attempt: kiểm tra max_attempts, deadline, enrollment ACTIVE; sinh snapshot_payload bất biến (đề, thứ tự, đáp án) và tính giờ thi theo server (started_at + time_limit_seconds).
+2. Đảo câu hỏi / đáp án khi bật; ràng buộc UNIQUE(quiz_id, enrollment_id, attempt_number).",Code BE,,"1. Công việc: API start attempt: kiểm tra max_attempts, deadline, enrollment ACTIVE; sinh snapshot_payload bất biến (đề, thứ tự, đáp án) và tính giờ thi theo server (started_at + time_limit_seconds).",☐,,,L4
+,,,,,"2. Công việc: Đảo câu hỏi / đáp án khi bật; ràng buộc UNIQUE(quiz_id, enrollment_id, attempt_number).",☐,,,L4
+,,,,,3. BE: /quizzes/{id}/attempts chạy được kèm ≥ 15 test.,☐,,,L4
+,,,,,"4. Ngoại lệ: vượt max_attempts 409, quá deadline 403, đã có attempt IN_PROGRESS thì trả lại attempt đó, 20 request start cùng lúc chỉ tạo đúng 1 attempt.",☐,,,L4
+,,,,,5. Bảo mật: snapshot không chứa is_correct khi gửi về client; thời gian còn lại luôn tính theo server.,☐,,,L4
+,,,,,6. Tối ưu: dựng snapshot đề 50 câu trong ≤ 100 ms bằng truy vấn gộp (không N+1).,☐,,,L4
+Ngày 9–15 (7 ngày),[L4 · M4 Quiz] Quiz builder cho giảng viên (FE),"1. Làm màn hình soạn câu hỏi (3 dạng), thêm vào quiz, cấu hình thời gian, hạn nộp, số lần, chính sách điểm, hiển thị điểm / đáp án.
+2. Cảnh báo và chuyển chế độ chỉ đọc khi quiz bị khóa.",Code FE,,"1. Công việc: Làm màn hình soạn câu hỏi (3 dạng), thêm vào quiz, cấu hình thời gian, hạn nộp, số lần, chính sách điểm, hiển thị điểm / đáp án.",☐,,,L4
+,,,,,2. Công việc: Cảnh báo và chuyển chế độ chỉ đọc khi quiz bị khóa.,☐,,,L4
+,,,,,"3. FE: 4 màn hình theo Figma (ngân hàng câu hỏi, soạn câu hỏi, cấu hình quiz, xem thử).",☐,,,L4
+,,,,,"4. Ngoại lệ: quiz is_locked hiển thị chế độ chỉ đọc, không cho lưu khi thiếu đáp án đúng, nháp mất kết nối giữ lại trong 24 giờ.",☐,,,L4
+,,,,,"5. Tối ưu: lưu nháp tự động mỗi 30 giây, chỉ gửi phần đã thay đổi.",☐,,,L4
+,,,,,6. Test: ≥ 8 test component và 1 E2E (soạn 5 câu → tạo quiz → xem thử).,☐,,,L4
+Ngày 16–22 (7 ngày),[L4 · M4 Quiz] Nộp bài và chấm tự động (BE),"1. Lưu và nộp quiz_answers (UNIQUE attempt_id + question_id); chấm theo snapshot, không đọc lại đề hiện tại; tính quiz_results.auto_score và final_score.
+2. idempotency_key chống nộp trùng; job đóng attempt TIMED_OUT khi hết giờ; áp show_score / show_correct_answers.",Code BE,,"1. Công việc: Lưu và nộp quiz_answers (UNIQUE attempt_id + question_id); chấm theo snapshot, không đọc lại đề hiện tại; tính quiz_results.auto_score và final_score.",☐,,,L4
+,,,,,2. Công việc: idempotency_key chống nộp trùng; job đóng attempt TIMED_OUT khi hết giờ; áp show_score / show_correct_answers.,☐,,,L4
+,,,,,"3. BE: /attempts/{id}/answers, /submit, /result kèm ≥ 18 test.",☐,,,L4
+,,,,,"4. Ngoại lệ: nộp trùng với cùng idempotency_key trả kết quả cũ, nộp sau hết giờ thì chấm phần đã lưu và gắn TIMED_OUT, học viên khác không đọc được attempt (403).",☐,,,L4
+,,,,,5. Test: chấm đề 50 câu cho kết quả đúng 100% với 20 bộ đáp án mẫu; 100 request nộp trùng chỉ tạo 1 kết quả.,☐,,,L4
+,,,,,6. Tối ưu: p95 nộp bài ≤ 500 ms; job TIMED_OUT quét mỗi 30 giây và xử lý ≥ 200 attempt / lần.,☐,,,L4
+Ngày 16–22 (7 ngày),[L4 · M4 Quiz] Giao diện làm bài quiz (FE),"1. Làm đồng hồ đếm ngược dựa trên giờ server, autosave đáp án, cảnh báo mất mạng, chống bấm đúp nộp (gửi idempotency_key), màn hình kết quả.
+2. Khôi phục attempt đang làm khi tải lại trang.",Code FE,,"1. Công việc: Làm đồng hồ đếm ngược dựa trên giờ server, autosave đáp án, cảnh báo mất mạng, chống bấm đúp nộp (gửi idempotency_key), màn hình kết quả.",☐,,,L4
+,,,,,2. Công việc: Khôi phục attempt đang làm khi tải lại trang.,☐,,,L4
+,,,,,"3. FE: màn hình làm quiz và kết quả theo Figma, hỗ trợ mobile 360 px.",☐,,,L4
+,,,,,"4. Ngoại lệ: F5 giữa chừng khôi phục attempt và đáp án, hết giờ tự nộp, mất mạng giữ đáp án và gửi lại khi có mạng, hai tab cùng attempt chỉ nhận bản mới nhất.",☐,,,L4
+,,,,,5. Tối ưu: autosave debounce 2 giây theo lô; độ lệch đồng hồ so với server ≤ 1 giây.,☐,,,L4
+,,,,,6. Test: ≥ 8 test component và 1 E2E (làm quiz 5 câu → F5 → nộp → xem kết quả).,☐,,,L4
+Ngày 23–29 (7 ngày),[L4 · M4 Quiz] Chính sách điểm và điều chỉnh điểm (BE + FE),"1. BE: tính điểm tổng kết theo HIGHEST / LATEST / AVERAGE; giảng viên điều chỉnh final_score, bắt buộc có lý do và ghi audit_logs.
+2. FE: màn hình kết quả quiz cho giảng viên (danh sách, thống kê, điều chỉnh).",Code FE+BE,,"1. Công việc: BE: tính điểm tổng kết theo HIGHEST / LATEST / AVERAGE; giảng viên điều chỉnh final_score, bắt buộc có lý do và ghi audit_logs.",☐,,,L4
+,,,,,"2. Công việc: FE: màn hình kết quả quiz cho giảng viên (danh sách, thống kê, điều chỉnh).",☐,,,L4
+,,,,,3. BE: /quizzes/{id}/results và /results/{id}/adjust kèm ≥ 10 test (3 chính sách × 3 tình huống).,☐,,,L4
+,,,,,"4. FE: màn hình kết quả và điều chỉnh điểm theo Figma, thống kê điểm trung bình / cao nhất / thấp nhất.",☐,,,L4
+,,,,,"5. Ngoại lệ: điều chỉnh không có lý do 400, điểm vượt tổng điểm quiz 400, giảng viên khóa khác điều chỉnh 403.",☐,,,L4
+,,,,,"6. Tối ưu: tính điểm tổng kết cho lớp 1.000 học viên bằng 1 truy vấn, p95 ≤ 500 ms.",☐,,,L4
+Ngày 30–36 (7 ngày),[L4 · M4 Quiz] Load test quiz đồng thời,"1. Viết kịch bản k6: 1.000 học viên bắt đầu và nộp quiz 20 câu cùng lúc trong 60 giây; đo p95, tỷ lệ lỗi, thời gian dựng snapshot.
+2. Tối ưu cache nội dung đề (không cache đáp án đúng), pool, index; chạy lại để so sánh.",QA/Test,,"1. Công việc: Viết kịch bản k6: 1.000 học viên bắt đầu và nộp quiz 20 câu cùng lúc trong 60 giây; đo p95, tỷ lệ lỗi, thời gian dựng snapshot.",☐,,,L4
+,,,,,"2. Công việc: Tối ưu cache nội dung đề (không cache đáp án đúng), pool, index; chạy lại để so sánh.",☐,,,L4
+,,,,,3. Test: script k6 và báo cáo p50 / p95 / p99 trước và sau tối ưu.,☐,,,L4
+,,,,,4. Tối ưu: sau tối ưu p95 start ≤ 800 ms và p95 submit ≤ 500 ms với 1.000 người đồng thời; tỷ lệ lỗi 5xx < 1%.,☐,,,L4
+,,,,,"5. Ngoại lệ: 0 attempt trùng số thứ tự, 0 mất đáp án dưới tải; pool DB không cạn (hàng chờ kết nối ≤ 50).",☐,,,L4
+,,,,,6. Tài liệu: ≥ 1 ADR ghi tối ưu và số đo.,☐,,,L4
+Ngày 37–43 (7 ngày),[L4 · M4 Quiz] Kịch bản lỗi Module 4,"1. Chạy 5 kịch bản: bấm đúp nộp, mất mạng giữa chừng, hết giờ không nộp, hai tab cùng một attempt, sửa đề khi đang có attempt.
+2. Ghi bằng chứng, sửa lỗi phát hiện và viết test hồi quy.",QA/Test,,"1. Công việc: Chạy 5 kịch bản: bấm đúp nộp, mất mạng giữa chừng, hết giờ không nộp, hai tab cùng một attempt, sửa đề khi đang có attempt.",☐,,,L4
+,,,,,"2. Công việc: Ghi bằng chứng, sửa lỗi phát hiện và viết test hồi quy.",☐,,,L4
+,,,,,"3. Test: bằng chứng chạy 5 kịch bản (log, ảnh hoặc kết quả test), mỗi kịch bản chạy ≥ 50 lần.",☐,,,L4
+,,,,,"4. Ngoại lệ: 0 kết quả trùng, 100% attempt hết giờ được chuyển TIMED_OUT trong ≤ 60 giây, quiz bị khóa không sửa được (409).",☐,,,L4
+,,,,,"5. Tài liệu: bảng kịch bản (nguyên nhân, kết quả mong đợi, kết quả thực tế, trạng thái).",☐,,,L4
+,,,,,6. Phi chức năng: mọi lỗi phát hiện có test hồi quy trong CI.,☐,,,L4
+Ngày 44–50 (7 ngày),[L4 · M4 Quiz] ADR và tài liệu module,"1. Viết ADR: snapshot bất biến, idempotency key, giờ thi do server quyết định, khóa đề.
+2. Mô tả data ownership, sync / async và API của Module 4.",Docs / Kiến trúc,,"1. Công việc: Viết ADR: snapshot bất biến, idempotency key, giờ thi do server quyết định, khóa đề.",☐,,,L4
+,,,,,"2. Công việc: Mô tả data ownership, sync / async và API của Module 4.",☐,,,L4
+,,,,,"3. Tài liệu: ≥ 3 ADR (bối cảnh, phương án, trade-off, quyết định).",☐,,,L4
+,,,,,4. Tài liệu: mô tả API và data model của Module 4 kèm sơ đồ ERD và sơ đồ trạng thái attempt.,☐,,,L4
+,,,,,5. Phi chức năng: số liệu trong ADR lấy từ kết quả load test thật.,☐,,,L4
+Ngày 1–3 (3 ngày),[L5 · DevOps] Khởi tạo CI skeleton và khung frontend,"1. Tạo khung frontend React (Vite + TypeScript), ESLint / Prettier, chọn 1 thư viện UI duy nhất cho cả nhóm, React Query, openapi-typescript để sinh client từ OpenAPI.
+2. Cấu hình GitHub Actions: build + test BE, lint + build FE cho mỗi PR; bật branch protection (≥ 1 reviewer, CI xanh mới merge).",DevOps,,"1. Công việc: Tạo khung frontend React (Vite + TypeScript), ESLint / Prettier, chọn 1 thư viện UI duy nhất cho cả nhóm, React Query, openapi-typescript để sinh client từ OpenAPI.",☑,,,L5
+,,,,,"2. Công việc: Cấu hình GitHub Actions: build + test BE, lint + build FE cho mỗi PR; bật branch protection (≥ 1 reviewer, CI xanh mới merge).",☑,,,L5
+,,,,,"3. FE: app khung chạy được, có thư mục features/<module> cho 5 luồng.",☑,,,L5
+,,,,,4. DevOps: pipeline CI chạy xanh trên PR trong ≤ 10 phút; branch protection bật trên nhánh main.,☑,,,L5
+,,,,,5. Tối ưu: cache dependency Maven / npm giảm thời gian CI ≥ 40% ở lần chạy thứ 2.,☑,,,L5
+,,,,,6. Ngoại lệ: PR có test đỏ hoặc lint lỗi không thể merge (kiểm chứng bằng 1 PR thử).,☑,,,L5
+Ngày 1–3 (3 ngày),[L5 · DevOps] Chuẩn bị tài khoản cloud và ngân sách,"1. Tạo AWS account / IAM user cho 6 thành viên, chọn region, đặt budget alert; dự kiến dịch vụ (ECS Fargate, RDS PostgreSQL, S3, CloudFront, SQS, Secrets Manager).
+2. Ước lượng chi phí hàng tháng v0 cho staging + production.",DevOps,,"1. Công việc: Tạo AWS account / IAM user cho 6 thành viên, chọn region, đặt budget alert; dự kiến dịch vụ (ECS Fargate, RDS PostgreSQL, S3, CloudFront, SQS, Secrets Manager).",☐,Tuần 3,,L5
+,,,,,2. Công việc: Ước lượng chi phí hàng tháng v0 cho staging + production.,☐,,,L5
+,,,,,"3. DevOps: 6 IAM user theo least privilege, bật MFA; budget alert ở 50% và 80% ngân sách.",☐,,,L5
+,,,,,4. Tài liệu: bảng ước tính chi phí hàng tháng v0 theo từng dịch vụ (mục tiêu ≤ 20 USD / tháng cho cả hai môi trường).,☐,,,L5
+,,,,,5. Ngoại lệ: không có access key dài hạn của root account; có hướng dẫn tắt tài nguyên khi không dùng.,☐,,,L5
+,,,,,6. Phi chức năng: chọn region gần người dùng (ví dụ ap-southeast-1) và ghi lý do.,☐,,,L5
+Ngày 1–3 (3 ngày),[L5 · M6 Notif] Viết OpenAPI và rà ERD Module 6,"1. Viết hợp đồng API thông báo (polling chưa đọc, đánh dấu đã đọc), danh mục event_type, định nghĩa payload outbox, quy ước dedupe_key.
+2. Lập danh mục hành động cần ghi audit_logs cho mọi module.",Code BE,,"1. Công việc: Viết hợp đồng API thông báo (polling chưa đọc, đánh dấu đã đọc), danh mục event_type, định nghĩa payload outbox, quy ước dedupe_key.",☑,,,L5
+,,,,,2. Công việc: Lập danh mục hành động cần ghi audit_logs cho mọi module.,☑,,,L5
+,,,,,"3. BE: openapi/m6-notification.yaml được merge, ≥ 5 endpoint.",☑,,,L5
+,,,,,"4. Tài liệu: danh mục event_type (≥ 8 loại, ví dụ QUIZ_PUBLISHED, ASSIGNMENT_GRADED) kèm payload mẫu.",☑,,,L5
+,,,,,"5. Tài liệu: danh mục ≥ 8 hành động ghi audit (DISABLE_USER, DISABLE_COURSE, REGRADE, ADJUST_SCORE…).",☑,,,L5
+,,,,,6. Phi chức năng: quy ước dedupe_key dạng {event_type}:{target_id}:{user_id} được cả nhóm đồng ý.,☑,,,L5
+Ngày 4–8 (5 ngày),"[L5 · M6 Notif] Entity, migration và AuditService / NotificationPublisher","1. Tạo entity và migration cho notifications, outbox_events, audit_logs; index (user_id, is_read, created_at).
+2. Viết AuditService dùng chung để mọi module ghi audit_logs và NotificationPublisher để module khác phát sự kiện.",Code BE,,"1. Công việc: Tạo entity và migration cho notifications, outbox_events, audit_logs; index (user_id, is_read, created_at).",☑,,,L5
+,,,,,2. Công việc: Viết AuditService dùng chung để mọi module ghi audit_logs và NotificationPublisher để module khác phát sự kiện.,☑,,,L5
+,,,,,3. BE: AuditService và NotificationPublisher có Javadoc và ≥ 8 test.,☑,,,L5
+,,,,,4. Ngoại lệ: ghi audit thất bại không làm hỏng giao dịch nghiệp vụ chính nhưng có log cảnh báo; dedupe_key trùng bị UNIQUE chặn.,☑,,,L5
+,,,,,"5. Tối ưu: kiểm tra EXPLAIN truy vấn thông báo chưa đọc dùng đúng index, p95 ≤ 50 ms với 100.000 thông báo.",☑,,,L5
+,,,,,6. Phi chức năng: audit_logs chỉ ghi thêm (không UPDATE / DELETE từ ứng dụng).,☑,,,L5
+Ngày 4–8 (5 ngày),"[L5 · DevOps] Dockerfile, ECR và deploy staging đầu tiên","1. Viết Dockerfile cho BE và FE, đẩy lên ECR, deploy bản hello world lên ECS Fargate sau ALB cùng RDS Postgres dev.
+2. Cấu hình biến môi trường và mật khẩu DB qua Secrets Manager.",DevOps,,"1. Công việc: Viết Dockerfile cho BE và FE, đẩy lên ECR, deploy bản hello world lên ECS Fargate sau ALB cùng RDS Postgres dev.",☑,,,L5
+,,,,,2. Công việc: Cấu hình biến môi trường và mật khẩu DB qua Secrets Manager.,☑,,,L5
+,,,,,"3. DevOps: URL staging trả /actuator/health = UP; image BE ≤ 300 MB, image FE ≤ 60 MB.",☑,,,L5
+,,,,,"4. DevOps: pipeline CD tự deploy khi merge vào main, thời gian ≤ 15 phút.",☑,,,L5
+,,,,,"5. Ngoại lệ: rollback về image trước bằng 1 thao tác, đã thử thành công ≥ 1 lần.",☑,,,L5
+,,,,,6. Bảo mật: container chạy không dùng root; không có secret trong image hay log.,☑,,,L5
+Ngày 4–8 (5 ngày),[L5 · DevOps] Mock server từ OpenAPI cho frontend,"1. Dựng mock (Prism hoặc MSW) từ file OpenAPI của từng luồng để FE phát triển song song, không chờ BE.
+2. Viết hướng dẫn 1 trang cho cả nhóm.",DevOps,,"1. Công việc: Dựng mock (Prism hoặc MSW) từ file OpenAPI của từng luồng để FE phát triển song song, không chờ BE.",☑,,,L5
+,,,,,2. Công việc: Viết hướng dẫn 1 trang cho cả nhóm.,☑,,,L5
+,,,,,3. FE: lệnh npm run mock chạy được cho 100% module đã có OpenAPI (M1–M6).,☑,,,L5
+,,,,,"4. Ngoại lệ: mock trả được ≥ 3 loại lỗi mẫu (400, 403, 500) để FE kiểm thử xử lý lỗi.",☑,,,L5
+,,,,,"5. Tài liệu: hướng dẫn 1 trang, mỗi thành viên chạy thử thành công trong ≤ 10 phút.",☑,,,L5
+,,,,,6. Phi chức năng: mock tự cập nhật khi OpenAPI đổi (watch mode).,☑,,,L5
+Ngày 9–15 (7 ngày),[L5 · M6 Notif] Outbox pattern và worker (BE),"1. Ghi outbox_events cùng transaction nghiệp vụ; worker poll PENDING (dùng SKIP LOCKED để nhiều worker không đụng nhau) và đẩy sang SQS.
+2. Consumer tạo notifications với dedupe_key UNIQUE; có retry_count, trạng thái FAILED và DLQ.",Code BE,,1. Công việc: Ghi outbox_events cùng transaction nghiệp vụ; worker poll PENDING (dùng SKIP LOCKED để nhiều worker không đụng nhau) và đẩy sang SQS.,☐,,,L5
+,,,,,"2. Công việc: Consumer tạo notifications với dedupe_key UNIQUE; có retry_count, trạng thái FAILED và DLQ.",☐,,,L5
+,,,,,3. BE: worker và consumer chạy được trên LocalStack kèm ≥ 12 test.,☐,,,L5
+,,,,,"4. Ngoại lệ: worker chết giữa chừng thì sự kiện không mất, retry trùng không tạo thông báo trùng, quá 5 lần retry thì vào DLQ.",☐,,,L5
+,,,,,"5. Test: gửi 1.000 sự kiện thì đúng 1.000 thông báo, 0 trùng, kể cả khi tắt worker ngẫu nhiên 3 lần.",☐,,,L5
+,,,,,"6. Tối ưu: poll theo lô 100 bản ghi, backoff tới 30 giây khi hàng đợi rỗng; độ trễ từ sự kiện tới thông báo p95 ≤ 5 giây.",☐,,,L5
+Ngày 9–15 (7 ngày),[L5 · DevOps] IaC (Terraform) cho hạ tầng chính,"1. Viết Terraform cho VPC, subnet, RDS (pgvector), S3, CloudFront, SQS + DLQ, ECS service, IAM role, Secrets Manager.
+2. Tách staging và production bằng workspace hoặc biến.",DevOps,,"1. Công việc: Viết Terraform cho VPC, subnet, RDS (pgvector), S3, CloudFront, SQS + DLQ, ECS service, IAM role, Secrets Manager.",☐,,,L5
+,,,,,2. Công việc: Tách staging và production bằng workspace hoặc biến.,☐,,,L5
+,,,,,3. DevOps: terraform apply dựng được môi trường staging từ đầu trong ≤ 30 phút.,☐,,,L5
+,,,,,4. Ngoại lệ: state lưu từ xa có khóa; có hướng dẫn terraform destroy để tránh phát sinh chi phí khi không dùng.,☐,,,L5
+,,,,,"5. Tối ưu: dùng kích thước instance nhỏ nhất đáp ứng NFR, ghi vào bảng chi phí.",☐,,,L5
+,,,,,6. Bảo mật: RDS không có địa chỉ công khai; security group chỉ mở cổng cần thiết.,☐,,,L5
+Ngày 16–22 (7 ngày),[L5 · M6 Notif] API thông báo và chuông thông báo (BE + FE),"1. BE: polling 30–60 giây danh sách chưa đọc, đánh dấu đã đọc (chỉ của chính mình); phát sự kiện quiz mới, bài được chấm, khóa học cập nhật.
+2. FE: chuông thông báo, danh sách, điều hướng theo target_type / target_id.",Code FE+BE,,"1. Công việc: BE: polling 30–60 giây danh sách chưa đọc, đánh dấu đã đọc (chỉ của chính mình); phát sự kiện quiz mới, bài được chấm, khóa học cập nhật.",☐,,,L5
+,,,,,"2. Công việc: FE: chuông thông báo, danh sách, điều hướng theo target_type / target_id.",☐,,,L5
+,,,,,"3. BE: /notifications (list, unread-count, mark-read) kèm ≥ 8 test.",☐,,,L5
+,,,,,"4. FE: chuông và danh sách thông báo theo Figma, polling mỗi 45 giây.",☐,,,L5
+,,,,,"5. Ngoại lệ: đọc hoặc đánh dấu thông báo người khác 403, sự kiện trùng bị dedupe_key chặn, target đã bị xóa thì hiển thị thông báo không điều hướng.",☐,,,L5
+,,,,,"6. Tối ưu: index (user_id, is_read, created_at); ETag / 304 cho polling, giảm ≥ 70% dữ liệu truyền; p95 unread-count ≤ 50 ms.",☐,,,L5
+Ngày 16–22 (7 ngày),[L5 · DevOps] CD hoàn chỉnh và chiến lược rollback,"1. Dựng pipeline: test → build image → deploy staging → duyệt tay → production; rolling hoặc blue / green của ECS, health check, rollback tự động khi health check thất bại; gắn tag image theo commit.
+2. Viết runbook deploy và rollback.",DevOps,,"1. Công việc: Dựng pipeline: test → build image → deploy staging → duyệt tay → production; rolling hoặc blue / green của ECS, health check, rollback tự động khi health check thất bại; gắn tag image theo commit.",☐,,,L5
+,,,,,2. Công việc: Viết runbook deploy và rollback.,☐,,,L5
+,,,,,3. DevOps: pipeline chạy đủ các bước; deploy staging ≤ 15 phút.,☐,,,L5
+,,,,,"4. Ngoại lệ: deploy lỗi (health check đỏ) tự rollback trong ≤ 5 phút, đã thử 1 lần có bằng chứng.",☐,,,L5
+,,,,,5. Tối ưu: deploy không gián đoạn (downtime ≈ 0 giây) với ≥ 2 task.,☐,,,L5
+,,,,,6. Tài liệu: runbook deploy và rollback ≤ 2 trang (đầu vào cho P3).,☐,,,L5
+Ngày 23–29 (7 ngày),"[L5 · DevOps] Observability v1: log, metric, dashboard, alert","1. Log JSON có correlation-id, metrics (Micrometer sang CloudWatch hoặc Prometheus); dashboard RPS, p95, tỷ lệ lỗi, kết nối DB, độ sâu hàng đợi SQS, outbox lag.
+2. Thiết lập health / readiness và các alert cơ bản.",DevOps,,"1. Công việc: Log JSON có correlation-id, metrics (Micrometer sang CloudWatch hoặc Prometheus); dashboard RPS, p95, tỷ lệ lỗi, kết nối DB, độ sâu hàng đợi SQS, outbox lag.",☐,,,L5
+,,,,,2. Công việc: Thiết lập health / readiness và các alert cơ bản.,☐,,,L5
+,,,,,3. DevOps: dashboard giám sát chạy trên staging với ≥ 8 biểu đồ.,☐,,,L5
+,,,,,"4. DevOps: ≥ 5 alert (p95 > 500 ms trong 5 phút, lỗi 5xx > 1%, DLQ > 0, CPU > 80%, kết nối DB > 80% pool).",☐,,,L5
+,,,,,5. Ngoại lệ: log không chứa mật khẩu hay token (kiểm tra bằng quét mẫu); truy vết 1 request xuyên suốt bằng correlation-id.,☐,,,L5
+,,,,,"6. Tối ưu: log giữ 14 ngày, metric độ phân giải 1 phút để kiểm soát chi phí.",☐,,,L5
+Ngày 30–36 (7 ngày),[L5 · DevOps] Autoscaling và bảo vệ biên,"1. Cấu hình ECS autoscaling theo CPU và ALB RequestCountPerTarget, rate rule ở WAF / ALB, cache CloudFront; SQS DLQ và alarm.
+2. Kiểm chứng bằng tải giả lập.",DevOps,,"1. Công việc: Cấu hình ECS autoscaling theo CPU và ALB RequestCountPerTarget, rate rule ở WAF / ALB, cache CloudFront; SQS DLQ và alarm.",☐,,,L5
+,,,,,2. Công việc: Kiểm chứng bằng tải giả lập.,☐,,,L5
+,,,,,3. DevOps: dịch vụ tự mở rộng từ 2 lên tối đa 6 task khi CPU > 60% và thu nhỏ sau 10 phút tải giảm.,☐,,,L5
+,,,,,"4. API Gateway: lớp biên (ALB / WAF / CloudFront) có rate limit, đối chiếu với ADR cổng API.",☐,,,L5
+,,,,,5. Ngoại lệ: DLQ có tin nhắn thì phát alert trong ≤ 5 phút.,☐,,,L5
+,,,,,6. Tối ưu: giới hạn số task tối đa để không vượt ngân sách; ghi chi phí ở mức tải đỉnh.,☐,,,L5
+Ngày 30–36 (7 ngày),[L5 · M10 AI] Dashboard chi phí và độ trễ AI cho Admin (BE + FE),"1. BE: tổng hợp prompt_tokens, completion_tokens, latency_ms theo ngày và theo khóa học; tỷ lệ từ chối.
+2. FE: trang thống kê AI cho Admin.",Code FE+BE,,"1. Công việc: BE: tổng hợp prompt_tokens, completion_tokens, latency_ms theo ngày và theo khóa học; tỷ lệ từ chối.",☐,,,L5
+,,,,,2. Công việc: FE: trang thống kê AI cho Admin.,☐,,,L5
+,,,,,3. BE: /admin/ai/usage kèm ≥ 5 test.,☐,,,L5
+,,,,,"4. FE: trang thống kê AI theo Figma với ≥ 4 chỉ số (token, chi phí ước tính, p95 độ trễ, tỷ lệ từ chối).",☐,,,L5
+,,,,,"5. Ngoại lệ: chỉ ADMIN truy cập được (403), dữ liệu trống hiển thị empty.",☐,,,L5
+,,,,,6. Tối ưu: bảng tổng hợp theo ngày thay vì quét toàn bộ ai_messages; p95 ≤ 300 ms với 100.000 tin nhắn.,☐,,,L5
+Ngày 37–43 (7 ngày),"[L5 · Security] IAM least privilege, mã hóa và quản lý secret","1. Áp dụng S3 không public, OAC, mã hóa at-rest (SSE / KMS cho S3, mã hóa RDS), TLS toàn bộ, xoay vòng secret, IAM role riêng cho từng dịch vụ.
+2. Quét dependency và image (Dependabot, Trivy) trong CI.",Security,,"1. Công việc: Áp dụng S3 không public, OAC, mã hóa at-rest (SSE / KMS cho S3, mã hóa RDS), TLS toàn bộ, xoay vòng secret, IAM role riêng cho từng dịch vụ.",☐,,,L5
+,,,,,"2. Công việc: Quét dependency và image (Dependabot, Trivy) trong CI.",☐,,,L5
+,,,,,"3. Security: cấu hình IAM và mã hóa áp dụng bằng Terraform, 0 quyền dùng ký tự đại diện (*) cho dịch vụ ứng dụng.",☐,,,L5
+,,,,,4. DevOps: CI chặn khi có lỗ hổng nghiêm trọng (critical) trong dependency hoặc image.,☐,,,L5
+,,,,,5. Ngoại lệ: 0 secret trong repo (quét bằng công cụ); secret xoay vòng ≥ 1 lần thử thành công.,☐,,,L5
+,,,,,6. Phi chức năng: 100% kết nối vào DB và S3 dùng TLS.,☐,,,L5
+Ngày 37–43 (7 ngày),[L5 · DevOps] Kịch bản lỗi hạ tầng,"1. Chạy 4 kịch bản: dừng consumer SQS thì retry và DLQ rồi replay outbox; khởi động lại hoặc failover DB; deploy lỗi thì rollback; backup RDS snapshot và restore thử.
+2. Đo thời gian phục hồi thực tế.",DevOps,,1. Công việc: Chạy 4 kịch bản: dừng consumer SQS thì retry và DLQ rồi replay outbox; khởi động lại hoặc failover DB; deploy lỗi thì rollback; backup RDS snapshot và restore thử.,☐,,,L5
+,,,,,2. Công việc: Đo thời gian phục hồi thực tế.,☐,,,L5
+,,,,,"3. DevOps: bằng chứng cho 4 kịch bản (log, ảnh, thời gian).",☐,,,L5
+,,,,,4. Test: RTO thực tế ≤ 30 phút và RPO ≤ 5 phút (nhờ point-in-time recovery) cho kịch bản restore.,☐,,,L5
+,,,,,5. Ngoại lệ: 0 sự kiện outbox bị mất khi consumer dừng 10 phút rồi chạy lại.,☐,,,L5
+,,,,,6. Tài liệu: runbook sự cố ngắn gọn ≤ 3 trang.,☐,,,L5
+Ngày 44–50 (7 ngày),[L5 · QA] Load test tổng hợp và SLI / SLO,"1. Viết kịch bản k6 hỗn hợp: xem nội dung, heartbeat, quiz đồng thời, hỏi đáp AI; thử mức tải 1×, 5× và 10× so với mục tiêu.
+2. Định nghĩa SLI / SLO và so sánh với NFR đã đặt.",QA/Test,,"1. Công việc: Viết kịch bản k6 hỗn hợp: xem nội dung, heartbeat, quiz đồng thời, hỏi đáp AI; thử mức tải 1×, 5× và 10× so với mục tiêu.",☐,,,L5
+,,,,,2. Công việc: Định nghĩa SLI / SLO và so sánh với NFR đã đặt.,☐,,,L5
+,,,,,"3. Test: báo cáo load test cho 3 mức tải (p50 / p95 / p99, tỷ lệ lỗi, CPU, DB) và kết luận nút thắt.",☐,,,L5
+,,,,,"4. Tài liệu: SLI / SLO cho ≥ 4 chỉ số (khả dụng 99.5%, p95 đọc ≤ 300 ms, p95 ghi ≤ 500 ms, lỗi 5xx < 1%).",☐,,,L5
+,,,,,5. Ngoại lệ: ở 10× tải hệ thống suy giảm có kiểm soát (trả 429 / 503) thay vì sập hoàn toàn; ghi lại điểm gãy.,☐,,,L5
+,,,,,"6. Tối ưu: ≥ 2 thay đổi tối ưu được áp dụng sau load test, có số đo trước / sau.",☐,,,L5
+Ngày 44–50 (7 ngày),[L5 · DevOps] Phân tích chi phí và capacity plan,"1. Tổng hợp chi phí thực tế theo dịch vụ, dự báo khi tải tăng 5× và 10×.
+2. Đề xuất tối ưu chi phí (Fargate Spot, S3 lifecycle, kích thước instance).",DevOps,,"1. Công việc: Tổng hợp chi phí thực tế theo dịch vụ, dự báo khi tải tăng 5× và 10×.",☐,,,L5
+,,,,,"2. Công việc: Đề xuất tối ưu chi phí (Fargate Spot, S3 lifecycle, kích thước instance).",☐,,,L5
+,,,,,"3. Tài liệu: bảng chi phí thực tế và dự báo cho 3 mức tải (1×, 5×, 10×) theo từng dịch vụ.",☐,,,L5
+,,,,,"4. Tối ưu: ≥ 3 việc giảm chi phí đã áp dụng, mỗi việc có số tiền tiết kiệm ước tính.",☐,,,L5
+,,,,,5. Phi chức năng: tổng chi phí ≤ 120 USD / tháng ở mức tải 1× (hoặc ghi rõ lý do vượt).,☐,,,L5
+,,,,,"6. Tài liệu: capacity plan 1 trang (khi nào cần thêm task, nâng DB).",☐,,,L5
+Ngày 51–53 (3 ngày),[L5 · DevOps] Deploy production và dữ liệu demo,"1. Deploy production bằng pipeline; tạo dữ liệu demo (khóa học, học viên, quiz, tài liệu cho AI).
+2. Kiểm tra backup, dashboard và ngân sách.",DevOps,,"1. Công việc: Deploy production bằng pipeline; tạo dữ liệu demo (khóa học, học viên, quiz, tài liệu cho AI).",☐,,,L5
+,,,,,"2. Công việc: Kiểm tra backup, dashboard và ngân sách.",☐,,,L5
+,,,,,3. DevOps: production chạy ổn định ≥ 24 giờ trước ngày demo với 0 alert nghiêm trọng.,☐,,,L5
+,,,,,"4. Dữ liệu: ≥ 3 khóa học, ≥ 50 học viên, ≥ 2 quiz, ≥ 10 tài liệu đã được AI index.",☐,,,L5
+,,,,,5. Ngoại lệ: đã thử rollback trên production (hoặc môi trường giống hệt) thành công.,☐,,,L5
+,,,,,"6. Phi chức năng: backup RDS bật, giữ ≥ 7 ngày; ngân sách còn ≥ 30% khi kết thúc.",☐,,,L5
+Ngày 54–56 (3 ngày),[L5 · DevOps] Phương án dự phòng cho buổi demo,"1. Quay video demo dự phòng, chuẩn bị môi trường dự phòng, kiểm tra mạng và tài khoản demo trước giờ trình bày.
+2. Tập luyện chuyển sang phương án dự phòng khi có sự cố.",DevOps,,"1. Công việc: Quay video demo dự phòng, chuẩn bị môi trường dự phòng, kiểm tra mạng và tài khoản demo trước giờ trình bày.",☐,,,L5
+,,,,,2. Công việc: Tập luyện chuyển sang phương án dự phòng khi có sự cố.,☐,,,L5
+,,,,,"3. Tài liệu: video demo dự phòng ≤ 10 phút, quay toàn bộ luồng chính.",☐,,,L5
+,,,,,"4. DevOps: danh sách kiểm tra trước demo ≥ 10 mục, đã chạy thử 1 lần.",☐,,,L5
+,,,,,5. Ngoại lệ: chuyển sang phương án dự phòng trong ≤ 2 phút khi môi trường chính lỗi.,☐,,,L5
+,,,,,"6. Phi chức năng: 3 tài khoản demo (Student, Instructor, Admin) đăng nhập được, dữ liệu được đặt lại về trạng thái sạch.",☐,,,L5
+Ngày 1–3 (3 ngày),"[ALL] Họp khởi động, chốt phạm vi MVP và quy ước nhóm","1. Chốt phạm vi: Module 1–6 và Module 10 (AI Tutor) bắt buộc, Module 7–9 là backlog; chốt stack (Spring Boot, React + Vite + TypeScript, PostgreSQL + pgvector, AWS).
+2. Chốt quy ước Git (nhánh feature/<module>-<việc>, PR dưới 400 dòng, ≥ 1 reviewer), quy ước migration Flyway V{module}_{số}__mô_tả.sql, định dạng error response chung, Definition of Done và phân luồng L0–L5.",Quản lý,,"1. Công việc: Chốt phạm vi: Module 1–6 và Module 10 (AI Tutor) bắt buộc, Module 7–9 là backlog; chốt stack (Spring Boot, React + Vite + TypeScript, PostgreSQL + pgvector, AWS).",☐,,,Chung
+,,,,,"2. Công việc: Chốt quy ước Git (nhánh feature/<module>-<việc>, PR dưới 400 dòng, ≥ 1 reviewer), quy ước migration Flyway V{module}_{số}__mô_tả.sql, định dạng error response chung, Definition of Done và phân luồng L0–L5.",☐,,,Chung
+,,,,,"3. Tài liệu: CONTRIBUTING.md và ADR-001 (lý do chọn stack, ≥ 2 phương án cho mỗi lựa chọn chính).",☐,,,Chung
+,,,,,"4. Tài liệu: bảng phân luồng L0–L5 có tên người đảm nhận, đã được cả 6 thành viên xác nhận.",☐,,,Chung
+,,,,,"5. Quản lý: bảng Kanban dựng từ sheet này, 100% nhiệm vụ ngày 1–8 đã có người nhận.",☐,,,Chung
+,,,,,"6. Phi chức năng: Definition of Done gồm ≥ 5 tiêu chí (test, review, tài liệu, không secret, CI xanh).",☐,,,Chung
+Ngày 1–3 (3 ngày),"[ALL · P1] Business problem, NFR và workload","1. Viết Business Problem Statement, users, functional requirements từ đặc tả 10 module; mỗi luồng viết phần module của mình.
+2. Đặt NFR bằng số (ví dụ 1.000 học viên đồng thời, ≈ 67 RPS progress, đỉnh quiz 1.000 attempt trong 60 giây, p95, availability, RTO / RPO, ngân sách tháng) và phân tích workload.",Docs / Kiến trúc,,"1. Công việc: Viết Business Problem Statement, users, functional requirements từ đặc tả 10 module; mỗi luồng viết phần module của mình.",☐,,,Chung
+,,,,,"2. Công việc: Đặt NFR bằng số (ví dụ 1.000 học viên đồng thời, ≈ 67 RPS progress, đỉnh quiz 1.000 attempt trong 60 giây, p95, availability, RTO / RPO, ngân sách tháng) và phân tích workload.",☐,,,Chung
+,,,,,"3. Tài liệu: P1 bản nháp (Problem, Users, FR, NFR có số, Workload).",☐,,,Chung
+,,,,,"4. Tài liệu: bảng NFR ≥ 10 chỉ số, mỗi chỉ số có giá trị mục tiêu và cách đo.",☐,,,Chung
+,,,,,"5. Tài liệu: sơ đồ kiến trúc cloud v0 (các thành phần, luồng dữ liệu).",☐,,,Chung
+,,,,,6. Phi chức năng: mọi giả định tải ghi rõ nguồn (đặc tả Module 3 hoặc ước lượng của nhóm).,☐,,,Chung
+Ngày 4–8 (5 ngày),[ALL] Họp rà soát cuối khối: hợp đồng API và migration,"1. Mỗi luồng demo OpenAPI và migration của mình; kiểm tra xung đột tên bảng, enum, mã lỗi.
+2. Chốt các interface giữa module: EnrollmentChecker, CourseAccessGuard, AuditService, NotificationPublisher.",Quản lý,,"1. Công việc: Mỗi luồng demo OpenAPI và migration của mình; kiểm tra xung đột tên bảng, enum, mã lỗi.",☐,,,Chung
+,,,,,"2. Công việc: Chốt các interface giữa module: EnrollmentChecker, CourseAccessGuard, AuditService, NotificationPublisher.",☐,,,Chung
+,,,,,3. Tài liệu: biên bản họp và danh sách ≥ 4 interface liên module đã chốt.,☐,,,Chung
+,,,,,4. Test: 0 xung đột migration khi chạy toàn bộ Flyway trên DB trống.,☐,,,Chung
+,,,,,"5. Quản lý: danh sách việc phát sinh đưa vào Kanban, mỗi việc có người nhận.",☐,,,Chung
+,,,,,6. Phi chức năng: ≥ 5 file OpenAPI đã merge (M1–M6) và FE sinh client thành công từ cả 5 file.,☐,,,Chung
+Ngày 23–29 (7 ngày),[ALL] Tích hợp luồng end-to-end #1,"1. Chạy trọn luồng: đăng ký → ghi danh → học video có progress → làm quiz → nộp bài tập → nhận thông báo.
+2. Viết bộ E2E (Playwright) chạy trên staging; mỗi luồng sửa lỗi phần của mình, L1 điều phối.",QA/Test,,1. Công việc: Chạy trọn luồng: đăng ký → ghi danh → học video có progress → làm quiz → nộp bài tập → nhận thông báo.,☐,,,Chung
+,,,,,"2. Công việc: Viết bộ E2E (Playwright) chạy trên staging; mỗi luồng sửa lỗi phần của mình, L1 điều phối.",☐,,,Chung
+,,,,,3. Test: ≥ 8 kịch bản E2E chạy xanh trên staging (6 luồng chính + 2 luồng bị từ chối).,☐,,,Chung
+,,,,,"4. Ngoại lệ: các luồng bị từ chối (chưa ghi danh, hết lượt, quá hạn) trả đúng mã lỗi và thông báo.",☐,,,Chung
+,,,,,5. Quản lý: danh sách lỗi tích hợp có người nhận; 100% lỗi mức cao sửa trước ngày 29.,☐,,,Chung
+,,,,,6. Phi chức năng: bộ E2E chạy ≤ 10 phút và có trong CI cho nhánh main.,☐,,,Chung
+Ngày 23–29 (7 ngày),[ALL] Demo nội bộ #1 và họp retro,"1. Mỗi luồng demo phần mình trên staging (≤ 5 phút mỗi luồng).
+2. Họp retro: cái gì chậm, cái gì xung đột; điều chỉnh kế hoạch 4 tuần còn lại.",Quản lý,,1. Công việc: Mỗi luồng demo phần mình trên staging (≤ 5 phút mỗi luồng).,☐,,,Chung
+,,,,,"2. Công việc: Họp retro: cái gì chậm, cái gì xung đột; điều chỉnh kế hoạch 4 tuần còn lại.",☐,,,Chung
+,,,,,3. Quản lý: danh sách lỗi ưu tiên và kế hoạch điều chỉnh; ≥ 1 quyết định cắt hoặc dời phạm vi nếu chậm.,☐,,,Chung
+,,,,,"4. Tài liệu: biên bản retro (≥ 3 điều làm tốt, ≥ 3 điều cần cải thiện).",☐,,,Chung
+,,,,,5. Phi chức năng: tiến độ tổng (số đầu ra đã hoàn thành) ≥ 40% tại thời điểm demo.,☐,,,Chung
+Ngày 44–50 (7 ngày),"[ALL · P2] Tài liệu App, Data và Integration","1. Tổng hợp component architecture, API design, data model và ownership từng module, quyết định sync so với async, kiến trúc tích hợp (S3, CloudFront, SQS, LLM).
+2. Vẽ sơ đồ và kiểm tra khớp với hệ thống đang chạy.",Docs / Kiến trúc,,"1. Công việc: Tổng hợp component architecture, API design, data model và ownership từng module, quyết định sync so với async, kiến trúc tích hợp (S3, CloudFront, SQS, LLM).",☐,,,Chung
+,,,,,2. Công việc: Vẽ sơ đồ và kiểm tra khớp với hệ thống đang chạy.,☐,,,Chung
+,,,,,"3. Tài liệu: P2 hoàn chỉnh đủ 5 mục theo đề (component, API, data, sync / async, integration) kèm ≥ 4 sơ đồ.",☐,,,Chung
+,,,,,"4. Tài liệu: bảng ownership 10 module (module nào do luồng nào sở hữu, bảng nào).",☐,,,Chung
+,,,,,5. Phi chức năng: tài liệu ≤ 20 trang; sơ đồ khớp với code (được ≥ 2 thành viên đối chiếu).,☐,,,Chung
+Ngày 44–50 (7 ngày),[ALL · QA] Bug bash theo module,"1. Mỗi người kiểm thử chéo module của người khác theo kịch bản người dùng trong 1 buổi 3 giờ.
+2. Phân loại và sửa lỗi ưu tiên cao.",QA/Test,,1. Công việc: Mỗi người kiểm thử chéo module của người khác theo kịch bản người dùng trong 1 buổi 3 giờ.,☐,,,Chung
+,,,,,2. Công việc: Phân loại và sửa lỗi ưu tiên cao.,☐,,,Chung
+,,,,,"3. Test: ≥ 30 kịch bản kiểm thử chéo được chạy, ghi kết quả đạt / không đạt.",☐,,,Chung
+,,,,,"4. Ngoại lệ: 100% lỗi mức cao đã sửa, ≥ 70% lỗi mức trung bình đã sửa.",☐,,,Chung
+,,,,,5. Phi chức năng: mỗi lỗi nghiêm trọng có test hồi quy trong CI.,☐,,,Chung
+Ngày 44–50 (7 ngày),[ALL] Backlog tùy chọn (chỉ khi mọi việc trên đã xong),"1. Chọn 1 mục nhỏ từ Module 7, 8 hoặc 9 (ví dụ nhật ký thay đổi nội dung bài học hoặc mã mời khóa học riêng tư).
+2. Chỉ làm nếu 100% đầu ra bắt buộc đã xong và không ảnh hưởng ổn định.",Code FE+BE,,"1. Công việc: Chọn 1 mục nhỏ từ Module 7, 8 hoặc 9 (ví dụ nhật ký thay đổi nội dung bài học hoặc mã mời khóa học riêng tư).",☐,,,Chung
+,,,,,2. Công việc: Chỉ làm nếu 100% đầu ra bắt buộc đã xong và không ảnh hưởng ổn định.,☐,,,Chung
+,,,,,"3. BE / FE: 1 chức năng nhỏ chạy được, ≥ 5 test.",☐,,,Chung
+,,,,,4. Ngoại lệ: ≥ 3 trường hợp lỗi chính được xử lý.,☐,,,Chung
+,,,,,5. Phi chức năng: không làm đổi hợp đồng API đã chốt; không tăng thời gian CI quá 1 phút.,☐,,,Chung
+Ngày 51–53 (3 ngày),"[ALL] Feature freeze, regression và sửa lỗi","1. Dừng thêm tính năng; chạy lại toàn bộ E2E, test phân quyền và test AI.
+2. Sửa lỗi nghiêm trọng còn lại.",QA/Test,,"1. Công việc: Dừng thêm tính năng; chạy lại toàn bộ E2E, test phân quyền và test AI.",☐,,,Chung
+,,,,,2. Công việc: Sửa lỗi nghiêm trọng còn lại.,☐,,,Chung
+,,,,,"3. Test: E2E, test phân quyền (≥ 120 case) và bộ test AI (80 câu) đều xanh.",☐,,,Chung
+,,,,,4. Quản lý: danh sách lỗi còn tồn tại và quyết định có sửa hay không; 0 lỗi mức cao còn mở.,☐,,,Chung
+,,,,,5. Phi chức năng: tag release candidate; không có thay đổi hạ tầng sau ngày 53.,☐,,,Chung
+Ngày 54–56 (3 ngày),[ALL] Diễn tập bảo vệ kiến trúc (12 câu hỏi),"1. Mỗi người trả lời các câu hỏi thuộc luồng của mình: bài toán nghiệp vụ, giả định tải, NFR, lý do kiến trúc và DB, khi tải tăng 5× / 10×, khi dependency lỗi, deploy và rollback, bảo vệ dữ liệu, giám sát, chi phí, chất lượng / an toàn / chi phí AI.
+2. Diễn tập ≥ 2 buổi có phản hồi.",Quản lý,,"1. Công việc: Mỗi người trả lời các câu hỏi thuộc luồng của mình: bài toán nghiệp vụ, giả định tải, NFR, lý do kiến trúc và DB, khi tải tăng 5× / 10×, khi dependency lỗi, deploy và rollback, bảo vệ dữ liệu, giám sát, chi phí, chất lượng / an toàn / chi phí AI.",☐,,,Chung
+,,,,,2. Công việc: Diễn tập ≥ 2 buổi có phản hồi.,☐,,,Chung
+,,,,,"3. Tài liệu: bộ 12 câu hỏi và câu trả lời mẫu, mỗi câu gán người trả lời chính.",☐,,,Chung
+,,,,,"4. Quản lý: ≥ 2 buổi diễn tập, mỗi buổi ≤ 45 phút, có ghi lại điểm cần cải thiện.",☐,,,Chung
+,,,,,"5. Phi chức năng: mọi con số trích dẫn (NFR, p95, chi phí) khớp với báo cáo đo thật.",☐,,,Chung
+Ngày 54–56 (3 ngày),[ALL] Chốt tài liệu và release v1.0,"1. Rà soát P1–P5, viết README hướng dẫn chạy, gắn tag release v1.0.
+2. Kiểm tra liên kết tài liệu và bằng chứng.",Docs / Kiến trúc,,"1. Công việc: Rà soát P1–P5, viết README hướng dẫn chạy, gắn tag release v1.0.",☐,,,Chung
+,,,,,2. Công việc: Kiểm tra liên kết tài liệu và bằng chứng.,☐,,,Chung
+,,,,,3. Tài liệu: bộ P1–P5 và README cuối; README cho phép người mới chạy được hệ thống trong ≤ 30 phút.,☐,,,Chung
+,,,,,4. Quản lý: tag v1.0 và bản tổng hợp ≥ 15 ADR.,☐,,,Chung
+,,,,,5. Phi chức năng: 0 liên kết hỏng trong tài liệu; số liệu giữa các tài liệu nhất quán.,☐,,,Chung
+Ngày 54–56 (3 ngày),[ALL] Buffer dự phòng,"1. Dành thời gian dự phòng cho việc phát sinh hoặc lỗi phút chót.
+2. Không giao việc mới trong khối này.",Quản lý,,1. Công việc: Dành thời gian dự phòng cho việc phát sinh hoặc lỗi phút chót.,☐,,,Chung
+,,,,,2. Công việc: Không giao việc mới trong khối này.,☐,,,Chung
+,,,,,3. Quản lý: không có đầu ra bắt buộc mới; chỉ xử lý lỗi và việc còn dở.,☐,,,Chung
+,,,,,4. Phi chức năng: không có thay đổi lớn về code hoặc hạ tầng.,☐,,,Chung

@@ -7,19 +7,23 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.type.SqlTypes;
-import com.oep.coremodel.enums.*;
 
-import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.UUID;
 
 @Getter
 @Setter
 @Entity
-@Table(name = "notifications", indexes = {@Index(name = "idx_notifications_user_id_is_read_created_at", columnList = "user_id, is_read, created_at")})
+@Table(
+    name = "notifications",
+    indexes = {
+        @Index(name = "idx_notifications_user_id_is_read_created_at", columnList = "user_id, is_read, created_at")
+    },
+    uniqueConstraints = {
+        @UniqueConstraint(name = "uq_notifications_dedupe_key", columnNames = {"dedupe_key"})
+    }
+)
 public class Notification extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -60,4 +64,13 @@ public class Notification extends BaseEntity {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+
+    public boolean isRead() {
+        return this.read;
+    }
+
+    public void setIsRead(boolean isRead) {
+        this.read = isRead;
+    }
 }
+
