@@ -9,8 +9,8 @@ This file tracks code implementation in the repository. A design/API contract is
 | M2.1 Course, module and lesson CRUD | Implemented; manual API smoke verified | Create/read/list/update paths for courses, modules and lessons passed against local PostgreSQL on 2026-10-22. Full backend Maven build passed with tests skipped; automated tests remain outstanding. See scope and limits below. |
 | M2.2 Reordering modules and lessons | Implemented | Complete-permutation APIs, parent-row locks, collision-safe two-phase position updates, and unique parent-position constraints added. Seven service unit tests pass; DB concurrency/API integration checks remain outstanding. |
 | M2.3 Lesson TEXT/LINK content CRUD | Implemented | TEXT/LINK list/create/read/update/delete available to OWNER/CO_INSTRUCTOR. Six service unit tests and gateway API smoke checks against local PostgreSQL pass. File operations and student entitlement reads stay in M2.5/M2.6. |
-| M2.4 Course lifecycle and instructor management | Implemented; unit and API smoke verified | Owner publish/unpublish/archive/restore and ADMIN disable/enable endpoints added; instructor list/add/remove added. Publish uses the OpenAPI's provisional readiness rule (at least one lesson and one AVAILABLE content item). Nine M2.4 unit tests pass, and direct Core LMS API smoke checks against PostgreSQL pass. Student instructor-list entitlement and ownership transfer remain out of scope. |
-| M2.5 Outline and enrollment-aware student access | Not started | Private access and student module/lesson reads depend on M3 entitlement policy. |
+| M2.4 Course lifecycle and instructor management | Implemented; unit and API smoke verified | Owner publish/unpublish/archive/restore and ADMIN disable/enable endpoints added; instructor list/add/remove added. Publish uses the OpenAPI's provisional readiness rule (at least one lesson and one AVAILABLE content item). Nine M2.4 unit tests pass, and direct Core LMS API smoke checks against PostgreSQL pass. Student instructor-list reads are covered provisionally by M2.5; ownership transfer remains out of scope. |
+| M2.5 Outline and enrollment-aware student access | Implemented provisionally; policy alignment pending | Anonymous PUBLIC + PUBLISHED outline previews and course-manager reads work in all states. Student course details, PRIVATE outlines, instructor lists, module/lesson reads and AVAILABLE content reads require an ACTIVE enrollment in a PUBLISHED course. COMPLETED access and final M3 entitlement ownership/failure semantics remain open. |
 | M2.6 File storage and signed URLs | Blocked on contract | `complete-upload` currently asks the caller for `object_key` while the upload response intentionally hides it. Storage provider, limits and URL TTLs also need a decision. |
 | M2.7 Cross-module deletion/reference checks | Blocked on M3/M5/L4 integration | Lesson deletion must account for progress, quiz and assignment references. |
 | M2.8 Integration tests, API contract review and deployment | Not started | To be done after the implementation slices and shared contracts are ready. |
@@ -26,7 +26,7 @@ This file tracks code implementation in the repository. A design/API contract is
 - Course/module/lesson ownership checks, parent-chain validation, paging limits, DTO validation, default values and basic date/position/default-module checks.
 - Gateway route and public GET access for the public course catalog and public course metadata.
 
-Capacity changes and PUBLIC/PRIVATE visibility changes are rejected by course PATCH until M3 defines occupied-seat semantics and invite-code/enrollment behavior. Module/lesson read routes currently serve course managers; enrollment-aware student reads are deferred to M2.5. Delete and reorder endpoints are not included in M2.1. Course creation currently treats `User.role = INSTRUCTOR` as the approved instructor signal; confirm this against the instructor-approval flow before production use.
+Capacity changes and PUBLIC/PRIVATE visibility changes are rejected by course PATCH until M3 defines occupied-seat semantics and invite-code/enrollment behavior. Module/lesson read routes now enforce the provisional M2.5 ACTIVE-enrollment policy. Delete and reorder endpoints are not included in M2.1. Course creation currently treats `User.role = INSTRUCTOR` as the approved instructor signal; confirm this against the instructor-approval flow before production use.
 
 ## M2.2 delivered scope
 
@@ -53,11 +53,19 @@ Capacity changes and PUBLIC/PRIVATE visibility changes are rejected by course PA
 - Publishing currently follows the provisional OpenAPI readiness rule: the course must contain at least one lesson and at least one `AVAILABLE` content item. TEXT/LINK items created through M2.3 meet the content condition because they are immediately AVAILABLE.
 - Added ADMIN-only `disable` and `enable`; enabling returns the course to DRAFT for owner review.
 - Added OWNER-only co-instructor add/remove and manager-only instructor listing. Added instructors must be active system-level INSTRUCTOR users; the course OWNER cannot be removed. Course-row locking serializes instructor membership changes.
-- Student access to the instructor list still needs M3 enrollment entitlement integration. Ownership transfer is not part of the current API contract.
+- Student access to the instructor list now requires an ACTIVE enrollment under the provisional M2.5 policy; final M3 entitlement ownership remains pending. Ownership transfer is not part of the current API contract.
 - `CourseLifecycleAndInstructorManagementTest` covers readiness, transitions, role restrictions, instructor assignment, and owner-removal protection. All nine M2.4 unit tests pass.
 - `mvn -pl core-lms-service -am test` succeeded on 2026-10-23: all 22 Core LMS service tests passed (9 M2.4, 7 M2.2, 6 M2.3).
 - Direct Core LMS API smoke checks against the project's PostgreSQL primary/replica passed on 2026-10-23: empty-course publish returned 409 `COURSE_NOT_READY`; publish/unpublish/republish, archive/restore, ADMIN disable/enable and co-instructor add/list/remove passed; co-instructor archive and instructor disable returned 403.
 - Smoke-test course and accounts were removed and verified absent afterward. Core LMS and Docker dependencies were stopped after the check. Gateway-level smoke testing remains outstanding.
+
+## M2.5 delivered scope (provisional)
+
+- Added `GET /api/v1/courses/{courseId}/outline` returning ordered module and lesson metadata without content or file fields.
+- Anonymous users can preview outlines only for `PUBLIC + PUBLISHED` courses. OWNER/CO_INSTRUCTOR/ADMIN can inspect outlines for courses they manage, including DRAFT, PRIVATE, ARCHIVED and DISABLED courses.
+- Student reads of non-preview course details, outlines, instructor lists, modules, lessons and lesson contents use the local enrollment table and require an ACTIVE enrollment in a PUBLISHED course. Student content lists/details include only `AVAILABLE` items. COMPLETED remains denied provisionally.
+- Read authorization runs against the primary database so replication lag cannot preserve stale ACTIVE enrollment or PUBLISHED state. Public catalog reads remain eligible for the read replica; course details, outlines and learning reads use the primary for authorization.
+- Final COMPLETED policy, M3 entitlement service ownership, and dependency-failure mapping remain pending. PRIVATE enrollment still relies on L3 completing its invite-code flow before creating the enrollment row.
 
 ## Implementation notes
 

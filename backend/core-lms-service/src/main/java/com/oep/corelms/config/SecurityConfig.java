@@ -48,7 +48,10 @@ public class SecurityConfig {
                                 "/.well-known/jwks.json",
                                 "/actuator/**"
                         ).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/courses", "/api/v1/courses/*").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/courses",
+                                "/api/v1/courses/*",
+                                "/api/v1/courses/*/outline").permitAll()
                         .requestMatchers("/api/auth/change-password").authenticated()
                         .anyRequest().authenticated()
                 )

@@ -4,6 +4,7 @@ import com.oep.corelms.dto.course.CourseDtos;
 import com.oep.corelms.repository.CourseInstructorRepository;
 import com.oep.corelms.repository.CourseModuleRepository;
 import com.oep.corelms.repository.CourseRepository;
+import com.oep.corelms.repository.EnrollmentRepository;
 import com.oep.corelms.repository.LessonContentReferenceRepository;
 import com.oep.corelms.repository.LessonContentRepository;
 import com.oep.corelms.repository.LessonRepository;
@@ -46,6 +47,7 @@ class CourseLifecycleAndInstructorManagementTest {
     @Mock private LessonContentReferenceRepository contentReferences;
     @Mock private CourseInstructorRepository courseInstructors;
     @Mock private UserRepository users;
+    @Mock private EnrollmentRepository enrollments;
 
     private CourseManagementService service;
     private final UUID ownerId = UUID.randomUUID();
@@ -55,7 +57,7 @@ class CourseLifecycleAndInstructorManagementTest {
 
     @BeforeEach
     void setUp() {
-        service = new CourseManagementService(courses, modules, lessons, contents, contentReferences, courseInstructors, users);
+        service = new CourseManagementService(courses, modules, lessons, contents, contentReferences, courseInstructors, users, enrollments);
         course = new Course();
         course.setId(courseId);
         course.setTitle("Test course");

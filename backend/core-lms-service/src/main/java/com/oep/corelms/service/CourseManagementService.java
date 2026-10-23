@@ -7,6 +7,7 @@ import com.oep.corelms.dto.course.ModuleDtos;
 import com.oep.corelms.repository.CourseInstructorRepository;
 import com.oep.corelms.repository.CourseModuleRepository;
 import com.oep.corelms.repository.CourseRepository;
+import com.oep.corelms.repository.EnrollmentRepository;
 import com.oep.corelms.repository.LessonRepository;
 import com.oep.corelms.repository.LessonContentRepository;
 import com.oep.corelms.repository.LessonContentReferenceRepository;
@@ -26,6 +27,7 @@ import com.oep.coremodel.enums.LearningMode;
 import com.oep.coremodel.enums.UploadStatus;
 import com.oep.coremodel.enums.UserRole;
 import com.oep.coremodel.enums.AccountStatus;
+import com.oep.coremodel.enums.EnrollmentStatus;
 import com.oep.coremodel.exception.BusinessException;
 import com.oep.coremodel.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -52,6 +54,7 @@ public class CourseManagementService {
     private final LessonContentReferenceRepository contentReferences;
     private final CourseInstructorRepository courseInstructors;
     private final UserRepository users;
+    private final EnrollmentRepository enrollments;
 
     @Transactional
     public CourseDtos.CourseResponse createCourse(UUID actorId, CourseDtos.CreateCourseRequest request) {
@@ -100,14 +103,30 @@ public class CourseManagementService {
         return new CourseDtos.CoursePage(result.getContent().stream().map(this::toCourse).toList(), pageInfo(result));
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public CourseDtos.CourseResponse getCourse(UUID actorId, UUID courseId) {
         Course course = requireCourse(courseId);
         if (course.getVisibility() == CourseVisibility.PUBLIC && course.getLifecycleStatus() == CourseLifecycleStatus.PUBLISHED) {
             return toCourse(course);
         }
-        requireCourseManager(courseId, actorId);
+        requireCourseReadAccess(course, actorId);
         return toCourse(course);
+    }
+
+    @Transactional
+    public CourseDtos.CourseOutline getCourseOutline(UUID actorId, UUID courseId) {
+        Course course = requireCourse(courseId);
+        boolean publicPreview = course.getVisibility() == CourseVisibility.PUBLIC
+                && course.getLifecycleStatus() == CourseLifecycleStatus.PUBLISHED;
+        if (!publicPreview) {
+            requireCourseReadAccess(course, actorId);
+        }
+
+        List<CourseDtos.ModuleOutline> outlineModules = modules.findByCourseIdOrderByPositionAsc(courseId).stream()
+                .map(module -> new CourseDtos.ModuleOutline(toModule(module),
+                        lessons.findByModuleIdOrderByPositionAsc(module.getId()).stream().map(this::toLesson).toList()))
+                .toList();
+        return new CourseDtos.CourseOutline(course.getId(), outlineModules);
     }
 
     @Transactional
@@ -188,10 +207,9 @@ public class CourseManagementService {
         return toCourse(courses.saveAndFlush(course));
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public CourseDtos.InstructorList listCourseInstructors(UUID actorId, UUID courseId) {
-        requireCourse(courseId);
-        requireCourseManager(courseId, actorId);
+        requireCourseReadAccess(requireCourse(courseId), actorId);
         List<CourseDtos.InstructorResponse> items = courseInstructors.findAllForCourse(courseId).stream()
                 .map(link -> new CourseDtos.InstructorResponse(link.getInstructor().getId(), link.getCourseRole(), link.getAddedAt()))
                 .toList();
@@ -270,9 +288,9 @@ public class CourseManagementService {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public ModuleDtos.PageResponse listModules(UUID actorId, UUID courseId, int page, int pageSize) {
-        requireEditableCourse(courseId, actorId);
+        requireCourseReadAccess(requireCourse(courseId), actorId);
         validatePage(page, pageSize);
         Page<CourseModule> result = modules.findByCourseIdOrderByPositionAsc(courseId, PageRequest.of(page - 1, pageSize));
         return new ModuleDtos.PageResponse(result.getContent().stream().map(this::toModule).toList(), pageInfo(result));
@@ -301,9 +319,9 @@ public class CourseManagementService {
         return toModule(modules.saveAndFlush(module));
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public ModuleDtos.Response getModule(UUID actorId, UUID courseId, UUID moduleId) {
-        requireEditableCourse(courseId, actorId);
+        requireCourseReadAccess(requireCourse(courseId), actorId);
         return toModule(requireModule(courseId, moduleId));
     }
 
@@ -345,9 +363,9 @@ public class CourseManagementService {
         return new ModuleDtos.ReorderResponse(true, List.copyOf(orderedIds));
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public LessonDtos.PageResponse listLessons(UUID actorId, UUID courseId, UUID moduleId, int page, int pageSize) {
-        requireEditableCourse(courseId, actorId);
+        requireCourseReadAccess(requireCourse(courseId), actorId);
         requireModule(courseId, moduleId);
         validatePage(page, pageSize);
         Page<Lesson> result = lessons.findByModuleIdOrderByPositionAsc(moduleId, PageRequest.of(page - 1, pageSize));
@@ -372,9 +390,10 @@ public class CourseManagementService {
         return toLesson(lessons.saveAndFlush(lesson));
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public LessonDtos.Response getLesson(UUID actorId, UUID courseId, UUID moduleId, UUID lessonId) {
-        requireEditableCourse(courseId, actorId);
+        requireCourseReadAccess(requireCourse(courseId), actorId);
+        requireModule(courseId, moduleId);
         return toLesson(requireLesson(moduleId, lessonId));
     }
 
@@ -394,14 +413,22 @@ public class CourseManagementService {
         return toLesson(lessons.saveAndFlush(lesson));
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public LessonContentDtos.PageResponse listLessonContents(UUID actorId, UUID courseId, UUID moduleId, UUID lessonId,
                                                              int page, int pageSize, UploadStatus status) {
-        Lesson lesson = requireManagedLesson(actorId, courseId, moduleId, lessonId);
+        Lesson lesson = requireReadableLesson(actorId, courseId, moduleId, lessonId);
         validatePage(page, pageSize);
-        Page<LessonContent> result = status == null
-                ? contents.findByLessonIdOrderByPositionAsc(lesson.getId(), PageRequest.of(page - 1, pageSize))
-                : contents.findByLessonIdAndUploadStatusOrderByPositionAsc(lesson.getId(), status, PageRequest.of(page - 1, pageSize));
+        boolean manager = isCourseManager(courseId, actorId);
+        PageRequest pageable = PageRequest.of(page - 1, pageSize);
+        Page<LessonContent> result;
+        if (!manager && status != null && status != UploadStatus.AVAILABLE) {
+            result = Page.empty(pageable);
+        } else {
+            UploadStatus effectiveStatus = manager ? status : UploadStatus.AVAILABLE;
+            result = effectiveStatus == null
+                    ? contents.findByLessonIdOrderByPositionAsc(lesson.getId(), pageable)
+                    : contents.findByLessonIdAndUploadStatusOrderByPositionAsc(lesson.getId(), effectiveStatus, pageable);
+        }
         return new LessonContentDtos.PageResponse(result.getContent().stream().map(this::toContent).toList(), pageInfo(result));
     }
 
@@ -435,10 +462,14 @@ public class CourseManagementService {
         return toContent(contents.saveAndFlush(content));
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public LessonContentDtos.Response getLessonContent(UUID actorId, UUID courseId, UUID moduleId, UUID lessonId, UUID contentId) {
-        Lesson lesson = requireManagedLesson(actorId, courseId, moduleId, lessonId);
-        return toContent(requireContent(lesson.getId(), contentId));
+        Lesson lesson = requireReadableLesson(actorId, courseId, moduleId, lessonId);
+        LessonContent content = requireContent(lesson.getId(), contentId);
+        if (!isCourseManager(courseId, actorId) && content.getUploadStatus() != UploadStatus.AVAILABLE) {
+            throw new BusinessException(ErrorCode.INVALID_CONTENT, "Content is not available");
+        }
+        return toContent(content);
     }
 
     @Transactional
@@ -525,8 +556,8 @@ public class CourseManagementService {
         }
     }
 
-    private Lesson requireManagedLesson(UUID actorId, UUID courseId, UUID moduleId, UUID lessonId) {
-        requireInstructorAssociation(courseId, actorId);
+    private Lesson requireReadableLesson(UUID actorId, UUID courseId, UUID moduleId, UUID lessonId) {
+        requireCourseReadAccess(requireCourse(courseId), actorId);
         requireModule(courseId, moduleId);
         return lessons.findByIdAndModuleId(lessonId, moduleId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_COURSE_LESSON, "Lesson not found in module"));
@@ -585,6 +616,35 @@ public class CourseManagementService {
     }
     private Course requireCourse(UUID id) {
         return courses.findById(id).orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Course not found"));
+    }
+
+    private void requireCourseReadAccess(Course course, UUID actorId) {
+        if (actorId == null) throw new BusinessException(ErrorCode.FORBIDDEN, "Published course access requires enrollment");
+        User actor = requireUser(actorId);
+        if (actor.getAccountStatus() != AccountStatus.ACTIVE) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "Active account required");
+        }
+        if (actor.getRole() == UserRole.ADMIN) return;
+
+        CourseInstructor link = courseInstructors.findByIdCourseIdAndIdInstructorId(course.getId(), actorId).orElse(null);
+        if (link != null && (link.getCourseRole() == CourseInstructorRole.OWNER
+                || link.getCourseRole() == CourseInstructorRole.CO_INSTRUCTOR)) return;
+
+        boolean activeStudent = actor.getRole() == UserRole.STUDENT
+                && course.getLifecycleStatus() == CourseLifecycleStatus.PUBLISHED
+                && enrollments.existsByCourseIdAndStudentIdAndStatus(course.getId(), actorId, EnrollmentStatus.ACTIVE);
+        if (!activeStudent) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "Published course access requires ACTIVE enrollment");
+        }
+    }
+
+    private boolean isCourseManager(UUID courseId, UUID actorId) {
+        if (actorId == null) return false;
+        User actor = requireUser(actorId);
+        if (actor.getRole() == UserRole.ADMIN) return true;
+        CourseInstructor link = courseInstructors.findByIdCourseIdAndIdInstructorId(courseId, actorId).orElse(null);
+        return link != null && (link.getCourseRole() == CourseInstructorRole.OWNER
+                || link.getCourseRole() == CourseInstructorRole.CO_INSTRUCTOR);
     }
     private Course requireEditableCourse(UUID courseId, UUID actorId) {
         Course course = requireCourse(courseId);

@@ -47,6 +47,11 @@ public class CourseManagementController {
         return service.getCourse(userIdOrNull(jwt), courseId);
     }
 
+    @GetMapping("/courses/{courseId}/outline")
+    public CourseDtos.CourseOutline getCourseOutline(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
+        return service.getCourseOutline(userIdOrNull(jwt), courseId);
+    }
+
     @PatchMapping("/courses/{courseId}")
     public CourseDtos.CourseResponse updateCourse(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
                                                    @Valid @RequestBody CourseDtos.UpdateCourseRequest request) {

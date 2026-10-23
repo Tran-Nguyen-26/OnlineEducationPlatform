@@ -19,7 +19,10 @@ public class SecurityConfig {
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .authorizeExchange(ex -> ex
                         .pathMatchers("/api/auth/**", "/actuator/health").permitAll()
-                        .pathMatchers(HttpMethod.GET, "/api/v1/courses", "/api/v1/courses/*").permitAll()
+                        .pathMatchers(HttpMethod.GET,
+                                "/api/v1/courses",
+                                "/api/v1/courses/*",
+                                "/api/v1/courses/*/outline").permitAll()
                         .pathMatchers("/api/**").authenticated()
                         .anyExchange().denyAll())
                 .oauth2ResourceServer(o -> o.jwt(Customizer.withDefaults()))
