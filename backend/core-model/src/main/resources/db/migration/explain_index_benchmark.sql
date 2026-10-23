@@ -19,6 +19,9 @@ CREATE TEMP TABLE IF NOT EXISTS temp_benchmark_notifications (
 CREATE INDEX IF NOT EXISTS idx_temp_notifications_user_id_is_read_created_at
 ON temp_benchmark_notifications (user_id, is_read, created_at DESC);
 
+CREATE INDEX IF NOT EXISTS idx_temp_notifications_user_id_created_at
+ON temp_benchmark_notifications (user_id, created_at DESC);
+
 -- Generate 100,000 synthetic notifications distributed across 1,000 users
 INSERT INTO temp_benchmark_notifications (user_id, event_type, title, message, dedupe_key, is_read, created_at)
 SELECT
@@ -49,5 +52,13 @@ SELECT COUNT(*)
 FROM temp_benchmark_notifications
 WHERE user_id = '00000000-0000-0000-0000-000000000042'::UUID
   AND is_read = false;
+
+-- 4. Verify querying all notifications (regardless of read state)
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id, title, message, created_at
+FROM temp_benchmark_notifications
+WHERE user_id = '00000000-0000-0000-0000-000000000042'::UUID
+ORDER BY created_at DESC
+LIMIT 20;
 
 ROLLBACK;
