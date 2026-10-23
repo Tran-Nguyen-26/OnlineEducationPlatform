@@ -27,13 +27,9 @@ RUN mvn dependency:go-offline -B -pl core-model,core-lms-service -am || true
 COPY core-model/src core-model/src
 COPY core-lms-service/src core-lms-service/src
 
-# Compile and package core-lms-service
-RUN mvn clean package -pl core-lms-service -am -DskipTests -B
-
-# Extract layered Spring Boot jar for faster startup and container caching
-WORKDIR /workspace/core-lms-service/target
-RUN java -Djarmode=tools -jar core-lms-service-0.1.0-SNAPSHOT.jar extract --layers --launcher || \
-    cp core-lms-service-0.1.0-SNAPSHOT.jar /workspace/app.jar
+# Compile and package core-lms-service, copy executable jar
+RUN mvn clean package -pl core-lms-service -am -DskipTests -B && \
+    cp core-lms-service/target/core-lms-service-*.jar /workspace/app.jar
 
 # Stage 2: Lightweight, secure runtime
 FROM eclipse-temurin:21-jre-alpine AS runner
@@ -45,7 +41,7 @@ RUN addgroup -S -g 10001 appgroup && \
 WORKDIR /app
 
 # Copy executable jar from builder
-COPY --from=builder --chown=appuser:appgroup /workspace/core-lms-service/target/core-lms-service-*.jar app.jar
+COPY --from=builder --chown=appuser:appgroup /workspace/app.jar app.jar
 
 # Switch to non-root user
 USER appuser:appgroup
