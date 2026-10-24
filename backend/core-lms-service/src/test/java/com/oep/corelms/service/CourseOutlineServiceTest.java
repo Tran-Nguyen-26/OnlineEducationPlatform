@@ -1,6 +1,7 @@
 package com.oep.corelms.service;
 
 import com.oep.corelms.repository.CourseInstructorRepository;
+import com.oep.corelms.repository.AuditLogRepository;
 import com.oep.corelms.repository.CourseModuleRepository;
 import com.oep.corelms.repository.CourseRepository;
 import com.oep.corelms.repository.EnrollmentRepository;
@@ -36,6 +37,8 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -46,6 +49,7 @@ class CourseOutlineServiceTest {
     @Mock private LessonContentRepository contents;
     @Mock private LessonContentReferenceRepository contentReferences;
     @Mock private CourseInstructorRepository courseInstructors;
+    @Mock private AuditLogRepository auditLogs;
     @Mock private UserRepository users;
     @Mock private EnrollmentRepository enrollments;
     @Mock private ObjectStorageService objectStorage;
@@ -57,7 +61,7 @@ class CourseOutlineServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new CourseManagementService(courses, modules, lessons, contents, contentReferences, courseInstructors, users, enrollments, objectStorage);
+        service = new CourseManagementService(courses, modules, lessons, contents, contentReferences, courseInstructors, auditLogs, users, enrollments, objectStorage);
         course = new Course();
         course.setId(courseId);
         when(courses.findById(courseId)).thenReturn(Optional.of(course));
@@ -70,7 +74,7 @@ class CourseOutlineServiceTest {
         CourseModule module = module(0, "Introduction");
         Lesson lesson = lesson(module, 0, "Welcome");
         when(modules.findByCourseIdOrderByPositionAsc(courseId)).thenReturn(List.of(module));
-        when(lessons.findByModuleIdOrderByPositionAsc(module.getId())).thenReturn(List.of(lesson));
+        when(lessons.findAllForCourseOutline(courseId)).thenReturn(List.of(lesson));
 
         var result = service.getCourseOutline(null, courseId);
 
@@ -79,7 +83,35 @@ class CourseOutlineServiceTest {
         assertEquals(module.getId(), result.modules().getFirst().module().id());
         assertEquals(lesson.getId(), result.modules().getFirst().lessons().getFirst().id());
         verify(modules).findByCourseIdOrderByPositionAsc(courseId);
-        verify(lessons).findByModuleIdOrderByPositionAsc(module.getId());
+        verify(lessons).findAllForCourseOutline(courseId);
+        verify(lessons, never()).findByModuleIdOrderByPositionAsc(module.getId());
+    }
+
+    @Test
+    void buildsLargeOutlineWithOneBulkLessonLookup() {
+        course.setVisibility(CourseVisibility.PUBLIC);
+        course.setLifecycleStatus(CourseLifecycleStatus.PUBLISHED);
+
+        List<CourseModule> courseModules = new java.util.ArrayList<>();
+        List<Lesson> courseLessons = new java.util.ArrayList<>();
+        for (int modulePosition = 0; modulePosition < 10; modulePosition++) {
+            CourseModule module = module(modulePosition, "Module " + modulePosition);
+            courseModules.add(module);
+            for (int lessonPosition = 0; lessonPosition < 10; lessonPosition++) {
+                courseLessons.add(lesson(module, lessonPosition, "Lesson " + modulePosition + "." + lessonPosition));
+            }
+        }
+        when(modules.findByCourseIdOrderByPositionAsc(courseId)).thenReturn(courseModules);
+        when(lessons.findAllForCourseOutline(courseId)).thenReturn(courseLessons);
+
+        var outline = service.getCourseOutline(null, courseId);
+
+        assertEquals(10, outline.modules().size());
+        assertEquals(100, outline.modules().stream().mapToInt(module -> module.lessons().size()).sum());
+        assertEquals("Lesson 9.9", outline.modules().get(9).lessons().get(9).title());
+        verify(modules, times(1)).findByCourseIdOrderByPositionAsc(courseId);
+        verify(lessons, times(1)).findAllForCourseOutline(courseId);
+        verify(lessons, never()).findByModuleIdOrderByPositionAsc(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -110,6 +142,7 @@ class CourseOutlineServiceTest {
         ownerUser.setRole(UserRole.INSTRUCTOR);
         when(users.findById(ownerId)).thenReturn(Optional.of(ownerUser));
         when(modules.findByCourseIdOrderByPositionAsc(courseId)).thenReturn(List.of());
+        when(lessons.findAllForCourseOutline(courseId)).thenReturn(List.of());
 
         var result = service.getCourseOutline(ownerId, courseId);
 
@@ -130,6 +163,7 @@ class CourseOutlineServiceTest {
         course.setLifecycleStatus(CourseLifecycleStatus.PUBLISHED);
         CourseModule module = module(0, "Private module");
         when(modules.findByCourseIdOrderByPositionAsc(courseId)).thenReturn(List.of(module));
+        when(lessons.findAllForCourseOutline(courseId)).thenReturn(List.of());
         when(modules.findByCourseIdOrderByPositionAsc(courseId, PageRequest.of(0, 20)))
                 .thenReturn(new PageImpl<>(List.of(module), PageRequest.of(0, 20), 1));
 

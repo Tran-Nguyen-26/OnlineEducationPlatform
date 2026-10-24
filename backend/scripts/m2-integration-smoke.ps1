@@ -110,41 +110,56 @@ try {
     }
     Assert-Status $courseUpdate 200 'update course metadata'
 
-    $moduleOne = Invoke-Api POST "/api/v1/courses/$courseId/modules" $ownerToken @{ title = 'Module one' }
+    $moduleOne = Invoke-Api POST "/api/v1/courses/$courseId/modules" $ownerToken @{ title = 'Module one'; position = 0 }
     Assert-Status $moduleOne 201 'create first module'
-    $moduleTwo = Invoke-Api POST "/api/v1/courses/$courseId/modules" $ownerToken @{ title = 'Module two' }
+    $moduleTwo = Invoke-Api POST "/api/v1/courses/$courseId/modules" $ownerToken @{ title = 'Module two'; position = 0 }
     Assert-Status $moduleTwo 201 'create second module'
-    $moduleIds = @([string]$moduleOne.Data.id, [string]$moduleTwo.Data.id)
-    Assert-Status (Invoke-Api GET "/api/v1/courses/$courseId/modules" $ownerToken $null) 200 'list modules'
+    $moduleList = Invoke-Api GET "/api/v1/courses/$courseId/modules" $ownerToken $null
+    Assert-Status $moduleList 200 'list modules'
+    $defaultModules = @($moduleList.Data.items | Where-Object { $_.is_default })
+    Assert-True ($defaultModules.Count -eq 1) 'course creation supplies exactly one default module'
+    Assert-True ($defaultModules[0].position -eq 2) 'duplicate module positions shift the default module without losing order'
+    $moduleOneCurrent = $moduleList.Data.items | Where-Object { $_.id -eq $moduleOne.Data.id } | Select-Object -First 1
+    Assert-True ($moduleOneCurrent.position -eq 1) 'second duplicate insertion preserves first inserted module order'
+    $moduleIds = @([string]$defaultModules[0].id, [string]$moduleOne.Data.id, [string]$moduleTwo.Data.id)
     Assert-Status (Invoke-Api GET "/api/v1/courses/$courseId/modules/$($moduleIds[0])" $ownerToken $null) 200 'read module'
-    Assert-Status (Invoke-Api PATCH "/api/v1/courses/$courseId/modules/$($moduleIds[0])" $ownerToken @{ title = 'Module one updated' }) 200 'update module'
-    $moduleOrder = Invoke-Api PATCH "/api/v1/courses/$courseId/module-order" $ownerToken @{ ordered_ids = @($moduleIds[1], $moduleIds[0]) }
+    Assert-Status (Invoke-Api PATCH "/api/v1/courses/$courseId/modules/$($moduleIds[0])" $ownerToken @{ title = 'Default module updated' }) 200 'update module'
+    $moduleOrder = Invoke-Api PATCH "/api/v1/courses/$courseId/module-order" $ownerToken @{ ordered_ids = @($moduleIds[2], $moduleIds[1], $moduleIds[0]) }
     Assert-Status $moduleOrder 200 'reorder modules'
-    Assert-True ($moduleOrder.Data.ordered_ids[0] -eq $moduleIds[1]) 'module order persisted'
+    Assert-True ($moduleOrder.Data.ordered_ids[0] -eq $moduleIds[2]) 'module order persisted'
 
-    $lessonOne = Invoke-Api POST "/api/v1/courses/$courseId/modules/$($moduleIds[0])/lessons" $ownerToken @{ title = 'Lesson one' }
+    $lessonOne = Invoke-Api POST "/api/v1/courses/$courseId/modules/$($moduleIds[0])/lessons" $ownerToken @{ title = 'Lesson one'; position = 0 }
     Assert-Status $lessonOne 201 'create first lesson'
-    $lessonTwo = Invoke-Api POST "/api/v1/courses/$courseId/modules/$($moduleIds[0])/lessons" $ownerToken @{ title = 'Lesson two' }
+    $lessonTwo = Invoke-Api POST "/api/v1/courses/$courseId/modules/$($moduleIds[0])/lessons" $ownerToken @{ title = 'Lesson two'; position = 0 }
     Assert-Status $lessonTwo 201 'create second lesson'
     $lessonIds = @([string]$lessonOne.Data.id, [string]$lessonTwo.Data.id)
-    Assert-Status (Invoke-Api GET "/api/v1/courses/$courseId/modules/$($moduleIds[0])/lessons" $ownerToken $null) 200 'list lessons'
+    $lessonList = Invoke-Api GET "/api/v1/courses/$courseId/modules/$($moduleIds[0])/lessons" $ownerToken $null
+    Assert-Status $lessonList 200 'list lessons'
+    $lessonOneCurrent = $lessonList.Data.items | Where-Object { $_.id -eq $lessonOne.Data.id } | Select-Object -First 1
+    Assert-True ($lessonOneCurrent.position -eq 1) 'duplicate lesson position preserves insertion order'
     Assert-Status (Invoke-Api GET "/api/v1/courses/$courseId/modules/$($moduleIds[0])/lessons/$($lessonIds[0])" $ownerToken $null) 200 'read lesson'
     Assert-Status (Invoke-Api PATCH "/api/v1/courses/$courseId/modules/$($moduleIds[0])/lessons/$($lessonIds[0])" $ownerToken @{ title = 'Lesson one updated' }) 200 'update lesson'
     $lessonOrder = Invoke-Api PATCH "/api/v1/courses/$courseId/modules/$($moduleIds[0])/lesson-order" $ownerToken @{ ordered_ids = @($lessonIds[1], $lessonIds[0]) }
     Assert-Status $lessonOrder 200 'reorder lessons'
     Assert-True ($lessonOrder.Data.ordered_ids[0] -eq $lessonIds[1]) 'lesson order persisted'
+    $emptyLesson = Invoke-Api POST "/api/v1/courses/$courseId/modules/$($moduleIds[0])/lessons" $ownerToken @{ title = 'Empty lesson'; position = 2 }
+    Assert-Status $emptyLesson 201 'create empty lesson for deletion'
+    $emptyLessonId = [string]$emptyLesson.Data.id
+    Assert-Status (Invoke-Api DELETE "/api/v1/courses/$courseId/modules/$($moduleIds[0])/lessons/$emptyLessonId" $ownerToken $null) 200 'delete empty lesson'
+    Assert-Status (Invoke-Api GET "/api/v1/courses/$courseId/modules/$($moduleIds[0])/lessons/$emptyLessonId" $ownerToken $null) 404 'deleted lesson is absent'
 
     $contentPath = "/api/v1/courses/$courseId/modules/$($moduleIds[0])/lessons/$($lessonIds[0])/contents"
     $textContent = Invoke-Api POST $contentPath $ownerToken @{
-        content_type = 'TEXT'; title = 'Integration text'; text_content = 'M2.8 content'
+        content_type = 'TEXT'; title = 'Integration text'; text_content = 'M2.8 content'; position = 0
     }
     Assert-Status $textContent 201 'create TEXT content'
     $textId = [string]$textContent.Data.id
     $createdContentIds.Add($textId)
     Assert-True ($textContent.Data.upload_status -eq 'AVAILABLE') 'TEXT content is immediately AVAILABLE'
+    Assert-Status (Invoke-Api DELETE "/api/v1/courses/$courseId/modules/$($moduleIds[0])/lessons/$($lessonIds[0])" $ownerToken $null) 409 'reject deleting lesson with contents'
 
     $linkContent = Invoke-Api POST $contentPath $ownerToken @{
-        content_type = 'LINK'; title = 'Integration link'; external_url = 'https://example.test/original'
+        content_type = 'LINK'; title = 'Integration link'; external_url = 'https://example.test/original'; position = 0
     }
     Assert-Status $linkContent 201 'create LINK content'
     $linkId = [string]$linkContent.Data.id
@@ -158,12 +173,17 @@ try {
     $fileBytes = [System.Text.Encoding]::UTF8.GetBytes("%PDF-M2.8-$tag")
     $file = Invoke-Api POST $contentPath $ownerToken @{
         content_type = 'PDF'; title = 'Integration PDF'; file_name = 'm28.pdf';
-        mime_type = 'application/pdf'; file_size = $fileBytes.Length
+        mime_type = 'application/pdf'; file_size = $fileBytes.Length; position = 0
     }
     Assert-Status $file 201 'create file metadata'
     $fileId = [string]$file.Data.id
     $createdContentIds.Add($fileId)
     Assert-True ($file.Data.upload_status -eq 'PENDING') 'file content starts PENDING'
+    $contentList = Invoke-Api GET $contentPath $ownerToken $null
+    Assert-Status $contentList 200 'list contents after duplicate position inserts'
+    $textContentCurrent = $contentList.Data.items | Where-Object { $_.id -eq $textId } | Select-Object -First 1
+    $linkContentCurrent = $contentList.Data.items | Where-Object { $_.id -eq $linkId } | Select-Object -First 1
+    Assert-True ($file.Data.position -eq 0 -and $linkContentCurrent.position -eq 1 -and $textContentCurrent.position -eq 2) 'duplicate content positions shift without losing order'
 
     $tooLarge = Invoke-Api POST $contentPath $ownerToken @{
         content_type = 'PDF'; title = 'Oversize'; file_name = 'large.pdf';

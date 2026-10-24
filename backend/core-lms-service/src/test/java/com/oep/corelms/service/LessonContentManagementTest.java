@@ -2,6 +2,7 @@ package com.oep.corelms.service;
 
 import com.oep.corelms.dto.course.LessonContentDtos;
 import com.oep.corelms.repository.CourseInstructorRepository;
+import com.oep.corelms.repository.AuditLogRepository;
 import com.oep.corelms.repository.CourseModuleRepository;
 import com.oep.corelms.repository.CourseRepository;
 import com.oep.corelms.repository.EnrollmentRepository;
@@ -33,12 +34,16 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyIterable;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -50,6 +55,7 @@ class LessonContentManagementTest {
     @Mock private LessonContentRepository contents;
     @Mock private LessonContentReferenceRepository contentReferences;
     @Mock private CourseInstructorRepository courseInstructors;
+    @Mock private AuditLogRepository auditLogs;
     @Mock private UserRepository users;
     @Mock private EnrollmentRepository enrollments;
     @Mock private ObjectStorageService objectStorage;
@@ -66,7 +72,7 @@ class LessonContentManagementTest {
 
     @BeforeEach
     void setUp() {
-        service = new CourseManagementService(courses, modules, lessons, contents, contentReferences, courseInstructors, users, enrollments, objectStorage);
+        service = new CourseManagementService(courses, modules, lessons, contents, contentReferences, courseInstructors, auditLogs, users, enrollments, objectStorage);
         course.setId(courseId);
         course.setLifecycleStatus(CourseLifecycleStatus.DRAFT);
         module.setId(moduleId);
@@ -89,7 +95,6 @@ class LessonContentManagementTest {
     void createsTextAsAvailableAndAppendsAfterLastPosition() {
         LessonContent existing = content(ContentType.TEXT, 4);
         when(contents.findByLessonIdOrderByPositionAsc(lessonId)).thenReturn(List.of(existing));
-        when(contents.existsByLessonIdAndPosition(lessonId, 5)).thenReturn(false);
         when(contents.saveAndFlush(any(LessonContent.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var response = service.createLessonContent(actorId, courseId, moduleId, lessonId,
@@ -103,9 +108,54 @@ class LessonContentManagementTest {
     }
 
     @Test
+    void sanitizesTextBeforePersistingAndReturningIt() {
+        when(contents.findByLessonIdOrderByPositionAsc(lessonId)).thenReturn(List.of());
+        when(contents.saveAndFlush(any(LessonContent.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = service.createLessonContent(actorId, courseId, moduleId, lessonId,
+                new LessonContentDtos.CreateRequest(ContentType.TEXT, "Intro",
+                        "<p>Safe</p><script>alert(1)</script>", null, null, null, null, null));
+
+        assertTrue(response.textContent().contains("<p>Safe</p>"));
+        assertFalse(response.textContent().contains("<script"));
+        assertFalse(response.textContent().contains("alert(1)"));
+        verify(contents).saveAndFlush(argThat(saved -> saved.getTextContent().contains("<p>Safe</p>")
+                && !saved.getTextContent().contains("<script") && !saved.getTextContent().contains("alert(1)")));
+    }
+
+    @Test
+    void sanitizesLegacyTextWhenReturningIt() {
+        LessonContent legacy = content(ContentType.TEXT, 0);
+        legacy.setTextContent("<p>Safe</p><img src=x onerror=alert(1)>");
+        when(contents.findByIdAndLessonId(legacy.getId(), lessonId)).thenReturn(Optional.of(legacy));
+
+        var response = service.getLessonContent(actorId, courseId, moduleId, lessonId, legacy.getId());
+
+        assertTrue(response.textContent().contains("<p>Safe</p>"));
+        assertFalse(response.textContent().contains("<img"));
+        assertFalse(response.textContent().contains("onerror"));
+        assertFalse(response.textContent().contains("alert(1)"));
+    }
+
+    @Test
+    void insertingContentAtUsedPositionShiftsExistingContentWithoutChangingTheirOrder() {
+        LessonContent first = content(ContentType.TEXT, 0);
+        LessonContent second = content(ContentType.TEXT, 1);
+        when(contents.findByLessonIdOrderByPositionAsc(lessonId)).thenReturn(List.of(first, second));
+        when(contents.saveAndFlush(any(LessonContent.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var inserted = service.createLessonContent(actorId, courseId, moduleId, lessonId,
+                new LessonContentDtos.CreateRequest(ContentType.TEXT, "Inserted", "Body", null, null, null, null, 0));
+
+        assertEquals(0, inserted.position());
+        assertEquals(1, first.getPosition());
+        assertEquals(2, second.getPosition());
+        verify(contents, times(2)).saveAllAndFlush(anyIterable());
+    }
+
+    @Test
     void createsHttpLinkAndRejectsNonHttpSchemes() {
         when(contents.findByLessonIdOrderByPositionAsc(lessonId)).thenReturn(List.of());
-        when(contents.existsByLessonIdAndPosition(lessonId, 0)).thenReturn(false);
         when(contents.saveAndFlush(any(LessonContent.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var response = service.createLessonContent(actorId, courseId, moduleId, lessonId,
@@ -122,7 +172,6 @@ class LessonContentManagementTest {
     @Test
     void createsFileContentAsPendingAndRejectsUnsupportedMetadata() {
         when(contents.findByLessonIdOrderByPositionAsc(lessonId)).thenReturn(List.of());
-        when(contents.existsByLessonIdAndPosition(lessonId, 0)).thenReturn(false);
         when(contents.saveAndFlush(any(LessonContent.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var response = service.createLessonContent(actorId, courseId, moduleId, lessonId,

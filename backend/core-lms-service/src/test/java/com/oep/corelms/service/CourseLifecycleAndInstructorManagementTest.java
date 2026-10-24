@@ -2,6 +2,7 @@ package com.oep.corelms.service;
 
 import com.oep.corelms.dto.course.CourseDtos;
 import com.oep.corelms.repository.CourseInstructorRepository;
+import com.oep.corelms.repository.AuditLogRepository;
 import com.oep.corelms.repository.CourseModuleRepository;
 import com.oep.corelms.repository.CourseRepository;
 import com.oep.corelms.repository.EnrollmentRepository;
@@ -14,7 +15,9 @@ import com.oep.coremodel.entity.course.Course;
 import com.oep.coremodel.entity.course.CourseInstructor;
 import com.oep.coremodel.entity.course.CourseInstructorId;
 import com.oep.coremodel.entity.identity.User;
+import com.oep.coremodel.entity.system.AuditLog;
 import com.oep.coremodel.enums.AccountStatus;
+import com.oep.coremodel.enums.AuditAction;
 import com.oep.coremodel.enums.CourseInstructorRole;
 import com.oep.coremodel.enums.CourseLifecycleStatus;
 import com.oep.coremodel.enums.UploadStatus;
@@ -34,6 +37,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
@@ -47,6 +51,7 @@ class CourseLifecycleAndInstructorManagementTest {
     @Mock private LessonContentRepository contents;
     @Mock private LessonContentReferenceRepository contentReferences;
     @Mock private CourseInstructorRepository courseInstructors;
+    @Mock private AuditLogRepository auditLogs;
     @Mock private UserRepository users;
     @Mock private EnrollmentRepository enrollments;
     @Mock private ObjectStorageService objectStorage;
@@ -59,13 +64,14 @@ class CourseLifecycleAndInstructorManagementTest {
 
     @BeforeEach
     void setUp() {
-        service = new CourseManagementService(courses, modules, lessons, contents, contentReferences, courseInstructors, users, enrollments, objectStorage);
+        service = new CourseManagementService(courses, modules, lessons, contents, contentReferences, courseInstructors, auditLogs, users, enrollments, objectStorage);
         course = new Course();
         course.setId(courseId);
         course.setTitle("Test course");
         course.setLifecycleStatus(CourseLifecycleStatus.DRAFT);
         owner = user(ownerId, UserRole.INSTRUCTOR);
         lenient().when(users.findById(ownerId)).thenReturn(Optional.of(owner));
+        lenient().when(users.getReferenceById(ownerId)).thenReturn(owner);
         course.setCreatedBy(owner);
 
         CourseInstructor ownerLink = new CourseInstructor();
@@ -85,6 +91,50 @@ class CourseLifecycleAndInstructorManagementTest {
 
         assertEquals(CourseLifecycleStatus.PUBLISHED, result.lifecycleStatus());
         verify(contents).existsAvailableInCourse(courseId, UploadStatus.AVAILABLE);
+        verify(auditLogs).save(argThat((AuditLog log) -> log.getActor().getId().equals(ownerId)
+                && log.getAction() == AuditAction.PUBLISH_COURSE
+                && log.getTargetId().equals(courseId)
+                && log.getMetadata().contains("\"from\":\"DRAFT\"")
+                && log.getMetadata().contains("\"to\":\"PUBLISHED\"")));
+    }
+
+    @Test
+    void deleteDraftCourseArchivesForOwnerAndAuditsTheTransition() {
+        CourseDtos.CourseResponse result = service.deleteDraftCourse(ownerId, courseId);
+
+        assertEquals(CourseLifecycleStatus.ARCHIVED, result.lifecycleStatus());
+        verify(auditLogs).save(argThat((AuditLog log) -> log.getActor().getId().equals(ownerId)
+                && log.getAction() == AuditAction.ARCHIVE_COURSE
+                && log.getTargetId().equals(courseId)
+                && log.getMetadata().contains("\"from\":\"DRAFT\"")
+                && log.getMetadata().contains("\"to\":\"ARCHIVED\"")));
+    }
+
+    @Test
+    void deleteDraftCourseReturnsSpecificForbiddenErrorForCoInstructor() {
+        UUID coInstructorId = UUID.randomUUID();
+        CourseInstructor coInstructor = new CourseInstructor();
+        coInstructor.setCourseRole(CourseInstructorRole.CO_INSTRUCTOR);
+        when(courseInstructors.findByIdCourseIdAndIdInstructorId(courseId, coInstructorId))
+                .thenReturn(Optional.of(coInstructor));
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.deleteDraftCourse(coInstructorId, courseId));
+
+        assertEquals(ErrorCode.CO_INSTRUCTOR_CANNOT_DELETE_COURSE, error.getCode());
+        verify(courses, never()).saveAndFlush(any(Course.class));
+        verify(auditLogs, never()).save(any(AuditLog.class));
+    }
+
+    @Test
+    void deleteDraftCourseRejectsNonDraftLifecycle() {
+        course.setLifecycleStatus(CourseLifecycleStatus.PUBLISHED);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.deleteDraftCourse(ownerId, courseId));
+
+        assertEquals(ErrorCode.INVALID_LIFECYCLE_TRANSITION, error.getCode());
+        verify(auditLogs, never()).save(any(AuditLog.class));
     }
 
     @Test
@@ -114,10 +164,15 @@ class CourseLifecycleAndInstructorManagementTest {
     void unpublishesPublishedCourseAndRejectsInvalidTransition() {
         course.setLifecycleStatus(CourseLifecycleStatus.PUBLISHED);
         assertEquals(CourseLifecycleStatus.DRAFT, service.unpublishCourse(ownerId, courseId).lifecycleStatus());
+        verify(auditLogs).save(argThat((AuditLog log) -> log.getActor().getId().equals(ownerId)
+                && log.getAction() == AuditAction.UNPUBLISH_COURSE
+                && log.getMetadata().contains("\"from\":\"PUBLISHED\"")
+                && log.getMetadata().contains("\"to\":\"DRAFT\"")));
 
         BusinessException error = assertThrows(BusinessException.class, () -> service.unpublishCourse(ownerId, courseId));
 
         assertEquals(ErrorCode.INVALID_LIFECYCLE_TRANSITION, error.getCode());
+        verify(auditLogs, org.mockito.Mockito.times(1)).save(any(AuditLog.class));
     }
 
     @Test
@@ -125,6 +180,12 @@ class CourseLifecycleAndInstructorManagementTest {
         course.setLifecycleStatus(CourseLifecycleStatus.PUBLISHED);
         assertEquals(CourseLifecycleStatus.ARCHIVED, service.archiveCourse(ownerId, courseId).lifecycleStatus());
         assertEquals(CourseLifecycleStatus.DRAFT, service.restoreCourse(ownerId, courseId).lifecycleStatus());
+        verify(auditLogs).save(argThat((AuditLog log) -> log.getAction() == AuditAction.ARCHIVE_COURSE
+                && log.getMetadata().contains("\"from\":\"PUBLISHED\"")
+                && log.getMetadata().contains("\"to\":\"ARCHIVED\"")));
+        verify(auditLogs).save(argThat((AuditLog log) -> log.getAction() == AuditAction.RESTORE_COURSE
+                && log.getMetadata().contains("\"from\":\"ARCHIVED\"")
+                && log.getMetadata().contains("\"to\":\"DRAFT\"")));
     }
 
     @Test
@@ -132,9 +193,14 @@ class CourseLifecycleAndInstructorManagementTest {
         UUID adminId = UUID.randomUUID();
         User admin = user(adminId, UserRole.ADMIN);
         when(users.findById(adminId)).thenReturn(Optional.of(admin));
+        when(users.getReferenceById(adminId)).thenReturn(admin);
 
         assertEquals(CourseLifecycleStatus.DISABLED, service.disableCourse(adminId, courseId).lifecycleStatus());
         assertEquals(CourseLifecycleStatus.DRAFT, service.enableCourse(adminId, courseId).lifecycleStatus());
+        verify(auditLogs).save(argThat((AuditLog log) -> log.getActor().getId().equals(adminId)
+                && log.getAction() == AuditAction.DISABLE_COURSE));
+        verify(auditLogs).save(argThat((AuditLog log) -> log.getActor().getId().equals(adminId)
+                && log.getAction() == AuditAction.ENABLE_COURSE));
 
         BusinessException error = assertThrows(BusinessException.class, () -> service.disableCourse(ownerId, courseId));
         assertEquals(ErrorCode.ADMIN_ROLE_REQUIRED, error.getCode());

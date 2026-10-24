@@ -1,6 +1,9 @@
 package com.oep.corelms.service;
 
+import com.oep.corelms.dto.course.LessonDtos;
+import com.oep.corelms.dto.course.ModuleDtos;
 import com.oep.corelms.repository.CourseInstructorRepository;
+import com.oep.corelms.repository.AuditLogRepository;
 import com.oep.corelms.repository.CourseModuleRepository;
 import com.oep.corelms.repository.CourseRepository;
 import com.oep.corelms.repository.EnrollmentRepository;
@@ -13,8 +16,10 @@ import com.oep.coremodel.entity.course.Course;
 import com.oep.coremodel.entity.course.CourseInstructor;
 import com.oep.coremodel.entity.course.CourseModule;
 import com.oep.coremodel.entity.course.Lesson;
+import com.oep.coremodel.entity.identity.User;
 import com.oep.coremodel.enums.CourseInstructorRole;
 import com.oep.coremodel.enums.CourseLifecycleStatus;
+import com.oep.coremodel.enums.UserRole;
 import com.oep.coremodel.exception.BusinessException;
 import com.oep.coremodel.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,7 +34,9 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyIterable;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
@@ -44,6 +51,7 @@ class CourseManagementServiceReorderTest {
     @Mock private LessonContentRepository contents;
     @Mock private LessonContentReferenceRepository contentReferences;
     @Mock private CourseInstructorRepository courseInstructors;
+    @Mock private AuditLogRepository auditLogs;
     @Mock private UserRepository users;
     @Mock private EnrollmentRepository enrollments;
     @Mock private ObjectStorageService objectStorage;
@@ -55,8 +63,9 @@ class CourseManagementServiceReorderTest {
 
     @BeforeEach
     void setUp() {
-        service = new CourseManagementService(courses, modules, lessons, contents, contentReferences, courseInstructors, users, enrollments, objectStorage);
+        service = new CourseManagementService(courses, modules, lessons, contents, contentReferences, courseInstructors, auditLogs, users, enrollments, objectStorage);
         course = new Course();
+        course.setId(courseId);
         course.setLifecycleStatus(CourseLifecycleStatus.DRAFT);
         lenient().when(courses.findById(courseId)).thenReturn(Optional.of(course));
         lenient().when(courses.findByIdForUpdate(courseId)).thenReturn(Optional.of(course));
@@ -64,6 +73,44 @@ class CourseManagementServiceReorderTest {
         CourseInstructor owner = new CourseInstructor();
         owner.setCourseRole(CourseInstructorRole.OWNER);
         lenient().when(courseInstructors.findByIdCourseIdAndIdInstructorId(courseId, actorId)).thenReturn(Optional.of(owner));
+        User instructor = new User();
+        instructor.setId(actorId);
+        instructor.setRole(UserRole.INSTRUCTOR);
+        lenient().when(users.findById(actorId)).thenReturn(Optional.of(instructor));
+    }
+
+    @Test
+    void insertingModuleAtUsedPositionShiftsExistingModulesWithoutChangingTheirOrder() {
+        CourseModule first = module(0);
+        CourseModule second = module(1);
+        when(modules.findByCourseIdOrderByPositionAsc(courseId)).thenReturn(List.of(first, second));
+        when(modules.saveAndFlush(any(CourseModule.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var inserted = service.createModule(actorId, courseId,
+                new ModuleDtos.CreateRequest("Inserted", null, 1, false));
+
+        assertEquals(1, inserted.position());
+        assertEquals(0, first.getPosition());
+        assertEquals(2, second.getPosition());
+        verify(modules, times(2)).saveAllAndFlush(anyIterable());
+    }
+
+    @Test
+    void insertingLessonAtUsedPositionShiftsExistingLessonsWithoutChangingTheirOrder() {
+        CourseModule parent = module(0);
+        Lesson first = lesson(parent, 0);
+        Lesson second = lesson(parent, 1);
+        when(modules.findByIdAndCourseIdForUpdate(parent.getId(), courseId)).thenReturn(Optional.of(parent));
+        when(lessons.findByModuleIdOrderByPositionAsc(parent.getId())).thenReturn(List.of(first, second));
+        when(lessons.saveAndFlush(any(Lesson.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var inserted = service.createLesson(actorId, courseId, parent.getId(),
+                new LessonDtos.CreateRequest("Inserted", null, 1, true));
+
+        assertEquals(1, inserted.position());
+        assertEquals(0, first.getPosition());
+        assertEquals(2, second.getPosition());
+        verify(lessons, times(2)).saveAllAndFlush(anyIterable());
     }
 
     @Test

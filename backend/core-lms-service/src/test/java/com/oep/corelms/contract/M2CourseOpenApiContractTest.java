@@ -19,18 +19,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class M2CourseOpenApiContractTest {
     private static final Set<String> IMPLEMENTED_OPERATIONS = Set.of(
-            "listPublicCourses", "createCourse", "getCourse", "updateCourse",
+            "listPublicCourses", "createCourse", "getCourse", "updateCourse", "deleteDraftCourse",
             "publishCourse", "unpublishCourse", "archiveCourse", "restoreCourse",
             "disableCourse", "enableCourse", "getCourseOutline", "listTeachingCourses",
             "listCourseInstructors", "addCoInstructor", "removeCoInstructor",
-            "listModules", "createModule", "getModule", "updateModule", "reorderModules",
-            "listLessons", "createLesson", "getLesson", "updateLesson", "reorderLessons",
+            "listModules", "createModule", "getModule", "updateModule", "deleteModule", "reorderModules",
+            "listLessons", "createLesson", "getLesson", "updateLesson", "deleteLesson", "reorderLessons",
             "listLessonContents", "createLessonContent", "getLessonContent", "updateLessonContent",
             "deleteLessonContent", "issueUploadUrl", "completeContentUpload",
             "getContentAccessUrl");
 
-    private static final Set<String> PLANNED_OPERATIONS = Set.of(
-            "deleteDraftCourse", "deleteModule", "deleteLesson", "reorderLessonContents");
+    private static final Set<String> PLANNED_OPERATIONS = Set.of("reorderLessonContents");
 
     @Test
     void implementedCourseOperationsMatchTheOpenApiInventory() throws IOException {
