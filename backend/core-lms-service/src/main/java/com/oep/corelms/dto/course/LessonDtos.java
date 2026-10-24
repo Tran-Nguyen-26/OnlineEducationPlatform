@@ -27,4 +27,6 @@ public final class LessonDtos {
     public record ReorderRequest(@NotEmpty List<UUID> orderedIds) {}
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record ReorderResponse(boolean success, List<UUID> orderedIds) {}
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record DeleteResponse(boolean success, UUID deletedId) {}
 }

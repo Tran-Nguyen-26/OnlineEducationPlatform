@@ -5,6 +5,7 @@ import com.oep.corelms.dto.course.LessonContentDtos;
 import com.oep.corelms.dto.course.LessonDtos;
 import com.oep.corelms.dto.course.ModuleDtos;
 import com.oep.corelms.repository.CourseInstructorRepository;
+import com.oep.corelms.repository.AuditLogRepository;
 import com.oep.corelms.repository.CourseModuleRepository;
 import com.oep.corelms.repository.CourseRepository;
 import com.oep.corelms.repository.EnrollmentRepository;
@@ -19,8 +20,10 @@ import com.oep.coremodel.entity.course.CourseInstructorId;
 import com.oep.coremodel.entity.course.CourseModule;
 import com.oep.coremodel.entity.course.Lesson;
 import com.oep.coremodel.entity.course.LessonContent;
+import com.oep.coremodel.entity.system.AuditLog;
 import com.oep.coremodel.entity.identity.User;
 import com.oep.coremodel.enums.CourseInstructorRole;
+import com.oep.coremodel.enums.AuditAction;
 import com.oep.coremodel.enums.CourseLifecycleStatus;
 import com.oep.coremodel.enums.CourseVisibility;
 import com.oep.coremodel.enums.ContentType;
@@ -42,6 +45,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -54,6 +59,7 @@ public class CourseManagementService {
     private final LessonContentRepository contents;
     private final LessonContentReferenceRepository contentReferences;
     private final CourseInstructorRepository courseInstructors;
+    private final AuditLogRepository auditLogs;
     private final UserRepository users;
     private final EnrollmentRepository enrollments;
     private final ObjectStorageService objectStorage;
@@ -84,6 +90,13 @@ public class CourseManagementService {
         owner.setCourseRole(CourseInstructorRole.OWNER);
         owner.setAddedBy(actor);
         courseInstructors.save(owner);
+
+        CourseModule defaultModule = new CourseModule();
+        defaultModule.setCourse(course);
+        defaultModule.setTitle("Module 1: Introduction");
+        defaultModule.setPosition(0);
+        defaultModule.setDefaultModule(true);
+        modules.save(defaultModule);
         return toCourse(course);
     }
 
@@ -116,6 +129,22 @@ public class CourseManagementService {
     }
 
     @Transactional
+    public CourseDtos.CourseResponse deleteDraftCourse(UUID actorId, UUID courseId) {
+        Course course = requireCourseForUpdate(courseId);
+        CourseInstructor membership = courseInstructors.findByIdCourseIdAndIdInstructorId(courseId, actorId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.COURSE_OWNER_REQUIRED, "Course OWNER permission required"));
+        if (membership.getCourseRole() == CourseInstructorRole.CO_INSTRUCTOR) {
+            throw new BusinessException(ErrorCode.CO_INSTRUCTOR_CANNOT_DELETE_COURSE,
+                    "Only the course OWNER may archive a draft course");
+        }
+        if (membership.getCourseRole() != CourseInstructorRole.OWNER) {
+            throw new BusinessException(ErrorCode.COURSE_OWNER_REQUIRED, "Course OWNER permission required");
+        }
+        requireLifecycle(course, Set.of(CourseLifecycleStatus.DRAFT));
+        return transitionCourse(course, actorId, CourseLifecycleStatus.ARCHIVED, AuditAction.ARCHIVE_COURSE);
+    }
+
+    @Transactional
     public CourseDtos.CourseOutline getCourseOutline(UUID actorId, UUID courseId) {
         Course course = requireCourse(courseId);
         boolean publicPreview = course.getVisibility() == CourseVisibility.PUBLIC
@@ -124,9 +153,15 @@ public class CourseManagementService {
             requireCourseReadAccess(course, actorId);
         }
 
+        Map<UUID, List<LessonDtos.Response>> lessonsByModuleId = new HashMap<>();
+        for (Lesson lesson : lessons.findAllForCourseOutline(courseId)) {
+            lessonsByModuleId.computeIfAbsent(lesson.getModule().getId(), ignored -> new java.util.ArrayList<>())
+                    .add(toLesson(lesson));
+        }
+
         List<CourseDtos.ModuleOutline> outlineModules = modules.findByCourseIdOrderByPositionAsc(courseId).stream()
                 .map(module -> new CourseDtos.ModuleOutline(toModule(module),
-                        lessons.findByModuleIdOrderByPositionAsc(module.getId()).stream().map(this::toLesson).toList()))
+                        lessonsByModuleId.getOrDefault(module.getId(), List.of())))
                 .toList();
         return new CourseDtos.CourseOutline(course.getId(), outlineModules);
     }
@@ -171,8 +206,7 @@ public class CourseManagementService {
             throw new BusinessException(ErrorCode.COURSE_NOT_READY,
                     "A course needs at least one lesson and one available content item before publishing");
         }
-        course.setLifecycleStatus(CourseLifecycleStatus.PUBLISHED);
-        return toCourse(courses.saveAndFlush(course));
+        return transitionCourse(course, actorId, CourseLifecycleStatus.PUBLISHED, AuditAction.PUBLISH_COURSE);
     }
 
     @Transactional
@@ -196,8 +230,7 @@ public class CourseManagementService {
         Course course = requireCourseForUpdate(courseId);
         requireAdmin(actorId);
         requireLifecycle(course, Set.of(CourseLifecycleStatus.DRAFT, CourseLifecycleStatus.PUBLISHED));
-        course.setLifecycleStatus(CourseLifecycleStatus.DISABLED);
-        return toCourse(courses.saveAndFlush(course));
+        return transitionCourse(course, actorId, CourseLifecycleStatus.DISABLED, AuditAction.DISABLE_COURSE);
     }
 
     @Transactional
@@ -205,8 +238,7 @@ public class CourseManagementService {
         Course course = requireCourseForUpdate(courseId);
         requireAdmin(actorId);
         requireLifecycle(course, Set.of(CourseLifecycleStatus.DISABLED));
-        course.setLifecycleStatus(CourseLifecycleStatus.DRAFT);
-        return toCourse(courses.saveAndFlush(course));
+        return transitionCourse(course, actorId, CourseLifecycleStatus.DRAFT, AuditAction.ENABLE_COURSE);
     }
 
     @Transactional
@@ -259,8 +291,28 @@ public class CourseManagementService {
         Course course = requireCourseForUpdate(courseId);
         requireCourseOwner(courseId, actorId);
         requireLifecycle(course, allowed);
+        AuditAction action = switch (target) {
+            case DRAFT -> course.getLifecycleStatus() == CourseLifecycleStatus.PUBLISHED
+                    ? AuditAction.UNPUBLISH_COURSE : AuditAction.RESTORE_COURSE;
+            case ARCHIVED -> AuditAction.ARCHIVE_COURSE;
+            default -> throw new IllegalArgumentException("Unsupported owner lifecycle target: " + target);
+        };
+        return transitionCourse(course, actorId, target, action);
+    }
+
+    private CourseDtos.CourseResponse transitionCourse(Course course, UUID actorId,
+                                                        CourseLifecycleStatus target, AuditAction action) {
+        CourseLifecycleStatus previous = course.getLifecycleStatus();
         course.setLifecycleStatus(target);
-        return toCourse(courses.saveAndFlush(course));
+        Course saved = courses.saveAndFlush(course);
+        AuditLog audit = new AuditLog();
+        audit.setActor(users.getReferenceById(actorId));
+        audit.setAction(action);
+        audit.setTargetType("COURSE");
+        audit.setTargetId(course.getId());
+        audit.setMetadata("{\"from\":\"" + previous.name() + "\",\"to\":\"" + target.name() + "\"}");
+        auditLogs.save(audit);
+        return toCourse(saved);
     }
 
     private void requireLifecycle(Course course, Set<CourseLifecycleStatus> allowed) {
@@ -268,6 +320,33 @@ public class CourseManagementService {
             throw new BusinessException(ErrorCode.INVALID_LIFECYCLE_TRANSITION,
                     "Cannot transition course from " + course.getLifecycleStatus());
         }
+    }
+
+    private void shiftModulesForInsertion(List<CourseModule> siblings, int position) {
+        List<CourseModule> affected = siblings.stream().filter(module -> module.getPosition() >= position).toList();
+        if (affected.isEmpty()) return;
+        affected.forEach(module -> module.setPosition(-(module.getPosition() + 1)));
+        modules.saveAllAndFlush(affected);
+        affected.forEach(module -> module.setPosition(-module.getPosition()));
+        modules.saveAllAndFlush(affected);
+    }
+
+    private void shiftLessonPositionsForInsertion(List<Lesson> siblings, int position) {
+        List<Lesson> affected = siblings.stream().filter(lesson -> lesson.getPosition() >= position).toList();
+        if (affected.isEmpty()) return;
+        affected.forEach(lesson -> lesson.setPosition(-(lesson.getPosition() + 1)));
+        lessons.saveAllAndFlush(affected);
+        affected.forEach(lesson -> lesson.setPosition(-lesson.getPosition()));
+        lessons.saveAllAndFlush(affected);
+    }
+
+    private void shiftContentPositionsForInsertion(List<LessonContent> siblings, int position) {
+        List<LessonContent> affected = siblings.stream().filter(content -> content.getPosition() >= position).toList();
+        if (affected.isEmpty()) return;
+        affected.forEach(content -> content.setPosition(-(content.getPosition() + 1)));
+        contents.saveAllAndFlush(affected);
+        affected.forEach(content -> content.setPosition(-content.getPosition()));
+        contents.saveAllAndFlush(affected);
     }
 
     private Course requireCourseForUpdate(UUID courseId) {
@@ -304,14 +383,16 @@ public class CourseManagementService {
         Course course = courses.findByIdForUpdate(courseId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Course not found"));
         ensureCourseEditable(course);
-        int position = request.position() == null ? modules.findByCourseIdOrderByPositionAsc(courseId).size() : request.position();
-        if (position < 0 || modules.existsByCourseIdAndPosition(courseId, position)) {
-            throw new BusinessException(ErrorCode.INVALID_MODULE_POSITION, "Module position is already used or invalid");
+        List<CourseModule> siblings = modules.findByCourseIdOrderByPositionAsc(courseId);
+        int position = request.position() == null ? siblings.size() : request.position();
+        if (position < 0) {
+            throw new BusinessException(ErrorCode.INVALID_MODULE_POSITION, "Module position must be non-negative");
         }
         boolean makeDefault = Boolean.TRUE.equals(request.isDefault());
-        if (makeDefault && modules.findByCourseIdOrderByPositionAsc(courseId).stream().anyMatch(CourseModule::isDefaultModule)) {
+        if (makeDefault && siblings.stream().anyMatch(CourseModule::isDefaultModule)) {
             throw new BusinessException(ErrorCode.INVALID_MODULE_POSITION, "A course can have at most one default module");
         }
+        shiftModulesForInsertion(siblings, position);
         CourseModule module = new CourseModule();
         module.setCourse(course);
         module.setTitle(request.title().trim());
@@ -347,6 +428,18 @@ public class CourseManagementService {
     }
 
     @Transactional
+    public ModuleDtos.DeleteResponse deleteModule(UUID actorId, UUID courseId, UUID moduleId) {
+        requireEditableCourse(courseId, actorId);
+        CourseModule module = modules.findByIdAndCourseIdForUpdate(moduleId, courseId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_COURSE_MODULE, "Module not found in course"));
+        if (lessons.existsByModuleId(moduleId)) {
+            throw new BusinessException(ErrorCode.MODULE_NOT_EMPTY, "A module with lessons cannot be deleted");
+        }
+        modules.delete(module);
+        return new ModuleDtos.DeleteResponse(true, moduleId);
+    }
+
+    @Transactional
     public ModuleDtos.ReorderResponse reorderModules(UUID actorId, UUID courseId, ModuleDtos.ReorderRequest request) {
         requireInstructorCourseManager(courseId, actorId);
         Course course = courses.findByIdForUpdate(courseId)
@@ -379,10 +472,12 @@ public class CourseManagementService {
         requireEditableCourse(courseId, actorId);
         CourseModule module = modules.findByIdAndCourseIdForUpdate(moduleId, courseId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_COURSE_MODULE, "Module not found in course"));
-        int position = request.position() == null ? lessons.findByModuleIdOrderByPositionAsc(moduleId).size() : request.position();
-        if (position < 0 || lessons.existsByModuleIdAndPosition(moduleId, position)) {
-            throw new BusinessException(ErrorCode.INVALID_LESSON_POSITION, "Lesson position is already used or invalid");
+        List<Lesson> siblings = lessons.findByModuleIdOrderByPositionAsc(moduleId);
+        int position = request.position() == null ? siblings.size() : request.position();
+        if (position < 0) {
+            throw new BusinessException(ErrorCode.INVALID_LESSON_POSITION, "Lesson position must be non-negative");
         }
+        shiftLessonPositionsForInsertion(siblings, position);
         Lesson lesson = new Lesson();
         lesson.setModule(module);
         lesson.setTitle(request.title().trim());
@@ -416,6 +511,17 @@ public class CourseManagementService {
     }
 
     @Transactional
+    public LessonDtos.DeleteResponse deleteLesson(UUID actorId, UUID courseId, UUID moduleId, UUID lessonId) {
+        Lesson lesson = requireEditableLesson(actorId, courseId, moduleId, lessonId);
+        if (lessons.hasDeletionReferences(lessonId)) {
+            throw new BusinessException(ErrorCode.LESSON_NOT_EMPTY,
+                    "A lesson with content, completion rules, progress, quizzes or assignments cannot be deleted");
+        }
+        lessons.delete(lesson);
+        return new LessonDtos.DeleteResponse(true, lessonId);
+    }
+
+    @Transactional
     public LessonContentDtos.PageResponse listLessonContents(UUID actorId, UUID courseId, UUID moduleId, UUID lessonId,
                                                              int page, int pageSize, UploadStatus status) {
         Lesson lesson = requireReadableLesson(actorId, courseId, moduleId, lessonId);
@@ -439,23 +545,24 @@ public class CourseManagementService {
                                                             LessonContentDtos.CreateRequest request) {
         Lesson lesson = requireEditableLesson(actorId, courseId, moduleId, lessonId);
         validateCreateContent(request);
+        List<LessonContent> siblings = contents.findByLessonIdOrderByPositionAsc(lesson.getId());
         int position;
         if (request.position() == null) {
-            List<LessonContent> current = contents.findByLessonIdOrderByPositionAsc(lesson.getId());
-            position = current.isEmpty() ? 0 : current.get(current.size() - 1).getPosition() + 1;
+            position = siblings.isEmpty() ? 0 : siblings.get(siblings.size() - 1).getPosition() + 1;
         } else {
             position = request.position();
         }
-        if (contents.existsByLessonIdAndPosition(lesson.getId(), position)) {
-            throw new BusinessException(ErrorCode.CONTENT_POSITION_TAKEN, "Content position is already used");
+        if (position < 0) {
+            throw new BusinessException(ErrorCode.CONTENT_POSITION_TAKEN, "Content position must be non-negative");
         }
+        shiftContentPositionsForInsertion(siblings, position);
 
         User actor = requireUser(actorId);
         LessonContent content = new LessonContent();
         content.setLesson(lesson);
         content.setContentType(request.contentType());
         content.setTitle(request.title());
-        content.setTextContent(request.textContent());
+        content.setTextContent(TextContentSanitizer.sanitize(request.textContent()));
         content.setExternalUrl(request.externalUrl());
         content.setFileName(request.fileName());
         content.setMimeType(request.mimeType());
@@ -493,7 +600,7 @@ public class CourseManagementService {
         if (request.externalUrl() != null) validateExternalUrl(request.externalUrl());
 
         if (request.title() != null) content.setTitle(request.title());
-        if (request.textContent() != null) content.setTextContent(request.textContent());
+        if (request.textContent() != null) content.setTextContent(TextContentSanitizer.sanitize(request.textContent()));
         if (request.externalUrl() != null) content.setExternalUrl(request.externalUrl());
         content.setUpdatedBy(requireUser(actorId));
         return toContent(contents.saveAndFlush(content));
@@ -725,7 +832,7 @@ public class CourseManagementService {
     private LessonDtos.Response toLesson(Lesson l) { return new LessonDtos.Response(l.getId(), l.getModule().getId(), l.getTitle(), l.getDescription(), l.getPosition(), l.isRequired(), l.getCreatedAt(), l.getUpdatedAt()); }
     private LessonContentDtos.Response toContent(LessonContent c) {
         return new LessonContentDtos.Response(c.getId(), c.getLesson().getId(), c.getContentType(), c.getTitle(),
-                c.getTextContent(), c.getExternalUrl(), c.getFileName(), c.getMimeType(), c.getFileSize(),
+                TextContentSanitizer.sanitize(c.getTextContent()), c.getExternalUrl(), c.getFileName(), c.getMimeType(), c.getFileSize(),
                 c.getUploadStatus(), c.getPosition(), c.getVersionNumber(), c.getCreatedAt(), c.getUpdatedAt());
     }
 }

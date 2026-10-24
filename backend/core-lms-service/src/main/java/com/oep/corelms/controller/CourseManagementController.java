@@ -58,6 +58,12 @@ public class CourseManagementController {
         return service.updateCourse(userId(jwt), courseId, request);
     }
 
+    @DeleteMapping("/courses/{courseId}")
+    public CourseDtos.CourseResponse deleteDraftCourse(@AuthenticationPrincipal Jwt jwt,
+                                                        @PathVariable UUID courseId) {
+        return service.deleteDraftCourse(userId(jwt), courseId);
+    }
+
     @PostMapping("/courses/{courseId}/publish")
     public CourseDtos.CourseResponse publishCourse(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
         return service.publishCourse(userId(jwt), courseId);
@@ -134,6 +140,13 @@ public class CourseManagementController {
         return service.updateModule(userId(jwt), courseId, moduleId, request);
     }
 
+    @DeleteMapping("/courses/{courseId}/modules/{moduleId}")
+    public ModuleDtos.DeleteResponse deleteModule(@AuthenticationPrincipal Jwt jwt,
+                                                  @PathVariable UUID courseId,
+                                                  @PathVariable UUID moduleId) {
+        return service.deleteModule(userId(jwt), courseId, moduleId);
+    }
+
     @PatchMapping("/courses/{courseId}/module-order")
     public ModuleDtos.ReorderResponse reorderModules(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
                                                        @Valid @RequestBody ModuleDtos.ReorderRequest request) {
@@ -167,6 +180,14 @@ public class CourseManagementController {
                                             @PathVariable UUID moduleId, @PathVariable UUID lessonId,
                                             @Valid @RequestBody LessonDtos.UpdateRequest request) {
         return service.updateLesson(userId(jwt), courseId, moduleId, lessonId, request);
+    }
+
+    @DeleteMapping("/courses/{courseId}/modules/{moduleId}/lessons/{lessonId}")
+    public LessonDtos.DeleteResponse deleteLesson(@AuthenticationPrincipal Jwt jwt,
+                                                  @PathVariable UUID courseId,
+                                                  @PathVariable UUID moduleId,
+                                                  @PathVariable UUID lessonId) {
+        return service.deleteLesson(userId(jwt), courseId, moduleId, lessonId);
     }
 
     @PatchMapping("/courses/{courseId}/modules/{moduleId}/lesson-order")

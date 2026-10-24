@@ -25,6 +25,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
+            <artifactId>owasp-java-html-sanitizer</artifactId>
+            <version>20260924.2</version>
+        </dependency>
+        <dependency>
             <groupId>com.oep</groupId>
             <artifactId>core-model</artifactId>
         </dependency>
@@ -88,6 +93,66 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.15</version>
+                <executions>
+                    <execution>
+                        <id>prepare-coverage-agent</id>
+                        <configuration>
+                            <append>false</append>
+                        </configuration>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report-m2-service-coverage</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                        <configuration>
+                            <title>M2 service coverage</title>
+                            <outputDirectory>${project.reporting.outputDirectory}/jacoco-m2-service</outputDirectory>
+                            <includes>
+                                <include>com/oep/corelms/service/CourseManagementService*</include>
+                                <include>com/oep/corelms/service/LessonContentStorageService*</include>
+                                <include>com/oep/corelms/service/FileUploadPolicy*</include>
+                                <include>com/oep/corelms/service/TextContentSanitizer*</include>
+                            </includes>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>check-m2-service-coverage</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <includes>
+                                <include>com/oep/corelms/service/CourseManagementService*</include>
+                                <include>com/oep/corelms/service/LessonContentStorageService*</include>
+                                <include>com/oep/corelms/service/FileUploadPolicy*</include>
+                                <include>com/oep/corelms/service/TextContentSanitizer*</include>
+                            </includes>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.70</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
