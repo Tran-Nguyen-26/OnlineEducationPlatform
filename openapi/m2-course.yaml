@@ -102,8 +102,8 @@ paths:
       operationId: createCourse
       summary: Create a course
       description: |
-        Authorized INSTRUCTOR only. Creates the course and its course_instructors OWNER record in a single
-        transaction.
+        Authorized INSTRUCTOR only. Creates the course, its course_instructors OWNER record, and a default
+        module at position 0 in a single transaction.
       parameters: []
       requestBody:
         required: true
@@ -274,7 +274,7 @@ paths:
       tags: [Courses]
       operationId: deleteDraftCourse
       summary: "[Deprecated] Archive a draft course"
-      x-implementation-status: planned
+      x-implementation-status: implemented
       description: |
         Deprecated alias retained for the acceptance test requiring 403 when a CO_INSTRUCTOR calls DELETE.
         OWNER only, and only for DRAFT courses. Changes DRAFT to ARCHIVED without physically deleting data.
@@ -862,7 +862,9 @@ paths:
       tags: [Modules]
       operationId: createModule
       summary: Create a module
-      description: OWNER or CO_INSTRUCTOR only. Module position is validated within the course.
+      description: |
+        OWNER or CO_INSTRUCTOR only. Position is a zero-based insertion index. Existing modules at or after
+        the requested index are shifted right in their current order; an omitted position appends the module.
       parameters:
         - { $ref: "#/components/parameters/CourseId" }
       requestBody:
@@ -984,7 +986,7 @@ paths:
       tags: [Modules]
       operationId: deleteModule
       summary: Delete an empty module
-      x-implementation-status: planned
+      x-implementation-status: implemented
       description: |
         OWNER or CO_INSTRUCTOR only. The module must have no lessons to prevent data/progress loss;
         otherwise return 409.
@@ -1107,7 +1109,9 @@ paths:
       tags: [Lessons]
       operationId: createLesson
       summary: Create a lesson
-      description: OWNER or CO_INSTRUCTOR only.
+      description: |
+        OWNER or CO_INSTRUCTOR only. Position is a zero-based insertion index. Existing lessons at or after
+        the requested index are shifted right in their current order; an omitted position appends the lesson.
       parameters:
         - { $ref: "#/components/parameters/CourseId" }
         - { $ref: "#/components/parameters/ModuleId" }
@@ -1234,10 +1238,11 @@ paths:
       tags: [Lessons]
       operationId: deleteLesson
       summary: Delete an empty lesson
-      x-implementation-status: planned
+      x-implementation-status: implemented
       description: |
-        OWNER or CO_INSTRUCTOR only. The lesson must have no contents, progress, quizzes or assignments;
-        otherwise return 409.
+        OWNER or CO_INSTRUCTOR only. The lesson must have no contents, completion rules, progress, quizzes, assignments,
+        or AI references;
+        otherwise return 409 LESSON_NOT_EMPTY. No related rows are cascaded or deleted.
       parameters:
         - { $ref: "#/components/parameters/CourseId" }
         - { $ref: "#/components/parameters/ModuleId" }
@@ -1378,7 +1383,9 @@ paths:
       operationId: createLessonContent
       summary: Create lesson content
       description: |
-        OWNER or CO_INSTRUCTOR only. TEXT/LINK content is AVAILABLE immediately. File content is created
+        OWNER or CO_INSTRUCTOR only. Position is a zero-based insertion index. Existing content at or after
+        the requested index is shifted right in its current order; an omitted position appends the content.
+        TEXT/LINK content is AVAILABLE immediately. File content is created
         PENDING with validated MIME type and declared size (up to 100 MiB), then becomes AVAILABLE only
         after storage verification.
       parameters:

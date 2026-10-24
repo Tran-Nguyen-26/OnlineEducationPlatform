@@ -3,14 +3,14 @@
 Modules
 - api-gateway         :8080  Spring Cloud Gateway: JWT check, Redis rate limit, path routing (no core-model dependency)
 - core-model          shared jar: entities (41), enums, event contracts, exceptions
-- core-lms-service    :8081  users, courses, enrollment, signed URLs (runs Flyway)
+- core-lms-service    :8081  users, courses, enrollment, signed URLs
 - assessment-service  :8082  quiz / submission, Redis for exam state
 - worker-service      :8083  RabbitMQ consumers: notification, score sync
 
 Run
     docker compose up -d
     mvn clean install
-    mvn -pl core-lms-service spring-boot:run     # start this first (applies migrations)
+    mvn -pl core-lms-service spring-boot:run     # start this first (creates/updates the dev schema)
     mvn -pl assessment-service spring-boot:run
     mvn -pl api-gateway spring-boot:run          # frontend calls http://localhost:8080/api/...
     mvn -pl worker-service spring-boot:run
@@ -34,6 +34,16 @@ timezone alias:
 $env:JAVA_TOOL_OPTIONS = '-Duser.timezone=UTC'
 mvn -pl core-lms-service spring-boot:run
 ```
+
+After Core LMS creates/updates the shared schema, apply the manual M2 V2 script
+to the PostgreSQL primary before running lifecycle audit flows or the smoke test:
+
+```powershell
+psql -h localhost -p 5434 -U oep -d oep -v ON_ERROR_STOP=1 -f core-model/src/main/resources/db/migration/V2__course_content_schema.sql
+```
+
+The local Compose password is `oep`. V2 is not auto-applied; see
+`core-model/src/main/resources/db/migration/README.md` for prerequisites and limits.
 
 ```powershell
 mvn -pl api-gateway spring-boot:run
