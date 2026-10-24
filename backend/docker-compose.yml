@@ -1,27 +1,13 @@
 name: oep
 services:
   postgres:
-    image: postgres:16.14
+    image: postgres:16
     environment:
       POSTGRES_DB: oep
       POSTGRES_USER: oep
       POSTGRES_PASSWORD: oep
     ports: ["5432:5432"]
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./docker/postgres/primary-init.sh:/docker-entrypoint-initdb.d/01-replication.sh:ro
-
-  postgres-replica:
-    image: postgres:16.14
-    user: postgres
-    entrypoint: ["bash", "/replica-entrypoint.sh"]
-    ports:
-      - "5433:5432"
-    volumes:
-      - pgdata-replica:/var/lib/postgresql/data
-      - ./docker/postgres/replica-entrypoint.sh:/replica-entrypoint.sh:ro
-    depends_on:
-      - postgres
+    volumes: [pgdata:/var/lib/postgresql/data]
 
   redis:
     image: redis:7
@@ -36,4 +22,3 @@ services:
 
 volumes:
   pgdata:
-  pgdata-replica:
