@@ -1,0 +1,2344 @@
+openapi: 3.0.3
+info:
+  title: Online Education Platform — M2 Course API
+  version: 0.1.0
+  description: |
+    REVIEW DRAFT (2026-10-11); pending L3/L5/common alignment and team approval.
+    Course -> Module -> Lesson -> Content hierarchy. Course metadata and archive-only lifecycle (no hard deletion).
+    File uploads and protected access URLs without streaming.
+    CO_INSTRUCTOR may edit course metadata, but cannot publish/unpublish/archive/restore or manage instructors.
+    PRIVATE invite-code enrollment is included in the minimal MVP; L3 handles invite-code issuance/validation and enrollment.
+    Students must enroll successfully before M2 exposes private course content.
+    ARCHIVED courses deny student access, including students with ACTIVE enrollments.
+    COMPLETED content access is OPEN; provisional ACTIVE-only behavior fails closed.
+    Course reviews/ratings remain OPEN and are omitted from M2 until scoped.
+    Pagination (page=1, page_size=20, maximum 100) and error envelope are proposals pending common approval.
+    Deprecated DELETE /courses/{courseId} archives DRAFT courses only for the Co-Instructor 403 acceptance test.
+    Use POST /courses/{courseId}/archive as the primary endpoint; no physical data deletion.
+  x-business-decisions:
+    co_instructor_metadata_edit: "CONFIRMED: allowed, except lifecycle and instructor management"
+    private_invite_code:
+      "CONFIRMED: minimal invite-code join is in MVP; L3 owns code validation/enrollment; details
+      pending L3"
+    course_delete: "PROPOSED: archive-only; deprecated DELETE alias retained for task acceptance"
+    archived_student_access:
+      "CONFIRMED: deny learning/content/course detail/outline and new signed access URL when
+      ARCHIVED, regardless of enrollment status; prior signed URLs expire by TTL"
+    lesson_completion_rules: "OPEN: coordinate scope and rules with L3"
+    completed_content_access: "OPEN: provisional ACTIVE-only"
+    course_reviews: "OPEN: excluded from M2 until scoped and assigned"
+servers:
+  - url: /api/v1
+    description: Relative API base path
+security:
+  - bearerAuth: []
+tags:
+  - name: Courses
+    description: Course management, owner-only lifecycle operations, and archive-only deletion.
+  - name: Instructors
+    description: Manage course instructors; exactly one OWNER.
+  - name: Modules
+    description: Manage course modules and their order.
+  - name: Lessons
+    description: Manage course lessons and their order.
+  - name: Contents
+    description: Manage lesson content metadata and order.
+  - name: Files
+    description: Presigned file upload and protected download without streaming.
+paths:
+  /courses:
+    get:
+      tags: [Courses]
+      operationId: listPublicCourses
+      summary: List public courses
+      description: |
+        Public catalog; no authentication required. Only PUBLIC and PUBLISHED courses are listed. PRIVATE
+        courses are hidden. Reviews/ratings are not returned because their scope remains OPEN.
+      parameters:
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/PageSize" }
+        - { $ref: "#/components/parameters/Search" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PagedCourses" }
+              example:
+                items:
+                  - id: 11111111-1111-4111-8111-111111111111
+                    title: Cloud Computing Fundamentals
+                    description: Khóa học nhập môn điện toán đám mây
+                    visibility: PUBLIC
+                    lifecycle_status: PUBLISHED
+                    capacity: 50
+                    learning_mode: FREE_NAVIGATION
+                    start_at:
+                    end_at:
+                    created_by: 55555555-5555-4555-8555-555555555555
+                    created_at: "2026-10-10T10:00:00Z"
+                    updated_at: "2026-10-10T10:00:00Z"
+                pagination: &id002
+                  page: 1
+                  page_size: 20
+                  total: 1
+                  has_next: false
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      security: []
+      x-request-example: GET /api/v1/courses
+    post:
+      tags: [Courses]
+      operationId: createCourse
+      summary: Create a course
+      description: |
+        Authorized INSTRUCTOR only. Creates the course and its course_instructors OWNER record in a single
+        transaction.
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateCourse" }
+            example:
+              title: Cloud Computing Fundamentals
+              description: Khóa học nhập môn điện toán đám mây
+              visibility: PUBLIC
+              capacity: 50
+              learning_mode: FREE_NAVIGATION
+      responses:
+        "201":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Course" }
+              example: &id001
+                id: 11111111-1111-4111-8111-111111111111
+                title: Cloud Computing Fundamentals
+                description: Khóa học nhập môn điện toán đám mây
+                visibility: PUBLIC
+                lifecycle_status: DRAFT
+                capacity: 50
+                learning_mode: FREE_NAVIGATION
+                start_at:
+                end_at:
+                created_by: 55555555-5555-4555-8555-555555555555
+                created_at: "2026-10-10T10:00:00Z"
+                updated_at: "2026-10-10T10:00:00Z"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: POST /api/v1/courses
+      x-error-codes: [INSTRUCTOR_ROLE_REQUIRED]
+  /courses/{courseId}:
+    get:
+      tags: [Courses]
+      operationId: getCourse
+      summary: Read a course
+      description: |
+        PUBLIC and PUBLISHED course metadata is public. PRIVATE courses are readable only by
+        OWNER/CO_INSTRUCTOR or students enrolled through L3 (provisionally ACTIVE only). Students must use
+        L3's invite-code enrollment before accessing private course/content; do not disclose the outline to
+        non-enrolled students. DRAFT, ARCHIVED and DISABLED are visible only to OWNER, CO_INSTRUCTOR or
+        ADMIN with management/audit permission. ARCHIVED denies student access even with an ACTIVE
+        enrollment. COMPLETED access remains OPEN and is provisionally denied.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Course" }
+              example:
+                id: 11111111-1111-4111-8111-111111111111
+                title: Cloud Computing Fundamentals
+                description: Khóa học nhập môn điện toán đám mây
+                visibility: PUBLIC
+                lifecycle_status: PUBLISHED
+                capacity: 50
+                learning_mode: FREE_NAVIGATION
+                start_at:
+                end_at:
+                created_by: 55555555-5555-4555-8555-555555555555
+                created_at: "2026-10-10T10:00:00Z"
+                updated_at: "2026-10-10T10:00:00Z"
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      security:
+        - {}
+        - bearerAuth: []
+      x-request-example: GET /api/v1/courses/11111111-1111-4111-8111-111111111111
+      x-open-decision: COMPLETED entitlement pending L3/product approval; ACTIVE-only provisional.
+    patch:
+      tags: [Courses]
+      operationId: updateCourse
+      summary: Update course metadata
+      description: |
+        Course OWNER or CO_INSTRUCTOR may update title, description, visibility, capacity, learning_mode,
+        start_at and end_at only when DRAFT or PUBLISHED. PATCH cannot change lifecycle_status, created_by
+        or course_instructors; extra fields return 422. CO_INSTRUCTOR cannot publish, unpublish, archive,
+        restore, disable or delete a course. Capacity changes must check occupied seats through L3, with the
+        count definition pending L3. PUBLIC/PRIVATE changes require L3 invite-code/enrollment policy
+        alignment. Return 503 (fail closed) when a required L3 check is unavailable. ARCHIVED or DISABLED
+        courses cannot be edited (409).
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateCourse" }
+            example:
+              title: Cloud Fundamentals Updated
+              capacity: 50
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Course" }
+              example:
+                id: 11111111-1111-4111-8111-111111111111
+                title: Cloud Fundamentals Updated
+                description: Khóa học nhập môn điện toán đám mây
+                visibility: PUBLIC
+                lifecycle_status: DRAFT
+                capacity: 50
+                learning_mode: FREE_NAVIGATION
+                start_at:
+                end_at:
+                created_by: 55555555-5555-4555-8555-555555555555
+                created_at: "2026-10-10T10:00:00Z"
+                updated_at: "2026-10-10T10:00:00Z"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: PATCH /api/v1/courses/11111111-1111-4111-8111-111111111111
+      x-error-codes:
+        [
+          COURSE_NOT_EDITABLE,
+          CAPACITY_BELOW_OCCUPIED_COUNT,
+          ENROLLMENT_CHECK_UNAVAILABLE,
+          INVALID_COURSE_UPDATE,
+        ]
+      x-required-course-roles: [OWNER, CO_INSTRUCTOR]
+    delete:
+      tags: [Courses]
+      operationId: deleteDraftCourse
+      summary: "[Deprecated] Archive a draft course"
+      description: |
+        Deprecated alias retained for the acceptance test requiring 403 when a CO_INSTRUCTOR calls DELETE.
+        OWNER only, and only for DRAFT courses. Changes DRAFT to ARCHIVED without physically deleting data.
+        New clients should use POST /courses/{courseId}/archive. This alias may be removed if the team
+        approves the POST-only API and updates the acceptance test.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Course" }
+              example:
+                id: 11111111-1111-4111-8111-111111111111
+                title: Cloud Computing Fundamentals
+                description: Khóa học nhập môn điện toán đám mây
+                visibility: PUBLIC
+                lifecycle_status: ARCHIVED
+                capacity: 50
+                learning_mode: FREE_NAVIGATION
+                start_at:
+                end_at:
+                created_by: 55555555-5555-4555-8555-555555555555
+                created_at: "2026-10-10T10:00:00Z"
+                updated_at: "2026-10-10T10:00:00Z"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Forbidden; CO_INSTRUCTOR cannot delete/archive a course.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: CO_INSTRUCTOR_CANNOT_DELETE_COURSE
+                  message: Only course OWNER may archive this course
+                  details: {}
+                  request_id: req_abc123
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      deprecated: true
+      x-request-example: DELETE /api/v1/courses/11111111-1111-4111-8111-111111111111
+      x-error-codes:
+        [CO_INSTRUCTOR_CANNOT_DELETE_COURSE, INVALID_LIFECYCLE_TRANSITION]
+      x-required-course-roles: [OWNER]
+  /courses/{courseId}/publish:
+    post:
+      tags: [Courses]
+      operationId: publishCourse
+      summary: Publish a course
+      description: |
+        OWNER only. DRAFT -> PUBLISHED. Requires at least one lesson and one AVAILABLE content item or a
+        valid TEXT/LINK item; this readiness rule is a proposal pending team approval.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Course" }
+              example:
+                id: 11111111-1111-4111-8111-111111111111
+                title: Cloud Computing Fundamentals
+                description: Khóa học nhập môn điện toán đám mây
+                visibility: PUBLIC
+                lifecycle_status: PUBLISHED
+                capacity: 50
+                learning_mode: FREE_NAVIGATION
+                start_at:
+                end_at:
+                created_by: 55555555-5555-4555-8555-555555555555
+                created_at: "2026-10-10T10:00:00Z"
+                updated_at: "2026-10-10T10:00:00Z"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: POST /api/v1/courses/11111111-1111-4111-8111-111111111111/publish
+      x-error-codes:
+        [
+          INVALID_LIFECYCLE_TRANSITION,
+          COURSE_NOT_READY,
+          CO_INSTRUCTOR_CANNOT_PUBLISH_COURSE,
+        ]
+      x-required-course-roles: [OWNER]
+      x-example-forbidden-response:
+        error:
+          code: CO_INSTRUCTOR_CANNOT_PUBLISH_COURSE
+          message: Course OWNER permission required
+          details: {}
+          request_id: req_abc123
+  /courses/{courseId}/unpublish:
+    post:
+      tags: [Courses]
+      operationId: unpublishCourse
+      summary: Unpublish a course
+      description:
+        OWNER only. PUBLISHED -> DRAFT. Students cannot access content until the course is published
+        again.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Course" }
+              example: *id001
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: POST /api/v1/courses/11111111-1111-4111-8111-111111111111/unpublish
+      x-required-course-roles: [OWNER]
+      x-error-codes:
+        [CO_INSTRUCTOR_CANNOT_UNPUBLISH_COURSE, INVALID_LIFECYCLE_TRANSITION]
+  /courses/{courseId}/archive:
+    post:
+      tags: [Courses]
+      operationId: archiveCourse
+      summary: Archive a course
+      description: |
+        OWNER only. DRAFT/PUBLISHED -> ARCHIVED; never physically deletes the course, instructor,
+        enrollment, lesson or audit records. CO_INSTRUCTOR receives 403. Confirmed: ARCHIVED courses block
+        student access even with ACTIVE enrollment, including course details, outline, modules, lessons,
+        contents and new access URLs. Previously issued signed URLs may remain valid until their TTL
+        expires; revocation is not immediate.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Course" }
+              example:
+                id: 11111111-1111-4111-8111-111111111111
+                title: Cloud Computing Fundamentals
+                description: Khóa học nhập môn điện toán đám mây
+                visibility: PUBLIC
+                lifecycle_status: ARCHIVED
+                capacity: 50
+                learning_mode: FREE_NAVIGATION
+                start_at:
+                end_at:
+                created_by: 55555555-5555-4555-8555-555555555555
+                created_at: "2026-10-10T10:00:00Z"
+                updated_at: "2026-10-10T10:00:00Z"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: POST /api/v1/courses/11111111-1111-4111-8111-111111111111/archive
+      x-required-course-roles: [OWNER]
+      x-error-codes:
+        [CO_INSTRUCTOR_CANNOT_ARCHIVE_COURSE, INVALID_LIFECYCLE_TRANSITION]
+      x-example-forbidden-response:
+        error:
+          code: CO_INSTRUCTOR_CANNOT_ARCHIVE_COURSE
+          message: Course OWNER permission required
+          details: {}
+          request_id: req_abc123
+  /courses/{courseId}/restore:
+    post:
+      tags: [Courses]
+      operationId: restoreCourse
+      summary: Restore an archived course
+      description: OWNER only. ARCHIVED -> DRAFT; the course must be published again before becoming public.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Course" }
+              example: *id001
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: POST /api/v1/courses/11111111-1111-4111-8111-111111111111/restore
+      x-required-course-roles: [OWNER]
+      x-error-codes:
+        [CO_INSTRUCTOR_CANNOT_RESTORE_COURSE, INVALID_LIFECYCLE_TRANSITION]
+  /courses/{courseId}/disable:
+    post:
+      tags: [Courses]
+      operationId: disableCourse
+      summary: Disable a course
+      description: ADMIN only. DRAFT/PUBLISHED -> DISABLED; do not issue student access URLs.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Course" }
+              example:
+                id: 11111111-1111-4111-8111-111111111111
+                title: Cloud Computing Fundamentals
+                description: Khóa học nhập môn điện toán đám mây
+                visibility: PUBLIC
+                lifecycle_status: DISABLED
+                capacity: 50
+                learning_mode: FREE_NAVIGATION
+                start_at:
+                end_at:
+                created_by: 55555555-5555-4555-8555-555555555555
+                created_at: "2026-10-10T10:00:00Z"
+                updated_at: "2026-10-10T10:00:00Z"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: POST /api/v1/courses/11111111-1111-4111-8111-111111111111/disable
+  /courses/{courseId}/enable:
+    post:
+      tags: [Courses]
+      operationId: enableCourse
+      summary: Enable a disabled course
+      description:
+        ADMIN only. DISABLED -> DRAFT for OWNER review and republishing; the schema has no
+        previous_status field.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Course" }
+              example: *id001
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: POST /api/v1/courses/11111111-1111-4111-8111-111111111111/enable
+  /courses/{courseId}/outline:
+    get:
+      tags: [Courses]
+      operationId: getCourseOutline
+      summary: Read a course outline
+      description: |
+        PUBLIC and PUBLISHED courses expose a metadata-only outline, without content/file URLs. PRIVATE
+        outlines are visible only to instructors or students who enrolled successfully through L3's MVP
+        invite-code flow (provisionally ACTIVE only). ARCHIVED denies outline access even with ACTIVE
+        enrollment. COMPLETED access remains OPEN.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CourseOutline" }
+              example:
+                course_id: 11111111-1111-4111-8111-111111111111
+                modules:
+                  - module: &id003
+                      id: 22222222-2222-4222-8222-222222222222
+                      course_id: 11111111-1111-4111-8111-111111111111
+                      title: "Module 1: Introduction"
+                      description: Tổng quan
+                      position: 1
+                      is_default: true
+                      created_at: "2026-10-10T10:00:00Z"
+                      updated_at: "2026-10-10T10:00:00Z"
+                    lessons:
+                      - &id004
+                        id: 33333333-3333-4333-8333-333333333333
+                        module_id: 22222222-2222-4222-8222-222222222222
+                        title: What is Cloud?
+                        description: Khái niệm cơ bản
+                        position: 1
+                        is_required: true
+                        created_at: "2026-10-10T10:00:00Z"
+                        updated_at: "2026-10-10T10:00:00Z"
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      security:
+        - {}
+        - bearerAuth: []
+      x-request-example: GET /api/v1/courses/11111111-1111-4111-8111-111111111111/outline
+      x-open-decision: COMPLETED entitlement pending L3/product approval; ACTIVE-only provisional.
+  /my/courses:
+    get:
+      tags: [Courses]
+      operationId: listTeachingCourses
+      summary: List courses I teach
+      description: |
+        INSTRUCTOR only. Lists courses with a course_instructors record, including DRAFT, PUBLISHED and
+        ARCHIVED. This is not a student's enrollment list.
+      parameters:
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/PageSize" }
+        - { $ref: "#/components/parameters/Search" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PagedCourses" }
+              example:
+                items:
+                  - *id001
+                pagination: *id002
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: GET /api/v1/my/courses
+  /courses/{courseId}/instructors:
+    get:
+      tags: [Instructors]
+      operationId: listCourseInstructors
+      summary: List course instructors
+      description:
+        Course OWNER/CO_INSTRUCTOR or an ACTIVE student only. Shows instructor names without private
+        information.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InstructorList" }
+              example:
+                items:
+                  - instructor_id: 55555555-5555-4555-8555-555555555555
+                    course_role: OWNER
+                    added_at: "2026-10-10T10:00:00Z"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: GET /api/v1/courses/11111111-1111-4111-8111-111111111111/instructors
+    post:
+      tags: [Instructors]
+      operationId: addCoInstructor
+      summary: Add a co-instructor
+      description:
+        OWNER only. The user must already have the INSTRUCTOR role; the course OWNER cannot be
+        replaced.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddInstructor" }
+            example:
+              instructor_id: 77777777-7777-4777-8777-777777777777
+      responses:
+        "201":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Instructor" }
+              example:
+                instructor_id: 77777777-7777-4777-8777-777777777777
+                course_role: CO_INSTRUCTOR
+                added_at: "2026-10-10T10:00:00Z"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: POST /api/v1/courses/11111111-1111-4111-8111-111111111111/instructors
+  /courses/{courseId}/instructors/{instructorId}:
+    delete:
+      tags: [Instructors]
+      operationId: removeCoInstructor
+      summary: Remove a co-instructor
+      description: OWNER only. The course OWNER cannot be removed.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+        - { $ref: "#/components/parameters/InstructorId" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeleteResult" }
+              example:
+                success: true
+                deleted_id: 77777777-7777-4777-8777-777777777777
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: DELETE
+        /api/v1/courses/11111111-1111-4111-8111-111111111111/instructors/55555555-5555-4555-8555-555555555555
+      x-error-codes: [CANNOT_REMOVE_OWNER]
+  /courses/{courseId}/modules:
+    get:
+      tags: [Modules]
+      operationId: listModules
+      summary: List course modules
+      description:
+        Students require an ACTIVE enrollment in a PUBLISHED course. Instructors may also manage
+        DRAFT courses.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/PageSize" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PagedModules" }
+              example:
+                items:
+                  - *id003
+                pagination: *id002
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: GET /api/v1/courses/11111111-1111-4111-8111-111111111111/modules
+    post:
+      tags: [Modules]
+      operationId: createModule
+      summary: Create a module
+      description: OWNER or CO_INSTRUCTOR only. Module position is validated within the course.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateModule" }
+            example:
+              title: "Module 1: Introduction"
+              position: 1
+              is_default: true
+      responses:
+        "201":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Module" }
+              example: *id003
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: POST /api/v1/courses/11111111-1111-4111-8111-111111111111/modules
+  /courses/{courseId}/modules/{moduleId}:
+    get:
+      tags: [Modules]
+      operationId: getModule
+      summary: Read a module
+      description: The module must belong to courseId; otherwise return 404.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+        - { $ref: "#/components/parameters/ModuleId" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Module" }
+              example: *id003
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: GET
+        /api/v1/courses/11111111-1111-4111-8111-111111111111/modules/22222222-2222-4222-8222-222222222222
+    patch:
+      tags: [Modules]
+      operationId: updateModule
+      summary: Update a module
+      description: OWNER or CO_INSTRUCTOR only. Prevent multiple modules from having is_default=true.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+        - { $ref: "#/components/parameters/ModuleId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateModule" }
+            example:
+              title: Introduction Updated
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Module" }
+              example:
+                id: 22222222-2222-4222-8222-222222222222
+                course_id: 11111111-1111-4111-8111-111111111111
+                title: Introduction Updated
+                description: Tổng quan
+                position: 1
+                is_default: true
+                created_at: "2026-10-10T10:00:00Z"
+                updated_at: "2026-10-10T10:00:00Z"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: PATCH
+        /api/v1/courses/11111111-1111-4111-8111-111111111111/modules/22222222-2222-4222-8222-222222222222
+    delete:
+      tags: [Modules]
+      operationId: deleteModule
+      summary: Delete an empty module
+      description: |
+        OWNER or CO_INSTRUCTOR only. The module must have no lessons to prevent data/progress loss;
+        otherwise return 409.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+        - { $ref: "#/components/parameters/ModuleId" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeleteResult" }
+              example:
+                success: true
+                deleted_id: 22222222-2222-4222-8222-222222222222
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: DELETE
+        /api/v1/courses/11111111-1111-4111-8111-111111111111/modules/22222222-2222-4222-8222-222222222222
+      x-error-codes: [MODULE_NOT_EMPTY]
+  /courses/{courseId}/module-order:
+    patch:
+      tags: [Modules]
+      operationId: reorderModules
+      summary: Reorder course modules
+      description:
+        OWNER or CO_INSTRUCTOR only. ordered_ids must be a complete permutation of the course's
+        module IDs.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Positions" }
+            example:
+              ordered_ids:
+                - 22222222-2222-4222-8222-222222222222
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReorderResult" }
+              example:
+                success: true
+                ordered_ids:
+                  - 22222222-2222-4222-8222-222222222222
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: PATCH /api/v1/courses/11111111-1111-4111-8111-111111111111/module-order
+  /courses/{courseId}/modules/{moduleId}/lessons:
+    get:
+      tags: [Lessons]
+      operationId: listLessons
+      summary: List module lessons
+      description: Students require an ACTIVE enrollment in a PUBLISHED course. Do not expose content URLs.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+        - { $ref: "#/components/parameters/ModuleId" }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/PageSize" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PagedLessons" }
+              example:
+                items:
+                  - *id004
+                pagination: *id002
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: GET
+        /api/v1/courses/11111111-1111-4111-8111-111111111111/modules/22222222-2222-4222-8222-222222222222/lessons
+    post:
+      tags: [Lessons]
+      operationId: createLesson
+      summary: Create a lesson
+      description: OWNER or CO_INSTRUCTOR only.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+        - { $ref: "#/components/parameters/ModuleId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateLesson" }
+            example:
+              title: What is Cloud?
+              position: 1
+              is_required: true
+      responses:
+        "201":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Lesson" }
+              example: *id004
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: POST
+        /api/v1/courses/11111111-1111-4111-8111-111111111111/modules/22222222-2222-4222-8222-222222222222/lessons
+  /courses/{courseId}/modules/{moduleId}/lessons/{lessonId}:
+    get:
+      tags: [Lessons]
+      operationId: getLesson
+      summary: Read a lesson
+      description: ACTIVE students or instructors only. Verify that the lesson belongs to the specified module.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+        - { $ref: "#/components/parameters/ModuleId" }
+        - { $ref: "#/components/parameters/LessonId" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Lesson" }
+              example: *id004
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: GET
+        /api/v1/courses/11111111-1111-4111-8111-111111111111/modules/22222222-2222-4222-8222-222222222222/lessons/33333333-3333-4333-8333-333333333333
+    patch:
+      tags: [Lessons]
+      operationId: updateLesson
+      summary: Update a lesson
+      description: OWNER or CO_INSTRUCTOR only. PATCH cannot change module_id.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+        - { $ref: "#/components/parameters/ModuleId" }
+        - { $ref: "#/components/parameters/LessonId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateLesson" }
+            example:
+              title: Cloud Concepts
+              is_required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Lesson" }
+              example:
+                id: 33333333-3333-4333-8333-333333333333
+                module_id: 22222222-2222-4222-8222-222222222222
+                title: Cloud Concepts
+                description: Khái niệm cơ bản
+                position: 1
+                is_required: true
+                created_at: "2026-10-10T10:00:00Z"
+                updated_at: "2026-10-10T10:00:00Z"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: PATCH
+        /api/v1/courses/11111111-1111-4111-8111-111111111111/modules/22222222-2222-4222-8222-222222222222/lessons/33333333-3333-4333-8333-333333333333
+    delete:
+      tags: [Lessons]
+      operationId: deleteLesson
+      summary: Delete an empty lesson
+      description: |
+        OWNER or CO_INSTRUCTOR only. The lesson must have no contents, progress, quizzes or assignments;
+        otherwise return 409.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+        - { $ref: "#/components/parameters/ModuleId" }
+        - { $ref: "#/components/parameters/LessonId" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeleteResult" }
+              example:
+                success: true
+                deleted_id: 33333333-3333-4333-8333-333333333333
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: DELETE
+        /api/v1/courses/11111111-1111-4111-8111-111111111111/modules/22222222-2222-4222-8222-222222222222/lessons/33333333-3333-4333-8333-333333333333
+      x-error-codes: [LESSON_NOT_EMPTY]
+  /courses/{courseId}/modules/{moduleId}/lesson-order:
+    patch:
+      tags: [Lessons]
+      operationId: reorderLessons
+      summary: Reorder module lessons
+      description: OWNER or CO_INSTRUCTOR only. All provided lesson IDs must belong to the module.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+        - { $ref: "#/components/parameters/ModuleId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Positions" }
+            example:
+              ordered_ids:
+                - 33333333-3333-4333-8333-333333333333
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReorderResult" }
+              example:
+                success: true
+                ordered_ids:
+                  - 33333333-3333-4333-8333-333333333333
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: PATCH
+        /api/v1/courses/11111111-1111-4111-8111-111111111111/modules/22222222-2222-4222-8222-222222222222/lesson-order
+  /courses/{courseId}/modules/{moduleId}/lessons/{lessonId}/contents:
+    get:
+      tags: [Contents]
+      operationId: listLessonContents
+      summary: List lesson contents
+      description: |
+        Students require ACTIVE enrollment in a PUBLISHED course. Return metadata without object_key in DTOs
+        or signed URLs.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+        - { $ref: "#/components/parameters/ModuleId" }
+        - { $ref: "#/components/parameters/LessonId" }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/PageSize" }
+        - { $ref: "#/components/parameters/ContentStatus" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PagedContents" }
+              example:
+                items:
+                  - id: 44444444-4444-4444-8444-444444444444
+                    lesson_id: 33333333-3333-4333-8333-333333333333
+                    content_type: PDF
+                    title: Lecture 1
+                    text_content:
+                    external_url:
+                    file_name: lecture1.pdf
+                    mime_type: application/pdf
+                    file_size: 2100000
+                    upload_status: AVAILABLE
+                    position: 1
+                    version_number: 1
+                    created_at: "2026-10-10T10:00:00Z"
+                    updated_at: "2026-10-10T10:00:00Z"
+                pagination: *id002
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: GET
+        /api/v1/courses/11111111-1111-4111-8111-111111111111/modules/22222222-2222-4222-8222-222222222222/lessons/33333333-3333-4333-8333-333333333333/contents
+    post:
+      tags: [Contents]
+      operationId: createLessonContent
+      summary: Create lesson content
+      description: |
+        OWNER or CO_INSTRUCTOR only. Valid TEXT/LINK content may be AVAILABLE immediately; file content
+        starts as PENDING to request an upload URL.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+        - { $ref: "#/components/parameters/ModuleId" }
+        - { $ref: "#/components/parameters/LessonId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateContent" }
+            example:
+              content_type: PDF
+              title: Lecture 1
+              file_name: lecture1.pdf
+              mime_type: application/pdf
+              file_size: 2100000
+              position: 1
+      responses:
+        "201":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Content" }
+              example:
+                id: 44444444-4444-4444-8444-444444444444
+                lesson_id: 33333333-3333-4333-8333-333333333333
+                content_type: PDF
+                title: Lecture 1
+                text_content:
+                external_url:
+                file_name: lecture1.pdf
+                mime_type: application/pdf
+                file_size: 2100000
+                upload_status: PENDING
+                position: 1
+                version_number: 1
+                created_at: "2026-10-10T10:00:00Z"
+                updated_at: "2026-10-10T10:00:00Z"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "415": { $ref: "#/components/responses/UnsupportedMedia" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: POST
+        /api/v1/courses/11111111-1111-4111-8111-111111111111/modules/22222222-2222-4222-8222-222222222222/lessons/33333333-3333-4333-8333-333333333333/contents
+      x-error-codes: [UPLOAD_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE]
+  /courses/{courseId}/modules/{moduleId}/lessons/{lessonId}/contents/{contentId}:
+    get:
+      tags: [Contents]
+      operationId: getLessonContent
+      summary: Read lesson content
+      description:
+        Students with ACTIVE enrollment in a PUBLISHED course, or OWNER/CO_INSTRUCTOR only. Do not
+        return signed URLs.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+        - { $ref: "#/components/parameters/ModuleId" }
+        - { $ref: "#/components/parameters/LessonId" }
+        - { $ref: "#/components/parameters/ContentId" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Content" }
+              example:
+                id: 44444444-4444-4444-8444-444444444444
+                lesson_id: 33333333-3333-4333-8333-333333333333
+                content_type: PDF
+                title: Lecture 1
+                text_content:
+                external_url:
+                file_name: lecture1.pdf
+                mime_type: application/pdf
+                file_size: 2100000
+                upload_status: AVAILABLE
+                position: 1
+                version_number: 1
+                created_at: "2026-10-10T10:00:00Z"
+                updated_at: "2026-10-10T10:00:00Z"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: GET
+        /api/v1/courses/11111111-1111-4111-8111-111111111111/modules/22222222-2222-4222-8222-222222222222/lessons/33333333-3333-4333-8333-333333333333/contents/44444444-4444-4444-8444-444444444444
+    patch:
+      tags: [Contents]
+      operationId: updateLessonContent
+      summary: Update content metadata
+      description: |
+        OWNER or CO_INSTRUCTOR only. TEXT/LINK may update text/url; file content may update title only.
+        PATCH cannot replace object_key or file bytes.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+        - { $ref: "#/components/parameters/ModuleId" }
+        - { $ref: "#/components/parameters/LessonId" }
+        - { $ref: "#/components/parameters/ContentId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateContent" }
+            example:
+              title: Lecture 1 — revised
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Content" }
+              example:
+                id: 44444444-4444-4444-8444-444444444444
+                lesson_id: 33333333-3333-4333-8333-333333333333
+                content_type: PDF
+                title: Lecture 1 — revised
+                text_content:
+                external_url:
+                file_name: lecture1.pdf
+                mime_type: application/pdf
+                file_size: 2100000
+                upload_status: PENDING
+                position: 1
+                version_number: 1
+                created_at: "2026-10-10T10:00:00Z"
+                updated_at: "2026-10-10T10:00:00Z"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: PATCH
+        /api/v1/courses/11111111-1111-4111-8111-111111111111/modules/22222222-2222-4222-8222-222222222222/lessons/33333333-3333-4333-8333-333333333333/contents/44444444-4444-4444-8444-444444444444
+    delete:
+      tags: [Contents]
+      operationId: deleteLessonContent
+      summary: Delete lesson content
+      description: |
+        OWNER or CO_INSTRUCTOR only. Deletion is allowed only when progress, quizzes or AI do not reference
+        the content; otherwise return 409. Clean up object storage via an asynchronous event. Do not promise
+        soft deletion because the DBML has no deleted_at field.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+        - { $ref: "#/components/parameters/ModuleId" }
+        - { $ref: "#/components/parameters/LessonId" }
+        - { $ref: "#/components/parameters/ContentId" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeleteResult" }
+              example:
+                success: true
+                deleted_id: 44444444-4444-4444-8444-444444444444
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: DELETE
+        /api/v1/courses/11111111-1111-4111-8111-111111111111/modules/22222222-2222-4222-8222-222222222222/lessons/33333333-3333-4333-8333-333333333333/contents/44444444-4444-4444-8444-444444444444
+  /courses/{courseId}/modules/{moduleId}/lessons/{lessonId}/content-order:
+    patch:
+      tags: [Contents]
+      operationId: reorderLessonContents
+      summary: Reorder lesson contents
+      description:
+        OWNER or CO_INSTRUCTOR only. ordered_ids must contain exactly the content IDs currently in
+        the lesson.
+      parameters:
+        - { $ref: "#/components/parameters/CourseId" }
+        - { $ref: "#/components/parameters/ModuleId" }
+        - { $ref: "#/components/parameters/LessonId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Positions" }
+            example:
+              ordered_ids:
+                - 44444444-4444-4444-8444-444444444444
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReorderResult" }
+              example:
+                success: true
+                ordered_ids:
+                  - 44444444-4444-4444-8444-444444444444
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: PATCH
+        /api/v1/courses/11111111-1111-4111-8111-111111111111/modules/22222222-2222-4222-8222-222222222222/lessons/33333333-3333-4333-8333-333333333333/content-order
+  /contents/{contentId}/upload-url:
+    post:
+      tags: [Files]
+      operationId: issueUploadUrl
+      summary: Get a presigned content upload URL
+      description: |
+        OWNER or CO_INSTRUCTOR only. Content must be a file in PENDING or FAILED state. Validate MIME type
+        and size; the proposed trial limit of <= 100 MiB is pending team approval. Return a presigned PUT
+        URL valid for 10 minutes. Store object_key server-side; clients use the signed URL and
+        required_headers without a raw object key.
+      parameters:
+        - { $ref: "#/components/parameters/ContentId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UploadUrlRequest" }
+            example:
+              file_name: lecture1.pdf
+              mime_type: application/pdf
+              file_size: 2100000
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UploadUrlResponse" }
+              example:
+                upload_url: https://storage.example.invalid/bucket/course-content/key?signature=example
+                method: PUT
+                required_headers:
+                  Content-Type: application/pdf
+                expires_at: "2026-10-10T10:10:00Z"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "415": { $ref: "#/components/responses/UnsupportedMedia" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: POST /api/v1/contents/44444444-4444-4444-8444-444444444444/upload-url
+      x-error-codes:
+        [UPLOAD_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, INVALID_UPLOAD_STATE]
+  /contents/{contentId}/complete-upload:
+    post:
+      tags: [Files]
+      operationId: completeContentUpload
+      summary: Confirm a content upload
+      description: |
+        OWNER or CO_INSTRUCTOR only. Verify storage HEAD/metadata server-side; transition PENDING ->
+        UPLOADED -> AVAILABLE (verification may be asynchronous). Do not trust the client's assertion that
+        the upload completed.
+      parameters:
+        - { $ref: "#/components/parameters/ContentId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CompleteUploadRequest" }
+            example:
+              object_key: courses/11111111-1111-4111-8111-111111111111/contents/44444444-4444-4444-8444-444444444444/v1/lecture1.pdf
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Content" }
+              example:
+                id: 44444444-4444-4444-8444-444444444444
+                lesson_id: 33333333-3333-4333-8333-333333333333
+                content_type: PDF
+                title: Lecture 1
+                text_content:
+                external_url:
+                file_name: lecture1.pdf
+                mime_type: application/pdf
+                file_size: 2100000
+                upload_status: AVAILABLE
+                position: 1
+                version_number: 1
+                created_at: "2026-10-10T10:00:00Z"
+                updated_at: "2026-10-10T10:00:00Z"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "415": { $ref: "#/components/responses/UnsupportedMedia" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: POST /api/v1/contents/44444444-4444-4444-8444-444444444444/complete-upload
+      x-error-codes: [UPLOAD_OBJECT_NOT_FOUND, INVALID_UPLOAD_STATE]
+  /contents/{contentId}/access-url:
+    get:
+      tags: [Files]
+      operationId: getContentAccessUrl
+      summary: Get a presigned content access URL
+      description: |
+        OWNER/CO_INSTRUCTOR or students with valid L3 entitlement in a PUBLISHED course. Student access is
+        provisionally ACTIVE-only while COMPLETED access remains OPEN. PRIVATE students must first enroll
+        through L3's minimal MVP invite-code flow. ARCHIVED blocks students even with ACTIVE enrollment.
+        Content upload_status must be AVAILABLE. No streaming; return a short-lived presigned GET URL.
+        Previously issued URLs may remain valid until expiry after removal, unpublish or archive; revocation
+        is not immediate.
+      parameters:
+        - { $ref: "#/components/parameters/ContentId" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AccessUrlResponse" }
+              example:
+                access_url: https://storage.example.invalid/bucket/course-content/key?signature=example
+                method: GET
+                expires_at: "2026-10-10T10:05:00Z"
+                file_name: lecture1.pdf
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Unexpected error
+                  request_id: req_abc123
+                  details: {}
+      x-request-example: GET /api/v1/contents/44444444-4444-4444-8444-444444444444/access-url
+      x-error-codes: [ENROLLMENT_NOT_ACTIVE, CONTENT_NOT_AVAILABLE]
+      x-open-decision: COMPLETED entitlement pending L3/product approval; ACTIVE-only provisional.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    CourseId:
+      name: courseId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      example: 11111111-1111-4111-8111-111111111111
+    ModuleId:
+      name: moduleId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      example: 22222222-2222-4222-8222-222222222222
+    LessonId:
+      name: lessonId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      example: 33333333-3333-4333-8333-333333333333
+    ContentId:
+      name: contentId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      example: 44444444-4444-4444-8444-444444444444
+    InstructorId:
+      name: instructorId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      example: 55555555-5555-4555-8555-555555555555
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      example: 1
+    PageSize:
+      name: page_size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      example: 20
+    Search:
+      name: q
+      in: query
+      description: Case-insensitive search by course title.
+      schema:
+        type: string
+        maxLength: 200
+      example: Cloud
+    ContentStatus:
+      name: status
+      in: query
+      schema: { $ref: "#/components/schemas/UploadStatus" }
+      example: AVAILABLE
+  responses:
+    BadRequest:
+      description: Invalid request.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example:
+            error:
+              code: BAD_REQUEST
+              message: Thông tin yêu cầu không hợp lệ
+              details: {}
+              request_id: req_abc123
+    Unauthorized:
+      description: Missing or invalid authentication token.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: Thiếu hoặc token không hợp lệ
+              details: {}
+              request_id: req_abc123
+    Forbidden:
+      description: Insufficient permission to access the course or content.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example:
+            error:
+              code: COURSE_FORBIDDEN
+              message: Không đủ quyền đối với khóa học hoặc tài liệu
+              details: {}
+              request_id: req_abc123
+    NotFound:
+      description: Resource not found within this course.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example:
+            error:
+              code: RESOURCE_NOT_FOUND
+              message: Không tìm thấy tài nguyên trong khóa học này
+              details: {}
+              request_id: req_abc123
+    Conflict:
+      description: The resource state does not allow this operation.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example:
+            error:
+              code: INVALID_LIFECYCLE_TRANSITION
+              message: Trạng thái hiện tại không cho phép thao tác
+              details: {}
+              request_id: req_abc123
+    PayloadTooLarge:
+      description: File exceeds the upload size limit.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example:
+            error:
+              code: UPLOAD_TOO_LARGE
+              message: File vượt giới hạn upload
+              details: {}
+              request_id: req_abc123
+    UnsupportedMedia:
+      description: Unsupported file format.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example:
+            error:
+              code: UNSUPPORTED_MEDIA_TYPE
+              message: Định dạng file không được hỗ trợ
+              details: {}
+              request_id: req_abc123
+    Unprocessable:
+      description: Invalid input value (for example, page_size > 100).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example:
+            error:
+              code: VALIDATION_ERROR
+              message: Giá trị không hợp lệ (ví dụ page_size > 100)
+              details: {}
+              request_id: req_abc123
+    ServiceUnavailable:
+      description: Enrollment verification unavailable; access is denied temporarily.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example:
+            error:
+              code: ENROLLMENT_CHECK_UNAVAILABLE
+              message: Không thể xác minh enrollment; từ chối cấp quyền tạm thời
+              details: {}
+              request_id: req_abc123
+  schemas:
+    CourseVisibility:
+      type: string
+      enum: [PUBLIC, PRIVATE]
+    CourseLifecycle:
+      type: string
+      enum: [DRAFT, PUBLISHED, ARCHIVED, DISABLED]
+    LearningMode:
+      type: string
+      enum: [FREE_NAVIGATION, SEQUENTIAL]
+    CourseRole:
+      type: string
+      enum: [OWNER, CO_INSTRUCTOR]
+    ContentType:
+      type: string
+      enum: [TEXT, LINK, VIDEO, PDF, SLIDE, DOCUMENT, FILE]
+    UploadStatus:
+      type: string
+      enum: [PENDING, UPLOADED, AVAILABLE, FAILED]
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+              properties: {}
+              additionalProperties: true
+            request_id:
+              type: string
+          required: [code, message, request_id]
+      required: [error]
+    PageInfo:
+      type: object
+      properties:
+        page: { type: integer, minimum: 1 }
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total: { type: integer, minimum: 0 }
+        has_next:
+          type: boolean
+      required: [page, page_size, total, has_next]
+    Course:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        title:
+          type: string
+        description: { type: string, nullable: true }
+        visibility: { $ref: "#/components/schemas/CourseVisibility" }
+        lifecycle_status: { $ref: "#/components/schemas/CourseLifecycle" }
+        capacity:
+          type: integer
+          nullable: true
+          minimum: 1
+        learning_mode: { $ref: "#/components/schemas/LearningMode" }
+        start_at: { type: string, format: date-time, nullable: true }
+        end_at: { type: string, format: date-time, nullable: true }
+        created_by: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+      required:
+        [
+          id,
+          title,
+          visibility,
+          lifecycle_status,
+          learning_mode,
+          created_by,
+          created_at,
+          updated_at,
+        ]
+    CreateCourse:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+        visibility: { $ref: "#/components/schemas/CourseVisibility" }
+        capacity:
+          type: integer
+          nullable: true
+          minimum: 1
+        learning_mode: { $ref: "#/components/schemas/LearningMode" }
+        start_at: { type: string, format: date-time, nullable: true }
+        end_at: { type: string, format: date-time, nullable: true }
+      required: [title]
+      additionalProperties: false
+    UpdateCourse:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+        visibility: { $ref: "#/components/schemas/CourseVisibility" }
+        capacity:
+          type: integer
+          nullable: true
+          minimum: 1
+        learning_mode: { $ref: "#/components/schemas/LearningMode" }
+        start_at: { type: string, format: date-time, nullable: true }
+        end_at: { type: string, format: date-time, nullable: true }
+      additionalProperties: false
+      minProperties: 1
+      description:
+        Only metadata is editable; lifecycle_status and created_by are forbidden. Course OWNER and
+        CO_INSTRUCTOR are authorized under the 2026-10-11 decision.
+    Instructor:
+      type: object
+      properties:
+        instructor_id: { type: string, format: uuid }
+        course_role: { $ref: "#/components/schemas/CourseRole" }
+        added_at: { type: string, format: date-time }
+      required: [instructor_id, course_role, added_at]
+    InstructorList:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Instructor" }
+      required: [items]
+    AddInstructor:
+      type: object
+      properties:
+        instructor_id: { type: string, format: uuid }
+      required: [instructor_id]
+    Module:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        course_id: { type: string, format: uuid }
+        title:
+          type: string
+        description: { type: string, nullable: true }
+        position: { type: integer, minimum: 0 }
+        is_default:
+          type: boolean
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+      required: [id, course_id, title, position, is_default]
+    CreateModule:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+        position: { type: integer, minimum: 0 }
+        is_default:
+          type: boolean
+      required: [title]
+    UpdateModule:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+        is_default:
+          type: boolean
+    Lesson:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        module_id: { type: string, format: uuid }
+        title:
+          type: string
+        description: { type: string, nullable: true }
+        position: { type: integer, minimum: 0 }
+        is_required:
+          type: boolean
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+      required: [id, module_id, title, position, is_required]
+    CreateLesson:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+        position: { type: integer, minimum: 0 }
+        is_required:
+          type: boolean
+      required: [title]
+    UpdateLesson:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+        is_required:
+          type: boolean
+    Content:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        lesson_id: { type: string, format: uuid }
+        content_type: { $ref: "#/components/schemas/ContentType" }
+        title: { type: string, nullable: true }
+        text_content: { type: string, nullable: true }
+        external_url: { type: string, format: uri, nullable: true }
+        file_name: { type: string, nullable: true }
+        mime_type: { type: string, nullable: true }
+        file_size:
+          type: integer
+          minimum: 0
+          nullable: true
+        upload_status: { $ref: "#/components/schemas/UploadStatus" }
+        position: { type: integer, minimum: 0 }
+        version_number: { type: integer, minimum: 1 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+      required:
+        [id, lesson_id, content_type, upload_status, position, version_number]
+    CreateContent:
+      type: object
+      properties:
+        content_type: { $ref: "#/components/schemas/ContentType" }
+        title:
+          type: string
+          maxLength: 255
+        text_content:
+          type: string
+        external_url: { type: string, format: uri }
+        file_name:
+          type: string
+          maxLength: 255
+        mime_type:
+          type: string
+          maxLength: 100
+        file_size: { type: integer, minimum: 1 }
+        position: { type: integer, minimum: 0 }
+      required: [content_type]
+      description:
+        TEXT requires text_content; LINK requires external_url; file types
+        (VIDEO/PDF/SLIDE/DOCUMENT/FILE) require file_name, mime_type and file_size. Cross-field validation is
+        performed by the backend.
+    UpdateContent:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 255
+        text_content:
+          type: string
+        external_url: { type: string, format: uri }
+      description:
+        Only TEXT/LINK metadata can be edited. Replacing a file requires a new version; direct
+        object_key replacement is not allowed by the API.
+    Positions:
+      type: object
+      properties:
+        ordered_ids:
+          type: array
+          items: { type: string, format: uuid }
+          minItems: 1
+          uniqueItems: true
+      required: [ordered_ids]
+      description: All direct child IDs of the parent; duplicates and omissions are not allowed.
+    ReorderResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        ordered_ids:
+          type: array
+          items: { type: string, format: uuid }
+      required: [success, ordered_ids]
+    DeleteResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        deleted_id: { type: string, format: uuid }
+      required: [success, deleted_id]
+    UploadUrlRequest:
+      type: object
+      properties:
+        file_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        mime_type:
+          type: string
+        file_size: { type: integer, minimum: 1 }
+      required: [file_name, mime_type, file_size]
+    UploadUrlResponse:
+      type: object
+      properties:
+        upload_url: { type: string, format: uri }
+        method:
+          type: string
+          enum: [PUT]
+        required_headers:
+          type: object
+          properties: {}
+          additionalProperties:
+            type: string
+        expires_at: { type: string, format: date-time }
+      required: [upload_url, method, required_headers, expires_at]
+    CompleteUploadRequest:
+      type: object
+      properties:
+        object_key:
+          type: string
+      required: [object_key]
+      description:
+        The object key is issued by M2. The backend verifies storage HEAD, MIME, size and owner
+        before confirmation.
+    AccessUrlResponse:
+      type: object
+      properties:
+        access_url: { type: string, format: uri }
+        method:
+          type: string
+          enum: [GET]
+        expires_at: { type: string, format: date-time }
+        file_name:
+          type: string
+      required: [access_url, method, expires_at, file_name]
+    PagedCourses:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Course" }
+        pagination: { $ref: "#/components/schemas/PageInfo" }
+      required: [items, pagination]
+    PagedModules:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Module" }
+        pagination: { $ref: "#/components/schemas/PageInfo" }
+      required: [items, pagination]
+    PagedLessons:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Lesson" }
+        pagination: { $ref: "#/components/schemas/PageInfo" }
+      required: [items, pagination]
+    PagedContents:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Content" }
+        pagination: { $ref: "#/components/schemas/PageInfo" }
+      required: [items, pagination]
+    CourseOutline:
+      type: object
+      properties:
+        course_id: { type: string, format: uuid }
+        modules:
+          type: array
+          items:
+            type: object
+            properties:
+              module: { $ref: "#/components/schemas/Module" }
+              lessons:
+                type: array
+                items: { $ref: "#/components/schemas/Lesson" }
+            required: [module, lessons]
+      required: [course_id, modules]
+      description: Metadata-only outline; no object_key or file URLs are returned.
