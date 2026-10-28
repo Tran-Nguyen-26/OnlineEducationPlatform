@@ -16,6 +16,14 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler({org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
+            org.springframework.http.converter.HttpMessageNotReadableException.class,
+            org.springframework.web.bind.MissingServletRequestParameterException.class})
+    public ResponseEntity<Map<String, Object>> handleMalformedRequest(Exception ex) {
+        return ResponseEntity.badRequest().body(Map.of("status", 400,
+                "error", ErrorCode.VALIDATION_FAILED.name(), "message", "Malformed request"));
+    }
+
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<Map<String, Object>> handleBusinessException(BusinessException ex) {
         ErrorCode code = ex.getCode();

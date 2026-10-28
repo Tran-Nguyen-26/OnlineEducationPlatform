@@ -42,8 +42,8 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Build & verify (skip tests until test suite added)
-        run: mvn -B verify -DskipTests --no-transfer-progress
+      - name: Build & verify
+        run: mvn -B verify --no-transfer-progress
         working-directory: backend
 
       - name: Upload build artifacts (jars)
