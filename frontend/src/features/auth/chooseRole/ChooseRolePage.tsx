@@ -87,7 +87,7 @@ export default function ChooseRolePage() {
         </div>
 
         {/* Teacher card */}
-        <div className="cr-card cr-card--teacher">
+        <div className="cr-card cr-card--teacher" onClick={() => navigate('/register-instructor')}>
           <div className="cr-card-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
@@ -122,6 +122,7 @@ export default function ChooseRolePage() {
             className="cr-btn cr-btn--teacher"
             onClick={(e) => {
               e.stopPropagation()
+              navigate('/register-instructor')
             }}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

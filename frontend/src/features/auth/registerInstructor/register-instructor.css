@@ -1,0 +1,693 @@
+/* =========================================================
+   Đăng ký Giảng viên – Styles
+   ========================================================= */
+
+/* ── Reset / Base ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* ── Page layout ── */
+.ri-page {
+  display: flex;
+  min-height: 100vh;
+  background: #f8fafc;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+}
+
+/* ════════════════════════════════════════════
+   LEFT PANEL
+   ════════════════════════════════════════════ */
+.ri-left {
+  width: 48%;
+  min-width: 360px;
+  max-width: 560px;
+  padding: 2.5rem 3rem 3rem 3.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: transparent;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  min-height: 100vh;
+  overflow-y: auto;
+}
+
+/* ── Logo ── */
+.ri-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  text-decoration: none;
+  margin-bottom: 2.5rem;
+}
+.ri-logo-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  background: #0d9488;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  padding: 0.35rem;
+  flex-shrink: 0;
+}
+.ri-logo-icon svg {
+  width: 100%;
+  height: 100%;
+}
+.ri-logo-name {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+/* ── Back link ── */
+.ri-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8125rem;
+  color: #6b7280;
+  text-decoration: none;
+  margin-bottom: 0.75rem;
+  transition: color 0.2s;
+}
+.ri-back:hover {
+  color: #0d9488;
+}
+.ri-back svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* ── Badge pill ── */
+.ri-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  color: #0d9488;
+  background: #ccfbf1;
+  padding: 0.3rem 0.875rem;
+  border-radius: 9999px;
+  margin-bottom: 1rem;
+}
+.ri-badge svg {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+/* ── Hero text ── */
+.ri-hero-title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #111827;
+  line-height: 1.2;
+  margin-bottom: 0.625rem;
+}
+.ri-hero-desc {
+  font-size: 0.9375rem;
+  color: #4b5563;
+  line-height: 1.6;
+  margin-bottom: 1.75rem;
+}
+
+/* ── Feature cards ── */
+.ri-feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  margin-bottom: 2rem;
+}
+.ri-feature-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.875rem;
+  padding: 1rem 1.125rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.ri-feature-card:hover {
+  box-shadow: 0 4px 16px rgba(13, 148, 136, 0.1);
+  border-color: #99f6e4;
+}
+.ri-feature-card-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 0.625rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0d9488;
+  padding: 0.5rem;
+  flex-shrink: 0;
+}
+.ri-feature-card-icon svg {
+  width: 100%;
+  height: 100%;
+}
+.ri-feature-card-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 0.25rem;
+}
+.ri-feature-card-desc {
+  font-size: 0.8rem;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+/* ── Testimonial ── */
+.ri-testimonial {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.875rem;
+  padding: 1.125rem 1.25rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  position: relative;
+}
+.ri-testimonial-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.ri-testimonial-avatar {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #e5e7eb;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #0d9488, #059669);
+  overflow: hidden;
+}
+.ri-testimonial-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ri-testimonial-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #111827;
+}
+.ri-testimonial-title {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+.ri-testimonial-quote {
+  font-size: 0.84375rem;
+  color: #374151;
+  line-height: 1.6;
+  font-style: italic;
+}
+.ri-testimonial-quote-icon {
+  color: #0d9488;
+  font-size: 1.5rem;
+  font-family: Georgia, serif;
+  line-height: 1;
+}
+
+/* ════════════════════════════════════════════
+   RIGHT PANEL
+   ════════════════════════════════════════════ */
+.ri-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.ri-right-scroll {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 2.5rem 2rem 3rem;
+  gap: 1.5rem;
+}
+.ri-form-card {
+  background: #fff;
+  border-radius: 1rem;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  padding: 2rem 2.25rem;
+  width: 100%;
+  max-width: 580px;
+}
+
+/* ── Form card header ── */
+.ri-form-role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  color: #0f766e;
+  background: #ccfbf1;
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.375rem;
+  margin-bottom: 0.875rem;
+  border: 1px solid #99f6e4;
+}
+.ri-form-role-badge svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+.ri-form-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #111827;
+  margin-bottom: 0.3rem;
+  line-height: 1.2;
+}
+.ri-form-subtitle {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-bottom: 1.5rem;
+}
+
+/* ── Section headers ── */
+.ri-section {
+  margin-bottom: 0.25rem;
+}
+.ri-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #f3f4f6;
+  margin-bottom: 1rem;
+}
+.ri-section-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.ri-section-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #0d9488;
+  flex-shrink: 0;
+}
+.ri-section-title {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  color: #374151;
+}
+.ri-section-required-note {
+  font-size: 0.6875rem;
+  color: #9ca3af;
+}
+.ri-section-desc {
+  font-size: 0.8125rem;
+  color: #6b7280;
+  margin: -0.5rem 0 0.875rem 0;
+}
+
+/* ── Form body ── */
+.ri-form-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ── Alert ── */
+.ri-alert-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 0.75rem 1rem;
+  border-radius: 0.625rem;
+  font-size: 0.84375rem;
+  line-height: 1.45;
+  animation: ri-fadein 0.2s ease;
+}
+.ri-alert-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+@keyframes ri-fadein {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Field ── */
+.ri-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.ri-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ri-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}
+.ri-required {
+  color: #ef4444;
+  margin-left: 1px;
+}
+.ri-optional {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+.ri-label-hint {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+/* ── Input wrap ── */
+.ri-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.ri-input-icon {
+  position: absolute;
+  left: 0.75rem;
+  width: 1rem;
+  height: 1rem;
+  color: #9ca3af;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.ri-input-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Input ── */
+.ri-input {
+  width: 100%;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 0.625rem;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  color: #111827;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.ri-input:focus {
+  border-color: #0d9488;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+}
+.ri-input.ri-input-icon-left {
+  padding-left: 2.5rem;
+}
+.ri-input.ri-input-icon-right {
+  padding-right: 2.75rem;
+}
+.ri-input.ri-input-error {
+  border-color: #ef4444;
+}
+.ri-input::placeholder {
+  color: #9ca3af;
+}
+.ri-textarea {
+  resize: vertical;
+  min-height: 90px;
+  font-family: inherit;
+}
+
+/* ── Toggle password btn ── */
+.ri-toggle-btn {
+  position: absolute;
+  right: 0.75rem;
+  width: 1.125rem;
+  height: 1.125rem;
+  color: #9ca3af;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: color 0.2s;
+}
+.ri-toggle-btn:hover {
+  color: #374151;
+}
+.ri-toggle-btn svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Password strength ── */
+.ri-strength-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+.ri-strength-label {
+  font-size: 0.75rem;
+  color: #6b7280;
+  white-space: nowrap;
+}
+.ri-strength-hint {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  flex: 1;
+}
+.ri-strength-bars {
+  display: flex;
+  gap: 0.25rem;
+  flex: 1;
+}
+.ri-strength-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 9999px;
+  transition: background-color 0.3s;
+  background: #e5e7eb;
+}
+.ri-strength-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+  min-width: 3.5rem;
+  text-align: right;
+}
+.ri-strength-weak   { color: #ef4444; }
+.ri-strength-fair   { color: #f97316; }
+.ri-strength-good   { color: #eab308; }
+.ri-strength-strong { color: #10b981; }
+
+/* ── Password match badge ── */
+.ri-match-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #0d9488;
+}
+.ri-match-badge svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+/* ── Two-column grid ── */
+.ri-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.875rem;
+}
+
+/* ── Checkbox agree ── */
+.ri-agree {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  font-size: 0.84375rem;
+  color: #374151;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.ri-agree-input {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.1rem;
+  accent-color: #0d9488;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.ri-agree a {
+  color: #0d9488;
+  text-decoration: none;
+  font-weight: 600;
+}
+.ri-agree a:hover {
+  text-decoration: underline;
+}
+
+/* ── Submit button ── */
+.ri-submit-btn {
+  width: 100%;
+  background: #0d9488;
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  padding: 0.875rem;
+  border: none;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.3);
+  letter-spacing: 0.01em;
+}
+.ri-submit-btn:hover {
+  background: #0f766e;
+  box-shadow: 0 4px 18px rgba(13, 148, 136, 0.4);
+}
+.ri-submit-btn:active {
+  transform: translateY(1px);
+}
+.ri-submit-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+.ri-submit-btn svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+.ri-spinner {
+  width: 1.125rem;
+  height: 1.125rem;
+  animation: ri-spin 0.8s linear infinite;
+}
+@keyframes ri-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Bottom links ── */
+.ri-bottom-links {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.25rem;
+}
+.ri-signin-text {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+.ri-signin-link {
+  font-weight: 700;
+  color: #0d9488;
+  text-decoration: none;
+}
+.ri-signin-link:hover {
+  text-decoration: underline;
+}
+.ri-back-role {
+  font-size: 0.8125rem;
+  color: #9ca3af;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.ri-back-role:hover {
+  color: #0d9488;
+}
+
+/* ── Privacy note ── */
+.ri-privacy-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: #9ca3af;
+  background: #f9fafb;
+  border: 1px solid #f3f4f6;
+  border-radius: 0.625rem;
+  padding: 0.75rem 1rem;
+  line-height: 1.5;
+  margin-top: 0.25rem;
+}
+.ri-privacy-note svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  color: #9ca3af;
+}
+
+/* ── Footer ── */
+.ri-footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  justify-content: center;
+}
+.ri-footer-dot {
+  color: #d1d5db;
+}
+.ri-footer-link {
+  color: #9ca3af;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.ri-footer-link:hover {
+  color: #0d9488;
+}
+
+/* ── Responsive ── */
+@media (max-width: 960px) {
+  .ri-page {
+    flex-direction: column;
+  }
+  .ri-left {
+    width: 100%;
+    max-width: 100%;
+    min-height: auto;
+    padding: 2rem 1.5rem 1.5rem;
+    position: static;
+  }
+  .ri-right-scroll {
+    padding: 1.5rem 1rem 2rem;
+  }
+  .ri-two-col {
+    grid-template-columns: 1fr;
+  }
+}

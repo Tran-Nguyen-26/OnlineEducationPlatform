@@ -59,7 +59,18 @@ export default function LoginPage() {
         localStorage.removeItem('remembered_email')
       }
 
-      navigate('/dashboard')
+      // Chuyển hướng theo vai trò người dùng
+      const userRole = response.user?.role?.toUpperCase()
+      const isAdmin =
+        userRole === 'ADMIN' ||
+        trimmedEmail.toLowerCase() === 'admin@eduplatform.vn' ||
+        trimmedEmail.toLowerCase() === 'admin@vnu.edu.vn'
+
+      if (isAdmin) {
+        navigate('/admin/users')
+      } else {
+        navigate('/dashboard')
+      }
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message)

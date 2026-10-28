@@ -297,4 +297,71 @@ export async function submitResetPassword(payload: ResetPasswordRequest): Promis
   }
 }
 
+export interface InstructorApplicationRequest {
+  email: string
+  fullName: string
+  phone?: string | null
+  organization?: string | null
+  jobTitle?: string | null
+  expertise?: string | null
+  yearsOfExperience?: number | null
+  professionalBio?: string | null
+  motivation?: string | null
+}
 
+/**
+ * Submit an instructor registration application.
+ * Calls POST /api/auth/register-teacher
+ */
+export async function registerInstructor(
+  payload: InstructorApplicationRequest
+): Promise<{ success: boolean; message: string }> {
+  const body = {
+    email: payload.email.trim(),
+    fullName: payload.fullName.trim(),
+    phone: payload.phone?.trim() || null,
+    organization: payload.organization?.trim() || null,
+    jobTitle: payload.jobTitle?.trim() || null,
+    expertise: payload.expertise?.trim() || null,
+    yearsOfExperience: payload.yearsOfExperience ?? null,
+    professionalBio: payload.professionalBio?.trim() || null,
+    motivation: payload.motivation?.trim() || null,
+  }
+
+  try {
+    const { data, error, response } = await apiClient.POST('/auth/register-teacher', {
+      body,
+    })
+
+    if (!response.ok || error) {
+      if (response.status === 502 || response.status === 503 || response.status === 504) {
+        throw new Error('Không thể kết nối đến máy chủ backend. Vui lòng đảm bảo backend đang chạy.')
+      }
+      const errData = error as ApiErrorResponse | undefined
+      if (errData?.error === 'APPLICATION_ALREADY_PENDING') {
+        throw new Error(errData.message || 'Email này hiện đang có hồ sơ chờ xét duyệt. Quản trị viên đang xử lý.')
+      }
+      if (errData?.error === 'EMAIL_TAKEN' || response.status === 409) {
+        throw new Error(errData?.message || 'Email này đã được đăng ký hoặc đã có đơn đăng ký giảng viên.')
+      }
+      if (errData?.details && Object.keys(errData.details).length > 0) {
+        const messages = Object.values(errData.details).join('. ')
+        throw new Error(messages)
+      }
+      if (errData?.message) {
+        throw new Error(errData.message)
+      }
+      throw new Error(`Gửi đơn đăng ký không thành công (Mã lỗi: ${response.status}). Vui lòng thử lại.`)
+    }
+
+    return data
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      if (err.message.includes('fetch') || err.message.includes('NetworkError') || err.message.includes('Failed to fetch')) {
+        throw new Error('Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại dịch vụ backend.')
+      }
+      throw err
+    }
+    throw new Error('Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.')
+  }
+}
