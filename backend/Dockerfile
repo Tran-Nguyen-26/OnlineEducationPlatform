@@ -1,11 +1,16 @@
-# Multi-stage Dockerfile for OEP Backend Services (Target: core-lms-service)
+# Multi-stage Dockerfile for OEP Backend Services
+# Supports building any service via:
+#   docker build --build-arg SERVICE=<service-name> --build-arg PORT=<port> ...
+# Default: core-lms-service, port 8081
 # Security & Sizing Compliance:
-# - Minimal JRE image: eclipse-temurin:21-jre-alpine (Total image size ~180MB <= 300MB limit)
+# - Minimal JRE image: eclipse-temurin:21-jre-alpine (Total image size ~260MB <= 300MB limit)
 # - Runs as dedicated non-root user (appuser, UID 10001)
 # - No secrets embedded in image; configurations injected via AWS Secrets Manager / Env vars
 
 # Stage 1: Build & Package
 FROM eclipse-temurin:21-jdk-alpine AS builder
+
+ARG SERVICE=core-lms-service
 
 WORKDIR /workspace
 
@@ -20,19 +25,23 @@ COPY core-lms-service/pom.xml core-lms-service/
 COPY assessment-service/pom.xml assessment-service/
 COPY worker-service/pom.xml worker-service/
 
-# Cache Maven dependencies
-RUN mvn dependency:go-offline -B -pl core-model,core-lms-service -am || true
-
-# Copy source code and build
+# Copy all source codes
 COPY core-model/src core-model/src
+COPY api-gateway/src api-gateway/src
 COPY core-lms-service/src core-lms-service/src
+COPY assessment-service/src assessment-service/src
+COPY worker-service/src worker-service/src
 
-# Compile and package core-lms-service, copy executable jar
-RUN mvn clean package -pl core-lms-service -am -DskipTests -B && \
-    cp core-lms-service/target/core-lms-service-*.jar /workspace/app.jar
+# Compile and package target service with BuildKit cache for /root/.m2
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn clean package -pl ${SERVICE} -am -DskipTests -B && \
+    cp ${SERVICE}/target/${SERVICE}-*.jar /workspace/app.jar
 
 # Stage 2: Lightweight, secure runtime
 FROM eclipse-temurin:21-jre-alpine AS runner
+
+ARG PORT=8081
+ENV PORT=${PORT}
 
 # Create non-root system user and group
 RUN addgroup -S -g 10001 appgroup && \
@@ -47,11 +56,11 @@ COPY --from=builder --chown=appuser:appgroup /workspace/app.jar app.jar
 USER appuser:appgroup
 
 # Service port
-EXPOSE 8081
+EXPOSE ${PORT}
 
 # Healthcheck checking Actuator endpoint
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD wget -q --spider http://localhost:8081/actuator/health || exit 1
+  CMD wget -q --spider http://localhost:${PORT}/actuator/health || exit 1
 
 # Optimized JVM memory, GC, and diagnostic flags for container environments
 ENTRYPOINT ["java", \

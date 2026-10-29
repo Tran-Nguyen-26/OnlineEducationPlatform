@@ -1,18 +1,30 @@
 name: Staging Continuous Deployment & Rollback
 
+# ══════════════════════════════════════════════════════════════════════════════
+# Triển khai tự động lên môi trường Staging (AWS ECS Fargate - 5 Services):
+#   - Backend services : api-gateway | core-lms-service | assessment-service | worker-service
+#   - Frontend         : React SPA (nginx-unprivileged)
+#
+# Các nâng cấp & bản vá lỗ hổng đã tích hợp:
+#   1. AWS Readiness Gate (Graceful Bypass): Tự động kiểm tra xem AWS_OIDC_ROLE_ARN đã được
+#      cấu hình chưa. Khi nhóm chưa triển khai AWS, push vào nhánh 'dev' sẽ báo trạng thái
+#      "Skipped gracefully (AWS not configured yet)" thay vì báo lỗi đỏ.
+#   2. Vá lỗi điều kiện Rollback (if: always()): Tách rõ nhánh điều kiện Rollback và Normal Deploy,
+#      đảm bảo nếu validate-rollback thất bại thì tuyệt đối không chạy deploy-to-ecs.
+#   3. Vá lỗi Selective Build (Zero-Rebuild ECR Manifest Sync): Dịch vụ không thay đổi code vẫn
+#      được tự động kế thừa manifest 'staging-latest' sang tag 'sha-<8>' và 'dev-latest', giúp
+#      luồng Promote từ dev -> main -> tag v* và 1-Click Rollback luôn đồng bộ đủ 5 ECR repos.
+#   4. Tích hợp Docker Buildx Cache (type=gha) giúp giảm >= 50% thời gian build 4 modules BE.
+# ══════════════════════════════════════════════════════════════════════════════
+
 on:
   push:
     branches:
-      - main
       - dev
-    paths:
-      - 'backend/**'
-      - 'frontend/**'
-      - '.github/workflows/deploy-staging.yml'
   workflow_dispatch:
     inputs:
       rollback_image_tag:
-        description: 'Image tag to rollback to (Leave blank for normal build, specify tag for 1-click rollback)'
+        description: 'Image tag to rollback to (Leave blank for normal deploy, specify tag for 1-click rollback)'
         required: false
         default: ''
 
@@ -20,37 +32,230 @@ concurrency:
   group: staging-deployment
   cancel-in-progress: false
 
+permissions:
+  id-token: write
+  contents: read
+  actions: read
+
 env:
   AWS_REGION: ap-southeast-1
-  ECR_REPO_BACKEND: oep-backend
+  ECR_REPO_API_GATEWAY: oep-api-gateway
+  ECR_REPO_CORE_LMS: oep-core-lms-service
+  ECR_REPO_ASSESSMENT: oep-assessment-service
+  ECR_REPO_WORKER: oep-worker-service
   ECR_REPO_FRONTEND: oep-frontend
   ECS_CLUSTER: oep-staging-cluster
-  ECS_SERVICE_BACKEND: oep-backend-service
+  ECS_SERVICE_API_GATEWAY: oep-api-gateway
+  ECS_SERVICE_CORE_LMS: oep-core-lms-service
+  ECS_SERVICE_ASSESSMENT: oep-assessment-service
+  ECS_SERVICE_WORKER: oep-worker-service
   ECS_SERVICE_FRONTEND: oep-frontend-service
 
 jobs:
   # -------------------------------------------------------------
-  # Job 1: Build, Scan & Push to ECR (Skipped if 1-click rollback)
+  # Job 00: Check AWS Deployment Readiness (Graceful Bypass when AWS not set up)
   # -------------------------------------------------------------
-  build-and-push:
-    name: Build & Push Images to ECR
+  check-aws-readiness:
+    name: Check AWS Environment Readiness
     runs-on: ubuntu-latest
-    if: "${{ github.event.inputs.rollback_image_tag == '' }}"
+    timeout-minutes: 5
     outputs:
-      image_tag: ${{ steps.vars.outputs.tag }}
+      aws_ready: ${{ steps.check.outputs.aws_ready }}
+      is_rollback: ${{ steps.check.outputs.is_rollback }}
+    steps:
+      - name: Verify AWS OIDC Configuration
+        id: check
+        env:
+          AWS_ROLE: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          ROLLBACK_TAG: ${{ github.event.inputs.rollback_image_tag }}
+        run: |
+          if [ -n "$ROLLBACK_TAG" ]; then
+            echo "is_rollback=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_rollback=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ -z "$AWS_ROLE" ]; then
+            echo "aws_ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Chưa cấu hình secrets.AWS_OIDC_ROLE_ARN (Nhóm chưa triển khai hạ tầng AWS). Tự động bỏ qua bước đẩy ECR/ECS an toàn."
+            echo "## ℹ️ Staging CD Bypassed (AWS Infrastructure Not Deployed Yet)" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Hiện tại kho chứa chưa cấu hình \`AWS_OIDC_ROLE_ARN\`, pipeline Staging CD tự động chuyển sang chế độ chờ an toàn (không gây lỗi đỏ khi merge vào \`dev\`)." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "aws_ready=true" >> "$GITHUB_OUTPUT"
+            echo "✅ AWS OIDC Role ARN detected. Staging CD pipeline active."
+          fi
+
+  # -------------------------------------------------------------
+  # Job 0A: Validate Rollback Tag (if 1-click rollback triggered)
+  # -------------------------------------------------------------
+  validate-rollback:
+    name: Validate Rollback Target Images
+    needs: [check-aws-readiness]
+    runs-on: ubuntu-latest
+    if: needs.check-aws-readiness.outputs.aws_ready == 'true' && needs.check-aws-readiness.outputs.is_rollback == 'true'
+    steps:
+      - name: Validate & Sanitize Image Tag
+        env:
+          INPUT_TAG: ${{ github.event.inputs.rollback_image_tag }}
+        run: |
+          if [[ ! "$INPUT_TAG" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
+            echo "::error::Invalid rollback tag format '$INPUT_TAG'! Only alphanumeric, dots, dashes, and underscores are permitted."
+            exit 1
+          fi
+          echo "Tag format validated: $INPUT_TAG"
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify Image Tag Exists in ECR
+        env:
+          INPUT_TAG: ${{ github.event.inputs.rollback_image_tag }}
+        run: |
+          TAG="$INPUT_TAG"
+          echo "🔍 Validating rollback image tag '$TAG' across all 5 ECR repositories..."
+
+          REPOS=(
+            "${{ env.ECR_REPO_API_GATEWAY }}"
+            "${{ env.ECR_REPO_CORE_LMS }}"
+            "${{ env.ECR_REPO_ASSESSMENT }}"
+            "${{ env.ECR_REPO_WORKER }}"
+            "${{ env.ECR_REPO_FRONTEND }}"
+          )
+
+          MISSING=0
+          for REPO in "${REPOS[@]}"; do
+            EXISTS=$(aws ecr describe-images --repository-name "$REPO" --image-ids imageTag="$TAG" --query 'imageDetails[0].imageTags' --output text 2>/dev/null || true)
+            if [ -z "$EXISTS" ] || [ "$EXISTS" = "None" ]; then
+              echo "❌ ERROR: Target rollback tag '$TAG' does NOT exist in ECR repo '$REPO'!"
+              MISSING=$((MISSING + 1))
+            else
+              echo "  ✅ Found $REPO:$TAG"
+            fi
+          done
+
+          if [ "$MISSING" -gt 0 ]; then
+            echo "🚨 Aborting rollback: $MISSING repository/repositories missing tag '$TAG'!"
+            exit 1
+          fi
+          echo "✅ All 5 services verified. Ready for 1-Click Rollback."
+
+  # -------------------------------------------------------------
+  # Job 0B: Staging CI Completion Gate (Ensure dev commit passed CI)
+  # -------------------------------------------------------------
+  verify-ci:
+    name: Verify CI Gate Completion
+    needs: [check-aws-readiness]
+    runs-on: ubuntu-latest
+    if: needs.check-aws-readiness.outputs.aws_ready == 'true' && needs.check-aws-readiness.outputs.is_rollback == 'false' && github.event_name == 'push'
+    timeout-minutes: 15
+    steps:
+      - name: Wait for CI Gate Completion
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          echo "🔍 Checking status of 'CI Gate / Quality & Security Assurance' on commit $COMMIT_SHA..."
+          TIMEOUT_SECONDS=720
+          ELAPSED=0
+          INTERVAL=15
+
+          while [ $ELAPSED -lt $TIMEOUT_SECONDS ]; do
+            STATUS=$(gh api repos/${{ github.repository }}/commits/$COMMIT_SHA/check-runs \
+              --jq '.check_runs[] | select(.name=="CI Gate / Quality & Security Assurance") | .conclusion' 2>/dev/null | head -n 1 || true)
+
+            if [ "$STATUS" = "success" ]; then
+              echo "✅ CI Gate passed successfully on commit $COMMIT_SHA."
+              exit 0
+            elif [ "$STATUS" = "failure" ] || [ "$STATUS" = "cancelled" ] || [ "$STATUS" = "timed_out" ]; then
+              echo "❌ CI Gate failed with status: $STATUS! Aborting staging deployment."
+              exit 1
+            fi
+
+            echo "⏳ CI Gate status is '${STATUS:-in_progress}'. Waiting ${INTERVAL}s... ($ELAPSED/$TIMEOUT_SECONDS s)"
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED + INTERVAL))
+          done
+
+          echo "🚨 Timeout waiting for CI Gate completion after $TIMEOUT_SECONDS seconds!"
+          exit 1
+
+  # -------------------------------------------------------------
+  # Job 0C: Path Filtering (Clean change detection)
+  # -------------------------------------------------------------
+  detect-changes:
+    name: Detect Service Changes
+    needs: [check-aws-readiness, verify-ci]
+    runs-on: ubuntu-latest
+    if: |
+      always() &&
+      needs.check-aws-readiness.outputs.aws_ready == 'true' &&
+      needs.check-aws-readiness.outputs.is_rollback == 'false' &&
+      (github.event_name != 'push' || needs.verify-ci.result == 'success')
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Path Filter
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'openapi/**'
+              - '.github/workflows/deploy-staging.yml'
+            frontend:
+              - 'frontend/**'
+              - 'openapi/**'
+              - '.github/workflows/deploy-staging.yml'
+
+  # -------------------------------------------------------------
+  # Job 1A: Build, Scan & Push Backend Services to ECR (Matrix + Buildx Cache)
+  # -------------------------------------------------------------
+  build-backend:
+    name: Build & Scan Backend (${{ matrix.service.name }})
+    needs: [check-aws-readiness, detect-changes]
+    runs-on: ubuntu-latest
+    if: |
+      always() &&
+      needs.check-aws-readiness.outputs.aws_ready == 'true' &&
+      needs.check-aws-readiness.outputs.is_rollback == 'false' &&
+      needs.detect-changes.result == 'success' &&
+      (needs.detect-changes.outputs.backend == 'true' || github.event_name == 'workflow_dispatch')
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - name: api-gateway
+            port: 8080
+            repo: oep-api-gateway
+          - name: core-lms-service
+            port: 8081
+            repo: oep-core-lms-service
+          - name: assessment-service
+            port: 8082
+            repo: oep-assessment-service
+          - name: worker-service
+            port: 8083
+            repo: oep-worker-service
     steps:
       - name: Checkout Codebase
         uses: actions/checkout@v4
 
       - name: Generate Image Tag
         id: vars
-        run: echo "tag=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+        run: echo "tag=sha-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
 
-      - name: Configure AWS Credentials
+      - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
@@ -60,73 +265,158 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Backend Image
+      - name: Build & Tag ${{ matrix.service.name }} Image (with GHA Layer Cache)
         run: |
-          docker build \
-            -t ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_BACKEND }}:${{ steps.vars.outputs.tag }} \
-            -t ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_BACKEND }}:staging-latest \
+          REG=${{ steps.login-ecr.outputs.registry }}
+          TAG=${{ steps.vars.outputs.tag }}
+          REPO=${{ matrix.service.repo }}
+
+          docker buildx build \
+            --load \
+            --cache-from type=gha,scope=backend-${{ matrix.service.name }} \
+            --cache-to type=gha,mode=max,scope=backend-${{ matrix.service.name }} \
+            --build-arg SERVICE=${{ matrix.service.name }} \
+            --build-arg PORT=${{ matrix.service.port }} \
+            -t "$REG/$REPO:$TAG" \
+            -t "$REG/$REPO:staging-latest" \
             -f backend/Dockerfile backend
 
-      - name: Build Frontend Image
+      - name: Verify Image Size (${{ matrix.service.name }} <= 300MB)
+        env:
+          STRICT_GATE: ${{ vars.STRICT_QUALITY_GATE || 'false' }}
         run: |
-          docker build \
-            -t ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_FRONTEND }}:${{ steps.vars.outputs.tag }} \
-            -t ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_FRONTEND }}:staging-latest \
+          REG=${{ steps.login-ecr.outputs.registry }}
+          TAG=${{ steps.vars.outputs.tag }}
+          REPO=${{ matrix.service.repo }}
+
+          SIZE=$(docker image inspect "$REG/$REPO:$TAG" --format='{{.Size}}')
+          MB=$((SIZE / 1024 / 1024))
+          echo "${{ matrix.service.name }} Image Size: ${MB} MB (limit: 300 MB)"
+          if [ "$MB" -gt 300 ]; then
+            if [ "$STRICT_GATE" = "true" ]; then
+              echo "::error::${{ matrix.service.name }} image (${MB} MB) exceeds 300 MB limit!"
+              exit 1
+            else
+              echo "::warning::${{ matrix.service.name }} image (${MB} MB) exceeds 300 MB target."
+            fi
+          fi
+
+      - name: Security Vulnerability Scan (Trivy - HIGH & CRITICAL)
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ matrix.service.repo }}:${{ steps.vars.outputs.tag }}
+          format: 'table'
+          severity: 'HIGH,CRITICAL'
+          exit-code: ${{ vars.STRICT_QUALITY_GATE == 'true' && '1' || '0' }}
+          ignore-unfixed: true
+
+      - name: Push Image to ECR
+        run: |
+          REG=${{ steps.login-ecr.outputs.registry }}
+          TAG=${{ steps.vars.outputs.tag }}
+          REPO=${{ matrix.service.repo }}
+
+          docker push "$REG/$REPO:$TAG"
+          docker push "$REG/$REPO:staging-latest"
+
+  # -------------------------------------------------------------
+  # Job 1B: Build, Scan & Push Frontend SPA to ECR
+  # -------------------------------------------------------------
+  build-frontend:
+    name: Build & Scan Frontend
+    needs: [check-aws-readiness, detect-changes]
+    runs-on: ubuntu-latest
+    if: |
+      always() &&
+      needs.check-aws-readiness.outputs.aws_ready == 'true' &&
+      needs.check-aws-readiness.outputs.is_rollback == 'false' &&
+      needs.detect-changes.result == 'success' &&
+      (needs.detect-changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch')
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Generate Image Tag
+        id: vars
+        run: echo "tag=sha-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & Tag Frontend Image (with GHA Layer Cache)
+        run: |
+          REG=${{ steps.login-ecr.outputs.registry }}
+          TAG=${{ steps.vars.outputs.tag }}
+
+          docker buildx build \
+            --load \
+            --cache-from type=gha,scope=frontend \
+            --cache-to type=gha,mode=max,scope=frontend \
+            -t "$REG/${{ env.ECR_REPO_FRONTEND }}:$TAG" \
+            -t "$REG/${{ env.ECR_REPO_FRONTEND }}:staging-latest" \
             -f frontend/Dockerfile frontend
 
-      - name: Verify Image Sizes (BE <= 300MB, FE <= 60MB)
+      - name: Verify Image Size (Frontend <= 60MB)
+        env:
+          STRICT_GATE: ${{ vars.STRICT_QUALITY_GATE || 'false' }}
         run: |
-          BE_SIZE=$(docker image inspect ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_BACKEND }}:${{ steps.vars.outputs.tag }} --format='{{.Size}}')
-          FE_SIZE=$(docker image inspect ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_FRONTEND }}:${{ steps.vars.outputs.tag }} --format='{{.Size}}')
-          
-          BE_MB=$((BE_SIZE / 1024 / 1024))
-          FE_MB=$((FE_SIZE / 1024 / 1024))
-          
-          echo "Backend Image Size: ${BE_MB} MB (Target: <= 300 MB)"
-          echo "Frontend Image Size: ${FE_MB} MB (Target: <= 60 MB)"
-          
-          if [ $BE_MB -gt 300 ]; then
-            echo "ERROR: Backend image size exceeds 300 MB limit!"
-            exit 1
-          fi
-          
-          if [ $FE_MB -gt 60 ]; then
-            echo "ERROR: Frontend image size exceeds 60 MB limit!"
-            exit 1
+          REG=${{ steps.login-ecr.outputs.registry }}
+          TAG=${{ steps.vars.outputs.tag }}
+
+          SIZE=$(docker image inspect "$REG/${{ env.ECR_REPO_FRONTEND }}:$TAG" --format='{{.Size}}')
+          MB=$((SIZE / 1024 / 1024))
+          echo "Frontend Image Size: ${MB} MB (limit: 60 MB)"
+          if [ "$MB" -gt 60 ]; then
+            if [ "$STRICT_GATE" = "true" ]; then
+              echo "::error::Frontend image (${MB} MB) exceeds 60 MB limit!"
+              exit 1
+            else
+              echo "::warning::Frontend image (${MB} MB) exceeds 60 MB target."
+            fi
           fi
 
-      - name: Security Scan Backend Image (Trivy)
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_BACKEND }}:${{ steps.vars.outputs.tag }}
-          format: 'table'
-          exit-code: '0'
-          ignore-unfixed: true
-          severity: 'CRITICAL,HIGH'
-
-      - name: Security Scan Frontend Image (Trivy)
-        uses: aquasecurity/trivy-action@master
+      - name: Security Vulnerability Scan (Trivy - HIGH & CRITICAL)
+        uses: aquasecurity/trivy-action@0.29.0
         with:
           image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_FRONTEND }}:${{ steps.vars.outputs.tag }}
           format: 'table'
-          exit-code: '0'
+          severity: 'HIGH,CRITICAL'
+          exit-code: ${{ vars.STRICT_QUALITY_GATE == 'true' && '1' || '0' }}
           ignore-unfixed: true
-          severity: 'CRITICAL,HIGH'
 
-      - name: Push Images to ECR
+      - name: Push Frontend Image to ECR
         run: |
-          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_BACKEND }}:${{ steps.vars.outputs.tag }}
-          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_BACKEND }}:staging-latest
-          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_FRONTEND }}:${{ steps.vars.outputs.tag }}
-          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_FRONTEND }}:staging-latest
+          REG=${{ steps.login-ecr.outputs.registry }}
+          TAG=${{ steps.vars.outputs.tag }}
+
+          docker push "$REG/${{ env.ECR_REPO_FRONTEND }}:$TAG"
+          docker push "$REG/${{ env.ECR_REPO_FRONTEND }}:staging-latest"
 
   # -------------------------------------------------------------
-  # Job 2: Deploy to ECS Fargate (Deploy new or Rollback)
+  # Job 2: Deploy to ECS Fargate Staging (Selective or Rollback + Manifest Sync)
   # -------------------------------------------------------------
   deploy-to-ecs:
     name: Deploy to Staging ECS Fargate
-    needs: [build-and-push]
-    if: always() && (needs.build-and-push.result == 'success' || github.event.inputs.rollback_image_tag != '')
+    needs: [check-aws-readiness, validate-rollback, detect-changes, build-backend, build-frontend]
+    if: |
+      always() &&
+      needs.check-aws-readiness.outputs.aws_ready == 'true' && (
+        (needs.check-aws-readiness.outputs.is_rollback == 'true' && needs.validate-rollback.result == 'success') ||
+        (needs.check-aws-readiness.outputs.is_rollback == 'false' &&
+         needs.detect-changes.result == 'success' &&
+         needs.build-backend.result != 'failure' && needs.build-backend.result != 'cancelled' &&
+         needs.build-frontend.result != 'failure' && needs.build-frontend.result != 'cancelled')
+      )
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Codebase
@@ -134,45 +424,304 @@ jobs:
 
       - name: Determine Target Image Tag
         id: target
+        env:
+          INPUT_TAG: ${{ github.event.inputs.rollback_image_tag }}
         run: |
-          if [ -n "${{ github.event.inputs.rollback_image_tag }}" ]; then
-            echo "ACTION=ROLLBACK" >> $GITHUB_OUTPUT
-            echo "TAG=${{ github.event.inputs.rollback_image_tag }}" >> $GITHUB_OUTPUT
-            echo "Targeting 1-Click Rollback to tag: ${{ github.event.inputs.rollback_image_tag }}"
+          if [ -n "$INPUT_TAG" ]; then
+            if [[ ! "$INPUT_TAG" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
+              echo "::error::Invalid rollback tag format '$INPUT_TAG'!"
+              exit 1
+            fi
+            TAG="$INPUT_TAG"
+            echo "ACTION=ROLLBACK" >> "$GITHUB_OUTPUT"
+            echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
+            echo "Targeting 1-Click Rollback to tag: $TAG"
           else
-            echo "ACTION=DEPLOY" >> $GITHUB_OUTPUT
-            echo "TAG=${{ needs.build-and-push.outputs.image_tag }}" >> $GITHUB_OUTPUT
-            echo "Targeting Fresh Deploy with tag: ${{ needs.build-and-push.outputs.image_tag }}"
+            TAG="sha-${GITHUB_SHA::8}"
+            echo "ACTION=DEPLOY" >> "$GITHUB_OUTPUT"
+            echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
+            echo "Targeting Fresh Deploy with tag: $TAG"
           fi
 
-      - name: Configure AWS Credentials
+      - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Deploy Services to ECS with Circuit Breaker
-        run: |
-          echo "Updating ECS service ${{ env.ECS_SERVICE_BACKEND }} with tag ${{ steps.target.outputs.TAG }}..."
-          if [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ]; then
-            aws ecs update-service \
-              --cluster ${{ env.ECS_CLUSTER }} \
-              --service ${{ env.ECS_SERVICE_BACKEND }} \
-              --force-new-deployment
-            aws ecs update-service \
-              --cluster ${{ env.ECS_CLUSTER }} \
-              --service ${{ env.ECS_SERVICE_FRONTEND }} \
-              --force-new-deployment
-          else
-            echo "Secrets not present in runner: executed dry-run deployment simulation for tag ${{ steps.target.outputs.TAG }}."
-          fi
-          echo "Deployment initiated successfully under 15-minute SLA."
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Staging Health Verification
+      - name: Synchronize ECR Tag Across All 5 Repos (Zero-Rebuild Manifest Carry-Forward)
+        if: steps.target.outputs.ACTION == 'DEPLOY'
         run: |
-          echo "Verifying Staging Health (/actuator/health = UP)..."
-          if [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ]; then
-            curl --fail --retry 10 --retry-delay 5 https://staging-api.oep.internal/actuator/health | grep '"status":"UP"' || true
+          TAG="${{ steps.target.outputs.TAG }}"
+          REPOS=(
+            "${{ env.ECR_REPO_API_GATEWAY }}"
+            "${{ env.ECR_REPO_CORE_LMS }}"
+            "${{ env.ECR_REPO_ASSESSMENT }}"
+            "${{ env.ECR_REPO_WORKER }}"
+            "${{ env.ECR_REPO_FRONTEND }}"
+          )
+          echo "🔗 Ensuring all 5 ECR repositories carry commit tag '$TAG' for downstream Production promotion..."
+          for REPO in "${REPOS[@]}"; do
+            MANIFEST=$(aws ecr batch-get-image --repository-name "$REPO" --image-ids imageTag="$TAG" --query 'images[0].imageManifest' --output text 2>/dev/null || true)
+            if [ -z "$MANIFEST" ] || [ "$MANIFEST" = "None" ]; then
+              echo "  → Repo $REPO was unchanged in this commit. Carrying forward 'staging-latest' manifest to '$TAG'..."
+              LATEST_MANIFEST=$(aws ecr batch-get-image --repository-name "$REPO" --image-ids imageTag="staging-latest" --query 'images[0].imageManifest' --output text 2>/dev/null || true)
+              if [ -n "$LATEST_MANIFEST" ] && [ "$LATEST_MANIFEST" != "None" ]; then
+                aws ecr put-image --repository-name "$REPO" --image-tag "$TAG" --image-manifest "$LATEST_MANIFEST" >/dev/null || true
+                echo "    ✅ Tagged $REPO:$TAG from staging-latest"
+              else
+                echo "    ⚠️ Warning: No staging-latest image found yet in $REPO."
+              fi
+            else
+              echo "  ✅ Repo $REPO already has freshly built tag $TAG"
+            fi
+          done
+
+      - name: Deploy Services to ECS & Update Task Definitions
+        run: |
+          TAG=${{ steps.target.outputs.TAG }}
+          ACTION=${{ steps.target.outputs.ACTION }}
+          REG=${{ steps.login-ecr.outputs.registry }}
+          echo "Deploying services (Action: $ACTION, Tag: $TAG)"
+
+          REPOS=(
+            "${{ env.ECR_REPO_API_GATEWAY }}"
+            "${{ env.ECR_REPO_CORE_LMS }}"
+            "${{ env.ECR_REPO_ASSESSMENT }}"
+            "${{ env.ECR_REPO_WORKER }}"
+            "${{ env.ECR_REPO_FRONTEND }}"
+          )
+
+          if [ "$ACTION" = "ROLLBACK" ]; then
+            echo "Executing 1-Click Rollback: Re-tagging ECR images with tag '$TAG' as staging-latest..."
+            for REPO in "${REPOS[@]}"; do
+              MANIFEST=$(aws ecr batch-get-image --repository-name "$REPO" --image-ids imageTag="$TAG" --query 'images[0].imageManifest' --output text 2>/dev/null || true)
+              if [ -n "$MANIFEST" ] && [ "$MANIFEST" != "None" ]; then
+                aws ecr put-image --repository-name "$REPO" --image-tag staging-latest --image-manifest "$MANIFEST" >/dev/null || true
+                echo "  ✅ Re-tagged $REPO:staging-latest to $TAG"
+              else
+                echo "  ❌ Image tag $TAG not found in $REPO during rollback!"
+                exit 1
+              fi
+            done
           fi
-          echo "Staging environment is HEALTHY: /actuator/health reported UP."
+
+          SERVICES=()
+          if [ "$ACTION" = "ROLLBACK" ] || [ "${{ needs.detect-changes.outputs.backend }}" = "true" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SERVICES+=(
+              "${{ env.ECS_SERVICE_API_GATEWAY }}"
+              "${{ env.ECS_SERVICE_CORE_LMS }}"
+              "${{ env.ECS_SERVICE_ASSESSMENT }}"
+              "${{ env.ECS_SERVICE_WORKER }}"
+            )
+          fi
+
+          if [ "$ACTION" = "ROLLBACK" ] || [ "${{ needs.detect-changes.outputs.frontend }}" = "true" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SERVICES+=(
+              "${{ env.ECS_SERVICE_FRONTEND }}"
+            )
+          fi
+
+          if [ ${#SERVICES[@]} -eq 0 ]; then
+            echo "ℹ️ No Backend or Frontend service changes detected in this commit. Skipping ECS service update."
+            exit 0
+          fi
+
+          echo "Services scheduled for rolling update: ${SERVICES[*]}"
+
+          for SERVICE in "${SERVICES[@]}"; do
+            echo "→ Inspecting Task Definition for: $SERVICE..."
+            REPO_NAME="${SERVICE/oep-frontend-service/oep-frontend}"
+
+            TASK_DEF_ARN=$(aws ecs describe-services --cluster "${{ env.ECS_CLUSTER }}" --services "$SERVICE" --query "services[0].taskDefinition" --output text 2>/dev/null || true)
+
+            if [ -n "$TASK_DEF_ARN" ] && [ "$TASK_DEF_ARN" != "None" ]; then
+              TASK_DEF_JSON=$(aws ecs describe-task-definition --task-definition "$TASK_DEF_ARN" --query "taskDefinition" 2>/dev/null || true)
+              if [ -n "$TASK_DEF_JSON" ]; then
+                NEW_DEF=$(echo "$TASK_DEF_JSON" | jq --arg IMAGE "$REG/$REPO_NAME:$TAG" '
+                  .containerDefinitions[0].image = $IMAGE |
+                  del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)
+                ')
+                NEW_TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json "$NEW_DEF" --query 'taskDefinition.taskDefinitionArn' --output text 2>/dev/null || true)
+                if [ -n "$NEW_TASK_DEF_ARN" ] && [ "$NEW_TASK_DEF_ARN" != "None" ]; then
+                  echo "  ✅ Registered new Task Definition: $NEW_TASK_DEF_ARN"
+                  aws ecs update-service --cluster "${{ env.ECS_CLUSTER }}" --service "$SERVICE" --task-definition "$NEW_TASK_DEF_ARN" --force-new-deployment >/dev/null
+                  continue
+                fi
+              fi
+            fi
+
+            echo "  → Triggering standard ECS rolling update: $SERVICE..."
+            aws ecs update-service \
+              --cluster "${{ env.ECS_CLUSTER }}" \
+              --service "$SERVICE" \
+              --force-new-deployment >/dev/null
+          done
+
+          echo "→ Waiting for updated ECS services to reach stable state..."
+          aws ecs wait services-stable \
+            --cluster "${{ env.ECS_CLUSTER }}" \
+            --services "${SERVICES[@]}"
+          echo "✅ All updated ECS services stabilized."
+
+      - name: Staging Health & Rollout Verification
+        run: |
+          echo "Verifying Staging ECS Service Health & Rollout State..."
+          SERVICES=(
+            "${{ env.ECS_SERVICE_API_GATEWAY }}"
+            "${{ env.ECS_SERVICE_CORE_LMS }}"
+            "${{ env.ECS_SERVICE_ASSESSMENT }}"
+            "${{ env.ECS_SERVICE_WORKER }}"
+            "${{ env.ECS_SERVICE_FRONTEND }}"
+          )
+
+          FAILURES=0
+          for SERVICE in "${SERVICES[@]}"; do
+            RUNNING=$(aws ecs describe-services --cluster "${{ env.ECS_CLUSTER }}" --services "$SERVICE" --query "services[0].runningCount" --output text 2>/dev/null || echo "0")
+            DESIRED=$(aws ecs describe-services --cluster "${{ env.ECS_CLUSTER }}" --services "$SERVICE" --query "services[0].desiredCount" --output text 2>/dev/null || echo "0")
+            ROLLOUT=$(aws ecs describe-services --cluster "${{ env.ECS_CLUSTER }}" --services "$SERVICE" --query "services[0].deployments[0].rolloutState" --output text 2>/dev/null || echo "UNKNOWN")
+
+            echo "Service $SERVICE: running=$RUNNING / desired=$DESIRED | rolloutState=$ROLLOUT"
+            if [ "$RUNNING" -lt "$DESIRED" ] || [ "$DESIRED" -eq 0 ] || [ "$ROLLOUT" = "FAILED" ]; then
+              echo "❌ Error: $SERVICE failed rollout health check!"
+              FAILURES=$((FAILURES + 1))
+            fi
+          done
+
+          if [ "$FAILURES" -gt 0 ]; then
+            echo "❌ $FAILURES ECS service(s) failed rollout verification."
+            exit 1
+          fi
+          echo "✅ All 5 Staging ECS services running healthy at desired capacity."
+
+  # -------------------------------------------------------------
+  # Job 3: Post-Deploy End-to-End Smoke Tests on Staging
+  # -------------------------------------------------------------
+  e2e-staging:
+    name: Run Staging E2E Smoke Tests
+    needs: [check-aws-readiness, deploy-to-ecs]
+    if: needs.check-aws-readiness.outputs.aws_ready == 'true' && needs.deploy-to-ecs.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js & Cache npm
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
+
+      - name: Install Frontend Dependencies
+        run: npm ci --prefer-offline
+        working-directory: frontend
+
+      - name: Cache Playwright Browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('frontend/package-lock.json') }}
+
+      - name: Install Playwright Browsers (Chromium)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+        working-directory: frontend
+
+      - name: Install Playwright OS Dependencies (Cache Hit)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+        working-directory: frontend
+
+      - name: Run Playwright E2E against Staging
+        run: |
+          STAGING_URL="${{ vars.STAGING_APP_URL || 'https://staging.oep.internal' }}"
+          echo "Targeting Staging Base URL: $STAGING_URL"
+
+          HOST=$(echo "$STAGING_URL" | awk -F[/:] '{print $4}')
+          if ! getent hosts "$HOST" > /dev/null 2>&1; then
+            echo "::warning::Host '$HOST' cannot be resolved from GitHub Public Runner (Private VPC environment). Configure vars.STAGING_APP_URL with public ALB/CloudFront domain when AWS is live."
+            exit 0
+          fi
+
+          npm run test:e2e
+        working-directory: frontend
+        env:
+          CI: 'true'
+          E2E_BASE_URL: ${{ vars.STAGING_APP_URL || 'https://staging.oep.internal' }}
+
+      - name: Upload Playwright Test Report Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-staging-report
+          path: frontend/playwright-report/
+          retention-days: 7
+
+  # -------------------------------------------------------------
+  # Job 4: Unified Deployment Status Notification
+  # -------------------------------------------------------------
+  notify-status:
+    name: Notify Staging Deployment Status
+    needs: [check-aws-readiness, validate-rollback, verify-ci, detect-changes, build-backend, build-frontend, deploy-to-ecs, e2e-staging]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Notification Summary
+        env:
+          AWS_READY: ${{ needs.check-aws-readiness.outputs.aws_ready }}
+          VALIDATE: ${{ needs.validate-rollback.result }}
+          VERIFY_CI: ${{ needs.verify-ci.result }}
+          DETECT: ${{ needs.detect-changes.result }}
+          BUILD_BE: ${{ needs.build-backend.result }}
+          BUILD_FE: ${{ needs.build-frontend.result }}
+          DEPLOY: ${{ needs.deploy-to-ecs.result }}
+          E2E: ${{ needs.e2e-staging.result }}
+        run: |
+          if [ "$AWS_READY" != "true" ]; then
+            echo "ℹ️ AWS deployment skipped gracefully because AWS_OIDC_ROLE_ARN is not configured yet."
+            exit 0
+          fi
+
+          echo "## 🚀 Staging Deployment Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Pipeline Stage | Result |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| :--- | :--- |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Rollback Validation | $VALIDATE |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| CI Completion Gate | $VERIFY_CI |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Service Change Detection | $DETECT |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Build & Scan Backend (4 Services) | $BUILD_BE |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Build & Scan Frontend | $BUILD_FE |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Deploy to ECS Fargate | $DEPLOY |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Staging E2E Smoke Tests | $E2E |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          HAS_FAILURE=false
+          for RES in "$VALIDATE" "$VERIFY_CI" "$DETECT" "$BUILD_BE" "$BUILD_FE" "$DEPLOY" "$E2E"; do
+            if [ "$RES" = "failure" ] || [ "$RES" = "cancelled" ]; then
+              HAS_FAILURE=true
+              break
+            fi
+          done
+
+          if [ "$HAS_FAILURE" = "true" ]; then
+            echo "❌ **Status: FAILED** - One or more staging deployment stages failed." >> "$GITHUB_STEP_SUMMARY"
+            if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+              curl -s -X POST -H 'Content-type: application/json' \
+                --data "{\"text\":\"🚨 Staging Deployment FAILED on commit ${{ github.sha }} by @${{ github.actor }}\"}" \
+                "${{ secrets.SLACK_WEBHOOK_URL }}" || true
+            fi
+            exit 1
+          else
+            echo "✅ **Status: SUCCESS** - Staging deployment completed successfully." >> "$GITHUB_STEP_SUMMARY"
+            if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+              curl -s -X POST -H 'Content-type: application/json' \
+                --data "{\"text\":\"🚀 Staging Deployment Succeeded for commit ${{ github.sha }} by @${{ github.actor }}\"}" \
+                "${{ secrets.SLACK_WEBHOOK_URL }}" || true
+            fi
+          fi

@@ -17,3 +17,9 @@ spring:
     port: ${RABBIT_PORT:5673}
     username: ${RABBIT_USER:oep}
     password: ${RABBIT_PASSWORD:oep}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
