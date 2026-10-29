@@ -14,12 +14,30 @@ spring:
     open-in-view: false
   rabbitmq:
     host: ${RABBIT_HOST:localhost}
-    port: ${RABBIT_PORT:5673}
+    port: ${RABBIT_PORT:5672}
     username: ${RABBIT_USER:oep}
     password: ${RABBIT_PASSWORD:oep}
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:nguyendinhquocdeptrai2k5@gmail.com}
+    password: ${MAIL_PASSWORD:cxtg yrnh zoop woeu}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+        debug: false
+    default-encoding: UTF-8
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info
+
+logging:
+  level:
+    com.oep.worker: INFO
