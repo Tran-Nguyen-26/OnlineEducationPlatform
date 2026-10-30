@@ -61,7 +61,9 @@ export async function registerUser(payload: RegisterRequest): Promise<AuthRespon
 
     if (!response.ok || error) {
       if (response.status === 502 || response.status === 503 || response.status === 504) {
-        throw new Error('Không thể kết nối đến máy chủ backend (502 Bad Gateway). Vui lòng đảm bảo backend đang chạy.')
+        throw new Error(
+          'Không thể kết nối đến máy chủ backend (502 Bad Gateway). Vui lòng đảm bảo backend đang chạy.'
+        )
       }
       const errData = error as ApiErrorResponse | undefined
       if (errData?.error === 'EMAIL_TAKEN' || response.status === 409) {
@@ -80,7 +82,11 @@ export async function registerUser(payload: RegisterRequest): Promise<AuthRespon
     return data as unknown as AuthResponse
   } catch (err: unknown) {
     if (err instanceof Error) {
-      if (err.message.includes('fetch') || err.message.includes('NetworkError') || err.message.includes('Failed to fetch')) {
+      if (
+        err.message.includes('fetch') ||
+        err.message.includes('NetworkError') ||
+        err.message.includes('Failed to fetch')
+      ) {
         throw new Error('Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại dịch vụ backend.')
       }
       throw err
@@ -106,7 +112,9 @@ export async function loginUser(payload: LoginRequest): Promise<AuthResponse> {
 
     if (!response.ok || error) {
       if (response.status === 502 || response.status === 503 || response.status === 504) {
-        throw new Error('Không thể kết nối đến máy chủ backend (502 Bad Gateway). Vui lòng đảm bảo backend đang chạy.')
+        throw new Error(
+          'Không thể kết nối đến máy chủ backend (502 Bad Gateway). Vui lòng đảm bảo backend đang chạy.'
+        )
       }
       const errData = error as ApiErrorResponse | undefined
       if (errData?.error === 'BAD_CREDENTIALS' || response.status === 401) {
@@ -128,7 +136,11 @@ export async function loginUser(payload: LoginRequest): Promise<AuthResponse> {
     return data as unknown as AuthResponse
   } catch (err: unknown) {
     if (err instanceof Error) {
-      if (err.message.includes('fetch') || err.message.includes('NetworkError') || err.message.includes('Failed to fetch')) {
+      if (
+        err.message.includes('fetch') ||
+        err.message.includes('NetworkError') ||
+        err.message.includes('Failed to fetch')
+      ) {
         throw new Error('Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại dịch vụ backend.')
       }
       throw err
@@ -169,7 +181,9 @@ export interface ResetPasswordRequest {
  * Step 1: Request an OTP code sent to user email.
  * Calls POST /api/auth/forgot-password
  */
-export async function requestForgotPasswordOtp(payload: ForgotPasswordRequest): Promise<ForgotPasswordResponse> {
+export async function requestForgotPasswordOtp(
+  payload: ForgotPasswordRequest
+): Promise<ForgotPasswordResponse> {
   const body = {
     email: payload.email.trim().toLowerCase(),
   }
@@ -185,18 +199,26 @@ export async function requestForgotPasswordOtp(payload: ForgotPasswordRequest): 
       }
       const errData = error as ApiErrorResponse | undefined
       if (response.status === 429) {
-        throw new Error(errData?.message || 'Bạn đã yêu cầu gửi mã quá nhiều lần. Vui lòng thử lại sau 60 phút.')
+        throw new Error(
+          errData?.message || 'Bạn đã yêu cầu gửi mã quá nhiều lần. Vui lòng thử lại sau 60 phút.'
+        )
       }
       if (errData?.message) {
         throw new Error(errData.message)
       }
-      throw new Error(`Yêu cầu gửi mã không thành công (Mã lỗi: ${response.status}). Vui lòng thử lại.`)
+      throw new Error(
+        `Yêu cầu gửi mã không thành công (Mã lỗi: ${response.status}). Vui lòng thử lại.`
+      )
     }
 
     return data as ForgotPasswordResponse
   } catch (err: unknown) {
     if (err instanceof Error) {
-      if (err.message.includes('fetch') || err.message.includes('NetworkError') || err.message.includes('Failed to fetch')) {
+      if (
+        err.message.includes('fetch') ||
+        err.message.includes('NetworkError') ||
+        err.message.includes('Failed to fetch')
+      ) {
         throw new Error('Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại dịch vụ backend.')
       }
       throw err
@@ -209,7 +231,9 @@ export async function requestForgotPasswordOtp(payload: ForgotPasswordRequest): 
  * Step 2: Verify the 6-digit OTP code and retrieve the one-time resetToken.
  * Calls POST /api/auth/forgot-password/verify-otp
  */
-export async function verifyForgotPasswordOtp(payload: ForgotPasswordVerifyOtpRequest): Promise<ForgotPasswordVerifyOtpResponse> {
+export async function verifyForgotPasswordOtp(
+  payload: ForgotPasswordVerifyOtpRequest
+): Promise<ForgotPasswordVerifyOtpResponse> {
   const body = {
     email: payload.email.trim().toLowerCase(),
     otpCode: payload.otpCode.trim(),
@@ -237,13 +261,19 @@ export async function verifyForgotPasswordOtp(payload: ForgotPasswordVerifyOtpRe
       if (errData?.message) {
         throw new Error(errData.message)
       }
-      throw new Error(`Xác thực mã không thành công (Mã lỗi: ${response.status}). Vui lòng thử lại.`)
+      throw new Error(
+        `Xác thực mã không thành công (Mã lỗi: ${response.status}). Vui lòng thử lại.`
+      )
     }
 
     return data as ForgotPasswordVerifyOtpResponse
   } catch (err: unknown) {
     if (err instanceof Error) {
-      if (err.message.includes('fetch') || err.message.includes('NetworkError') || err.message.includes('Failed to fetch')) {
+      if (
+        err.message.includes('fetch') ||
+        err.message.includes('NetworkError') ||
+        err.message.includes('Failed to fetch')
+      ) {
         throw new Error('Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại dịch vụ backend.')
       }
       throw err
@@ -256,7 +286,9 @@ export async function verifyForgotPasswordOtp(payload: ForgotPasswordVerifyOtpRe
  * Step 3: Set a new password using the resetToken.
  * Calls POST /api/auth/reset-password
  */
-export async function submitResetPassword(payload: ResetPasswordRequest): Promise<{ message: string }> {
+export async function submitResetPassword(
+  payload: ResetPasswordRequest
+): Promise<{ message: string }> {
   const body = {
     resetToken: payload.resetToken,
     newPassword: payload.newPassword,
@@ -274,7 +306,9 @@ export async function submitResetPassword(payload: ResetPasswordRequest): Promis
       }
       const errData = error as ApiErrorResponse | undefined
       if (errData?.error === 'INVALID_RESET_TOKEN') {
-        throw new Error('Phiên đặt lại mật khẩu đã hết hạn hoặc không hợp lệ. Vui lòng thực hiện lại từ đầu.')
+        throw new Error(
+          'Phiên đặt lại mật khẩu đã hết hạn hoặc không hợp lệ. Vui lòng thực hiện lại từ đầu.'
+        )
       }
       if (errData?.error === 'PASSWORD_CONFIRMATION_MISMATCH') {
         throw new Error('Mật khẩu xác nhận không khớp.')
@@ -282,13 +316,19 @@ export async function submitResetPassword(payload: ResetPasswordRequest): Promis
       if (errData?.message) {
         throw new Error(errData.message)
       }
-      throw new Error(`Đặt lại mật khẩu không thành công (Mã lỗi: ${response.status}). Vui lòng thử lại.`)
+      throw new Error(
+        `Đặt lại mật khẩu không thành công (Mã lỗi: ${response.status}). Vui lòng thử lại.`
+      )
     }
 
     return data as { message: string }
   } catch (err: unknown) {
     if (err instanceof Error) {
-      if (err.message.includes('fetch') || err.message.includes('NetworkError') || err.message.includes('Failed to fetch')) {
+      if (
+        err.message.includes('fetch') ||
+        err.message.includes('NetworkError') ||
+        err.message.includes('Failed to fetch')
+      ) {
         throw new Error('Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại dịch vụ backend.')
       }
       throw err
@@ -296,5 +336,3 @@ export async function submitResetPassword(payload: ResetPasswordRequest): Promis
     throw new Error('Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.')
   }
 }
-
-

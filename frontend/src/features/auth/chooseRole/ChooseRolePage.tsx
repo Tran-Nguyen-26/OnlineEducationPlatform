@@ -5,7 +5,7 @@ const STUDENT_FEATURES = [
   'Khám phá và tham gia các khóa học tương tác',
   'Xem bài giảng và tài liệu học tập',
   'Làm bài kiểm tra và nộp bài tập trực tuyến',
-  'Theo dõi lộ trình học cá nhân hóa'
+  'Theo dõi lộ trình học cá nhân hóa',
 ]
 
 const TEACHER_FEATURES = [
@@ -52,8 +52,8 @@ export default function ChooseRolePage() {
           <div className="cr-card-body">
             <div className="cr-card-title">Học Viên</div>
             <div className="cr-card-desc">
-              Tham gia hàng nghìn học viên truy cập chương trình công nghệ được kiểm chứng,
-              môi trường thực hành và lộ trình học cá nhân hóa.
+              Tham gia hàng nghìn học viên truy cập chương trình công nghệ được kiểm chứng, môi
+              trường thực hành và lộ trình học cá nhân hóa.
             </div>
             <ul className="cr-card-features">
               {STUDENT_FEATURES.map((f) => (
@@ -99,8 +99,8 @@ export default function ChooseRolePage() {
           <div className="cr-card-body">
             <div className="cr-card-title">Giảng Viên</div>
             <div className="cr-card-desc">
-              Tạo khóa học, thiết kế bài kiểm tra và theo dõi hiệu suất học tập của học viên
-              trong thời gian thực.
+              Tạo khóa học, thiết kế bài kiểm tra và theo dõi hiệu suất học tập của học viên trong
+              thời gian thực.
             </div>
             <ul className="cr-card-features">
               {TEACHER_FEATURES.map((f) => (
@@ -138,18 +138,23 @@ export default function ChooseRolePage() {
       <hr className="cr-divider" />
 
       <p className="cr-login-link">
-        Đã có tài khoản?{' '}
-        <Link to="/login">Đăng nhập ngay</Link>
+        Đã có tài khoản? <Link to="/login">Đăng nhập ngay</Link>
       </p>
 
       <footer className="cr-footer">
         <span>© 2026 EduPlatform Inc. Bảo lưu mọi quyền.</span>
         <span className="cr-footer-dot">•</span>
-        <a href="#" className="cr-footer-link">Chính sách bảo mật</a>
+        <a href="#" className="cr-footer-link">
+          Chính sách bảo mật
+        </a>
         <span className="cr-footer-dot">•</span>
-        <a href="#" className="cr-footer-link">Điều khoản dịch vụ</a>
+        <a href="#" className="cr-footer-link">
+          Điều khoản dịch vụ
+        </a>
         <span className="cr-footer-dot">•</span>
-        <a href="#" className="cr-footer-link">Trung tâm hỗ trợ</a>
+        <a href="#" className="cr-footer-link">
+          Trung tâm hỗ trợ
+        </a>
       </footer>
     </div>
   )

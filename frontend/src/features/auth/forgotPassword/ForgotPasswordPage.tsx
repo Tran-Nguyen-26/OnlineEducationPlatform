@@ -1,10 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  requestForgotPasswordOtp,
-  verifyForgotPasswordOtp,
-  submitResetPassword,
-} from '@/api/auth'
+import { requestForgotPasswordOtp, verifyForgotPasswordOtp, submitResetPassword } from '@/api/auth'
 import { ForgotPasswordStepper } from './components/ForgotPasswordStepper'
 import { StepEmail } from './components/StepEmail'
 import { StepOtp } from './components/StepOtp'
@@ -181,11 +177,7 @@ export default function ForgotPasswordPage() {
 
         {/* Step 3: Set New Password */}
         {currentStep === 3 && (
-          <StepResetPassword
-            onSubmit={handleResetPasswordSubmit}
-            loading={loading}
-            error={error}
-          />
+          <StepResetPassword onSubmit={handleResetPasswordSubmit} loading={loading} error={error} />
         )}
 
         {/* Step 4: Success & Redirect */}
@@ -193,9 +185,7 @@ export default function ForgotPasswordPage() {
       </div>
 
       {/* ── Footer Copyright ── */}
-      <p className="fp-footer-copyright">
-        &copy; {CURRENT_YEAR} EduPlatform. Bảo lưu mọi quyền.
-      </p>
+      <p className="fp-footer-copyright">&copy; {CURRENT_YEAR} EduPlatform. Bảo lưu mọi quyền.</p>
     </div>
   )
 }

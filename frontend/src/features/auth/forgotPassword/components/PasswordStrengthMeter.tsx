@@ -80,7 +80,13 @@ export function PasswordStrengthMeter({ password, onScoreChange }: PasswordStren
 
       {/* 4 segments */}
       {password && (
-        <div className="fp-meter-bars" role="progressbar" aria-valuenow={score} aria-valuemin={0} aria-valuemax={4}>
+        <div
+          className="fp-meter-bars"
+          role="progressbar"
+          aria-valuenow={score}
+          aria-valuemin={0}
+          aria-valuemax={4}
+        >
           {[1, 2, 3, 4].map((seg) => (
             <div
               key={seg}

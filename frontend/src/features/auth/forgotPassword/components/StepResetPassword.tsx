@@ -49,7 +49,8 @@ export function StepResetPassword({ onSubmit, loading, error }: StepResetPasswor
       <div className="fp-header">
         <h1 className="fp-title">Đặt lại mật khẩu</h1>
         <p className="fp-subtitle">
-          Tạo mật khẩu mới an toàn cho tài khoản của bạn. Mọi phiên đăng nhập cũ trên thiết bị khác sẽ tự động bị thu hồi.
+          Tạo mật khẩu mới an toàn cho tài khoản của bạn. Mọi phiên đăng nhập cũ trên thiết bị khác
+          sẽ tự động bị thu hồi.
         </p>
       </div>
 
@@ -164,7 +165,13 @@ export function StepResetPassword({ onSubmit, loading, error }: StepResetPasswor
         >
           {loading ? (
             <>
-              <svg className="fp-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <svg
+                className="fp-spinner"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
                 <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
               </svg>
               Đang lưu mật khẩu...

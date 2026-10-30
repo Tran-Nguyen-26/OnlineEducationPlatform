@@ -104,7 +104,10 @@
   gap: 1.5rem;
   cursor: pointer;
   position: relative;
-  transition: border-color 0.22s, box-shadow 0.22s, transform 0.18s;
+  transition:
+    border-color 0.22s,
+    box-shadow 0.22s,
+    transform 0.18s;
   text-align: left;
   overflow: hidden;
 }
@@ -220,7 +223,11 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  transition: background 0.2s, box-shadow 0.2s, transform 0.12s, opacity 0.2s;
+  transition:
+    background 0.2s,
+    box-shadow 0.2s,
+    transform 0.12s,
+    opacity 0.2s;
   box-sizing: border-box;
 }
 .cr-btn:active {

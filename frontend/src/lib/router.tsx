@@ -9,7 +9,9 @@ import { lazy, Suspense } from 'react'
 const LoginPage = lazy(() => import('@/features/auth/loginPage/LoginPage.tsx'))
 const RegisterPage = lazy(() => import('@/features/auth/registerStudent/RegisterStudentPage'))
 const ChooseRolePage = lazy(() => import('@/features/auth/chooseRole/ChooseRolePage.tsx'))
-const ForgotPasswordPage = lazy(() => import('@/features/auth/forgotPassword/ForgotPasswordPage.tsx'))
+const ForgotPasswordPage = lazy(
+  () => import('@/features/auth/forgotPassword/ForgotPasswordPage.tsx')
+)
 const CoursesPage = lazy(() => import('@/features/courses/CoursesPage'))
 const CourseDetailPage = lazy(() => import('@/features/courses/CourseDetailPage'))
 const EnrollmentPage = lazy(() => import('@/features/enrollment/EnrollmentPage'))
@@ -61,8 +63,6 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: <RegisterLayout />,
-    children: [
-      { path: 'register', element: withSuspense(RegisterPage) },
-    ],
+    children: [{ path: 'register', element: withSuspense(RegisterPage) }],
   },
 ])

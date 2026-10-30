@@ -48,7 +48,8 @@ export function StepSuccess({ email }: StepSuccessProps) {
       <div className="fp-header fp-header--center">
         <h1 className="fp-title fp-title--success">Đặt lại mật khẩu thành công!</h1>
         <p className="fp-subtitle">
-          Mật khẩu tài khoản của bạn đã được cập nhật an toàn. Mọi phiên đăng nhập cũ trên các thiết bị khác đã được thu hồi.
+          Mật khẩu tài khoản của bạn đã được cập nhật an toàn. Mọi phiên đăng nhập cũ trên các thiết
+          bị khác đã được thu hồi.
         </p>
       </div>
 
