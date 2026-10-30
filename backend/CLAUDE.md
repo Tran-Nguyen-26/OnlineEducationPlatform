@@ -128,6 +128,7 @@ Yêu cầu: JDK 21, Maven 3.9+, Docker. Trong IntelliJ cài plugin **Lombok** v�
 | PostgreSQL replica, chỉ đọc (cùng db, user, mật khẩu) | 5435 |
 | Redis | 6379 |
 | RabbitMQ AMQP / Management UI (user, mật khẩu `oep`) | 5673 / 15673 |
+| LocalStack SQS (Outbox worker & consumer) | 4566 |
 
 ```bash
 cd backend                                         # thư mục có docker-compose.yml

@@ -35,3 +35,29 @@ spring:
 logging:
   level:
     com.oep.worker: INFO
+
+aws:
+  region: ${AWS_REGION:ap-southeast-1}
+  sqs:
+    endpoint: ${AWS_SQS_ENDPOINT:http://localhost:4566}
+    queue-name: ${AWS_SQS_QUEUE_NAME:oep-notification-queue}
+    dlq-name: ${AWS_SQS_DLQ_NAME:oep-notification-dlq}
+    auto-create-queues: ${AWS_SQS_AUTO_CREATE:true}
+  credentials:
+    access-key: ${AWS_ACCESS_KEY_ID:test}
+    secret-key: ${AWS_SECRET_ACCESS_KEY:test}
+
+oep:
+  outbox:
+    worker:
+      enabled: ${OUTBOX_WORKER_ENABLED:true}
+      batch-size: 100
+      base-poll-delay-ms: 200
+      max-poll-delay-ms: 30000
+      max-retries: 5
+    consumer:
+      enabled: ${NOTIFICATION_CONSUMER_ENABLED:true}
+      poll-wait-seconds: 2
+      max-messages: 10
+      max-retries: 5
+

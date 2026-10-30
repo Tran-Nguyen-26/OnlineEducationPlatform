@@ -34,6 +34,14 @@ services:
       RABBITMQ_DEFAULT_PASS: oep
     ports: ["5673:5672", "15673:15672"]
 
+  localstack:
+    image: localstack/localstack:3.4
+    ports: ["4566:4566"]
+    environment:
+      - SERVICES=sqs
+      - AWS_DEFAULT_REGION=ap-southeast-1
+
+
 volumes:
   pgdata:
   pgdata-replica:
