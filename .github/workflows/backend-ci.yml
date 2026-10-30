@@ -319,7 +319,8 @@ jobs:
               f_out.write("\n".join(summary) + "\n\n")
 
           if below_threshold:
-              msg = f"JaCoCo line coverage below 70% target for: {', '.join(below_threshold)}"
+              threshold_list = ", ".join(below_threshold)
+              msg = f"JaCoCo line coverage below 70% target for: {threshold_list}"
               if strict:
                   print(f"::error::{msg}")
                   sys.exit(1)
