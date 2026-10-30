@@ -76,6 +76,16 @@ public class NotificationPublisher {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "Failed to serialize outbox event payload: " + e.getMessage());
         }
 
+        if (jsonPayload == null) {
+            jsonPayload = "{}";
+        }
+
+        byte[] payloadBytes = jsonPayload.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        if (payloadBytes.length > 256 * 1024) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED,
+                    "Outbox event payload exceeds maximum size limit of 256KB (size=" + payloadBytes.length + " bytes)");
+        }
+
         OutboxEvent outboxEvent = new OutboxEvent();
         outboxEvent.setAggregateType(aggregateType);
         outboxEvent.setAggregateId(aggregateId);
@@ -103,6 +113,28 @@ public class NotificationPublisher {
      * @param extraMetadata   Optional additional metadata map
      * @return The persisted {@link OutboxEvent}
      */
+    /**
+     * Convenience helper to publish a standardized notification outbox event with
+     * guaranteed deduplication key generation and explicit targetType.
+     */
+    @Transactional
+    public OutboxEvent publishNotificationEvent(
+            String eventType,
+            String targetType,
+            UUID targetId,
+            UUID recipientUserId,
+            String title,
+            String message,
+            String actionUrl,
+            Map<String, Object> extraMetadata
+    ) {
+        Map<String, Object> metadata = extraMetadata != null ? new HashMap<>(extraMetadata) : new HashMap<>();
+        if (targetType != null && !targetType.isBlank()) {
+            metadata.put("targetType", targetType);
+        }
+        return publishNotificationEvent(eventType, targetId, recipientUserId, title, message, actionUrl, metadata);
+    }
+
     @Transactional
     public OutboxEvent publishNotificationEvent(
             String eventType,

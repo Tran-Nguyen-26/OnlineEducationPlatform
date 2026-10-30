@@ -61,3 +61,13 @@ oep:
       max-messages: 10
       max-retries: 5
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+

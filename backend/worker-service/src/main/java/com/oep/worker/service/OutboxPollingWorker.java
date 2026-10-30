@@ -134,7 +134,11 @@ public class OutboxPollingWorker {
             } catch (Exception e) {
                 log.error("Unhandled error in outbox polling loop: {}", e.getMessage(), e);
                 try {
-                    TimeUnit.MILLISECONDS.sleep(properties.getWorker().getBasePollDelayMs());
+                    currentPollDelayMs = Math.min(
+                            currentPollDelayMs * 2,
+                            properties.getWorker().getMaxPollDelayMs()
+                    );
+                    TimeUnit.MILLISECONDS.sleep(currentPollDelayMs);
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                     break;
@@ -150,6 +154,12 @@ public class OutboxPollingWorker {
      * @return Number of successfully processed events in this poll cycle.
      */
     public int pollAndDispatchBatch() {
+        ensureQueueUrl();
+        if (queueUrl == null || queueUrl.isBlank()) {
+            log.warn("SQS queueUrl is not available, skipping poll cycle.");
+            return 0;
+        }
+
         TransactionTemplate txTemplate = new TransactionTemplate(transactionManager);
         txTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
 
@@ -162,7 +172,6 @@ public class OutboxPollingWorker {
             }
 
             log.debug("Polled {} PENDING outbox events with SKIP LOCKED", events.size());
-            ensureQueueUrl();
 
             // Dispatch in sub-batches of 10 (SQS SendMessageBatch limit)
             int processedCount = 0;
@@ -181,6 +190,17 @@ public class OutboxPollingWorker {
         Map<String, OutboxEvent> eventMap = new HashMap<>();
 
         for (OutboxEvent event : chunk) {
+            byte[] payloadBytes = event.getPayload() != null
+                    ? event.getPayload().getBytes(java.nio.charset.StandardCharsets.UTF_8)
+                    : new byte[0];
+            if (payloadBytes.length > 256 * 1024) {
+                log.error("OutboxEvent {} payload size ({} bytes) exceeds SQS 256KB limit. Marked FAILED.",
+                        event.getId(), payloadBytes.length);
+                event.setStatus(OutboxStatus.FAILED);
+                outboxEventRepository.save(event);
+                continue;
+            }
+
             String entryId = event.getId().toString();
             eventMap.put(entryId, event);
 
@@ -203,6 +223,10 @@ public class OutboxPollingWorker {
                     .messageBody(event.getPayload())
                     .messageAttributes(messageAttributes)
                     .build());
+        }
+
+        if (entries.isEmpty()) {
+            return 0;
         }
 
         try {

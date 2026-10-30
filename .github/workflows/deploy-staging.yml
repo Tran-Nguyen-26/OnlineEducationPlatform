@@ -24,9 +24,11 @@ env:
   AWS_REGION: ap-southeast-1
   ECR_REPO_BACKEND: oep-backend
   ECR_REPO_FRONTEND: oep-frontend
+  ECR_REPO_WORKER: oep-worker
   ECS_CLUSTER: oep-staging-cluster
   ECS_SERVICE_BACKEND: oep-backend-service
   ECS_SERVICE_FRONTEND: oep-frontend-service
+  ECS_SERVICE_WORKER: oep-worker-service
 
 jobs:
   # -------------------------------------------------------------
@@ -67,6 +69,13 @@ jobs:
             -t ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_BACKEND }}:staging-latest \
             -f backend/Dockerfile backend
 
+      - name: Build Worker Image
+        run: |
+          docker build \
+            -t ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_WORKER }}:${{ steps.vars.outputs.tag }} \
+            -t ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_WORKER }}:staging-latest \
+            -f backend/worker-service/Dockerfile backend
+
       - name: Build Frontend Image
         run: |
           docker build \
@@ -74,15 +83,18 @@ jobs:
             -t ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_FRONTEND }}:staging-latest \
             -f frontend/Dockerfile frontend
 
-      - name: Verify Image Sizes (BE <= 300MB, FE <= 60MB)
+      - name: Verify Image Sizes (BE <= 300MB, Worker <= 300MB, FE <= 60MB)
         run: |
           BE_SIZE=$(docker image inspect ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_BACKEND }}:${{ steps.vars.outputs.tag }} --format='{{.Size}}')
+          WORKER_SIZE=$(docker image inspect ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_WORKER }}:${{ steps.vars.outputs.tag }} --format='{{.Size}}')
           FE_SIZE=$(docker image inspect ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_FRONTEND }}:${{ steps.vars.outputs.tag }} --format='{{.Size}}')
           
           BE_MB=$((BE_SIZE / 1024 / 1024))
+          WORKER_MB=$((WORKER_SIZE / 1024 / 1024))
           FE_MB=$((FE_SIZE / 1024 / 1024))
           
           echo "Backend Image Size: ${BE_MB} MB (Target: <= 300 MB)"
+          echo "Worker Image Size: ${WORKER_MB} MB (Target: <= 300 MB)"
           echo "Frontend Image Size: ${FE_MB} MB (Target: <= 60 MB)"
           
           if [ $BE_MB -gt 300 ]; then
@@ -90,6 +102,11 @@ jobs:
             exit 1
           fi
           
+          if [ $WORKER_MB -gt 300 ]; then
+            echo "ERROR: Worker image size exceeds 300 MB limit!"
+            exit 1
+          fi
+
           if [ $FE_MB -gt 60 ]; then
             echo "ERROR: Frontend image size exceeds 60 MB limit!"
             exit 1
@@ -99,6 +116,15 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_BACKEND }}:${{ steps.vars.outputs.tag }}
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
+      - name: Security Scan Worker Image (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_WORKER }}:${{ steps.vars.outputs.tag }}
           format: 'table'
           exit-code: '0'
           ignore-unfixed: true
@@ -117,6 +143,8 @@ jobs:
         run: |
           docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_BACKEND }}:${{ steps.vars.outputs.tag }}
           docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_BACKEND }}:staging-latest
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_WORKER }}:${{ steps.vars.outputs.tag }}
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_WORKER }}:staging-latest
           docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_FRONTEND }}:${{ steps.vars.outputs.tag }}
           docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_FRONTEND }}:staging-latest
 
@@ -159,6 +187,10 @@ jobs:
             aws ecs update-service \
               --cluster ${{ env.ECS_CLUSTER }} \
               --service ${{ env.ECS_SERVICE_BACKEND }} \
+              --force-new-deployment
+            aws ecs update-service \
+              --cluster ${{ env.ECS_CLUSTER }} \
+              --service ${{ env.ECS_SERVICE_WORKER }} \
               --force-new-deployment
             aws ecs update-service \
               --cluster ${{ env.ECS_CLUSTER }} \

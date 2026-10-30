@@ -245,4 +245,21 @@ class OutboxPollingWorkerTest {
         // 25 events: 10 + 10 + 5 = 3 batch requests
         verify(sqsClient, times(3)).sendMessageBatch(any(SendMessageBatchRequest.class));
     }
+
+    @Test
+    @DisplayName("8. Oversized Payload: Events exceeding 256KB are marked FAILED and not sent to SQS")
+    void testOversizedPayload_MarkedFailedWithoutSendingToSqs() {
+        UUID eventId = UUID.randomUUID();
+        OutboxEvent event = createSampleEvent(eventId, 0, OutboxStatus.PENDING);
+        event.setPayload("x".repeat(257 * 1024));
+
+        when(outboxEventRepository.pollPendingWithSkipLocked(100)).thenReturn(List.of(event));
+
+        int dispatched = worker.pollAndDispatchBatch();
+
+        assertThat(dispatched).isEqualTo(0);
+        assertThat(event.getStatus()).isEqualTo(OutboxStatus.FAILED);
+        verify(outboxEventRepository).save(event);
+        verify(sqsClient, never()).sendMessageBatch(any(SendMessageBatchRequest.class));
+    }
 }

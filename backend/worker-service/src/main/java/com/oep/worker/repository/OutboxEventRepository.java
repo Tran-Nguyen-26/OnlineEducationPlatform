@@ -21,7 +21,7 @@ public interface OutboxEventRepository extends JpaRepository<OutboxEvent, UUID> 
     @Query(value = """
             SELECT * FROM outbox_events
             WHERE status = 'PENDING'
-            ORDER BY created_at ASC
+            ORDER BY created_at ASC, id ASC
             LIMIT :batchSize
             FOR UPDATE SKIP LOCKED
             """, nativeQuery = true)
@@ -30,4 +30,12 @@ public interface OutboxEventRepository extends JpaRepository<OutboxEvent, UUID> 
     List<OutboxEvent> findByStatusOrderByCreatedAtAsc(OutboxStatus status, Pageable pageable);
 
     long countByStatus(OutboxStatus status);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM OutboxEvent e WHERE e.status = 'PROCESSED' AND e.processedAt < :cutoff")
+    int deleteProcessedEventsOlderThan(@Param("cutoff") java.time.Instant cutoff);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE OutboxEvent e SET e.status = 'PENDING', e.retryCount = 0 WHERE e.status = 'FAILED'")
+    int resetFailedEventsToPending();
 }

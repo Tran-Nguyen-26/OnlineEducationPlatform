@@ -47,12 +47,21 @@ public class SqsConfig {
     public SqsClient sqsClient() {
         log.info("Initializing SqsClient for endpoint={} region={}", endpoint, region);
         var builder = SqsClient.builder()
-                .region(Region.of(region))
-                .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(accessKey, secretKey)
-                ));
+                .region(Region.of(region));
 
-        if (endpoint != null && !endpoint.isBlank()) {
+        if (accessKey != null && !accessKey.isBlank() && !accessKey.equalsIgnoreCase("auto")
+                && secretKey != null && !secretKey.isBlank() && !secretKey.equalsIgnoreCase("auto")) {
+            builder.credentialsProvider(StaticCredentialsProvider.create(
+                    AwsBasicCredentials.create(accessKey, secretKey)
+            ));
+        } else {
+            builder.credentialsProvider(software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider.create());
+        }
+
+        if (endpoint != null && !endpoint.isBlank()
+                && !endpoint.equalsIgnoreCase("auto")
+                && !endpoint.equalsIgnoreCase("aws")
+                && !endpoint.equalsIgnoreCase("none")) {
             builder.endpointOverride(URI.create(endpoint));
         }
 

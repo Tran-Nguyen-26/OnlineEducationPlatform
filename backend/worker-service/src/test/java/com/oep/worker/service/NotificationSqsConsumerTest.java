@@ -273,4 +273,28 @@ class NotificationSqsConsumerTest {
         String expectedKey = "CERTIFICATE_ISSUED:" + targetId + ":" + userId;
         assertThat(captor.getValue().getDedupeKey()).isEqualTo(expectedKey);
     }
+
+    @Test
+    @DisplayName("7. General Domain Event: Messages without recipientUserId are acknowledged and skipped without creating notification")
+    void testConsumerGeneralDomainEvent_AcknowledgedAndSkipped() {
+        String body = """
+                {
+                    "eventType": "COURSE_UPDATED",
+                    "title": "Course Published",
+                    "targetId": "c45f448b-3e5e-4c7b-bf42-99c0d60c2941"
+                }
+                """;
+
+        Message message = createSqsMessage("msg-domain-007", body, 1);
+
+        boolean result = consumer.processMessage(message);
+
+        assertThat(result).isTrue();
+        // Acknowledged and deleted from SQS
+        verify(sqsClient).deleteMessage(any(DeleteMessageRequest.class));
+        // Does not create a Notification
+        verify(notificationRepository, never()).save(any(Notification.class));
+        // Does not route to DLQ
+        verify(sqsClient, never()).sendMessage(any(SendMessageRequest.class));
+    }
 }

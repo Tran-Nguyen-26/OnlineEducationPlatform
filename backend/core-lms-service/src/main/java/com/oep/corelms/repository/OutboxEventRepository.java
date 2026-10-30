@@ -18,7 +18,7 @@ public interface OutboxEventRepository extends JpaRepository<OutboxEvent, UUID> 
     @org.springframework.data.jpa.repository.Query(value = """
             SELECT * FROM outbox_events
             WHERE status = 'PENDING'
-            ORDER BY created_at ASC
+            ORDER BY created_at ASC, id ASC
             LIMIT :batchSize
             FOR UPDATE SKIP LOCKED
             """, nativeQuery = true)

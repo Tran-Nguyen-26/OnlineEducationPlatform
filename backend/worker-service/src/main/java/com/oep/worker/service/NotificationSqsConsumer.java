@@ -113,8 +113,15 @@ public class NotificationSqsConsumer {
     private void consumptionLoop() {
         while (running.get() && !Thread.currentThread().isInterrupted()) {
             try {
-                consumeMessagesOnce();
+                int handled = consumeMessagesOnce();
+                if (handled == 0 && properties.getConsumer().getPollWaitSeconds() <= 0) {
+                    TimeUnit.MILLISECONDS.sleep(200);
+                }
             } catch (Exception e) {
+                if (e instanceof InterruptedException || Thread.currentThread().isInterrupted()) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
                 log.error("Error in SQS consumer loop: {}", e.getMessage(), e);
                 try {
                     TimeUnit.MILLISECONDS.sleep(1000);
@@ -183,7 +190,10 @@ public class NotificationSqsConsumer {
             }
 
             if (userIdStr == null || userIdStr.isBlank()) {
-                throw new IllegalArgumentException("Message missing required recipientUserId: " + body);
+                log.info("Message [id={}] with eventType={} is a general domain event (missing recipientUserId). Acknowledging and skipping notification creation.",
+                        message.messageId(), eventType);
+                acknowledgeMessage(message);
+                return true;
             }
             UUID recipientUserId = UUID.fromString(userIdStr);
 
@@ -207,9 +217,26 @@ public class NotificationSqsConsumer {
                     .orElseGet(() -> {
                         User fallbackUser = new User();
                         fallbackUser.setId(recipientUserId);
-                        fallbackUser.setEmail("user-" + recipientUserId.toString().substring(0, 8) + "@oep.invalid");
+                        fallbackUser.setEmail("user-" + recipientUserId + "@oep.invalid");
                         return userRepository.save(fallbackUser);
                     });
+
+            // Extract or build metadata JSON
+            String metadataJson = null;
+            if (root.hasNonNull("metadata")) {
+                metadataJson = root.get("metadata").toString();
+            } else {
+                Map<String, Object> extraFields = new HashMap<>();
+                root.fields().forEachRemaining(entry -> {
+                    String fieldName = entry.getKey();
+                    if (!Set.of("eventType", "title", "message", "dedupeKey", "targetType", "targetId", "recipientUserId", "userId", "actionUrl").contains(fieldName)) {
+                        extraFields.put(fieldName, entry.getValue());
+                    }
+                });
+                if (!extraFields.isEmpty()) {
+                    metadataJson = objectMapper.writeValueAsString(extraFields);
+                }
+            }
 
             // 3. Create Notification
             Notification notification = new Notification();
@@ -221,7 +248,7 @@ public class NotificationSqsConsumer {
             notification.setTargetType(targetType);
             notification.setTargetId(targetId);
             notification.setActionUrl(actionUrl);
-            notification.setMetadata(root.has("metadata") ? root.get("metadata").toString() : null);
+            notification.setMetadata(metadataJson);
             notification.setIsRead(false);
 
             try {
