@@ -10,8 +10,20 @@ const navItems = [
 export function RootLayout() {
   const navigate = useNavigate()
 
+  let isAdmin = false
+  try {
+    const rawUser = localStorage.getItem('user')
+    if (rawUser) {
+      const u = JSON.parse(rawUser)
+      if (u.role === 'ADMIN' || u.email?.includes('admin')) isAdmin = true
+    }
+  } catch {
+    // ignore
+  }
+
   const handleLogout = () => {
     localStorage.removeItem('access_token')
+    localStorage.removeItem('user')
     navigate('/login')
   }
 
@@ -29,6 +41,15 @@ export function RootLayout() {
         </div>
 
         <nav className="flex-1 space-y-1 p-4">
+          {isAdmin && (
+            <Link
+              to="/admin/users"
+              className="mb-2 flex items-center gap-3 rounded-lg bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-[#00695c] transition-colors hover:bg-emerald-100"
+            >
+              <span>🛡️</span>
+              Admin Portal
+            </Link>
+          )}
           {navItems.map((item) => (
             <NavLink
               key={item.to}

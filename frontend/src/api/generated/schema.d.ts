@@ -204,6 +204,70 @@ export interface paths {
       }
     }
   }
+  '/auth/register-instructor': {
+    post: {
+      requestBody: {
+        content: {
+          'application/json': {
+            email: string
+            fullName: string
+            phone?: string | null
+            organization?: string | null
+            jobTitle?: string | null
+            expertise?: string | null
+            yearsOfExperience?: number | null
+            professionalBio?: string | null
+            motivation?: string | null
+          }
+        }
+      }
+      responses: {
+        201: {
+          content: {
+            'application/json': {
+              success: boolean
+              message: string
+              data?: {
+                id: string
+                email: string
+                fullName: string
+                phone?: string | null
+                organization?: string | null
+                jobTitle?: string | null
+                expertise?: string | null
+                yearsOfExperience?: number | null
+                professionalBio?: string | null
+                motivation?: string | null
+                status: string
+                submittedAt: string
+              }
+            }
+          }
+        }
+        400: {
+          content: {
+            'application/json': {
+              timestamp?: string
+              status: number
+              error: string
+              message: string
+              details?: Record<string, string>
+            }
+          }
+        }
+        409: {
+          content: {
+            'application/json': {
+              timestamp?: string
+              status: number
+              error: string
+              message: string
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 export type components = { schemas: Record<string, unknown> }

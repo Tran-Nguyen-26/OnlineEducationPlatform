@@ -48,7 +48,7 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @PostMapping("/api/auth/register-teacher")
+    @PostMapping("/api/auth/register-instructor")
     public ResponseEntity<Map<String, Object>> registerTeacher(
             @Valid @RequestBody InstructorApplicationRequest request
     ) {
