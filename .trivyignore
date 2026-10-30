@@ -1,0 +1,27 @@
+# =============================================================================
+# Trivy Config Scan Allowlist / Justifications (OnlineEducationPlatform)
+# =============================================================================
+
+# AWS-0053 / AVD-AWS-0053: Application Load Balancer is intentionally internet-facing to serve web clients
+AWS-0053
+AVD-AWS-0053
+
+# AWS-0054 / AVD-AWS-0054: ALB port 80 HTTP listener enabled for initial staging; HTTPS port 443 requires domain ACM cert
+AWS-0054
+AVD-AWS-0054
+
+# AWS-0011 / AVD-AWS-0011: CloudFront WAF rate-limiting is scheduled for Sprint Day 30-36 (Edge Protection Milestone)
+AWS-0011
+AVD-AWS-0011
+
+# AWS-0031 / AVD-AWS-0031: ECR image tags in staging are mutable to allow CI/CD to push staging-latest updates
+AWS-0031
+AVD-AWS-0031
+
+# AWS-0104 / AVD-AWS-0104: ECS task outbound port 443 to 0.0.0.0/0 required for AWS APIs via NAT Gateway (ECR/SQS/Logs)
+AWS-0104
+AVD-AWS-0104
+
+# AWS-0132 / AVD-AWS-0132: Terraform remote state S3 bucket uses AES256 to avoid KMS chicken-and-egg dependency
+AWS-0132
+AVD-AWS-0132

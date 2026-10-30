@@ -1,0 +1,427 @@
+name: Production Continuous Deployment & Release
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Pipeline phát hành chính thức lên môi trường Production (AWS ECS Fargate - 5 Services):
+#   - Backend services : api-gateway | core-lms-service | assessment-service | worker-service
+#   - Frontend         : React SPA (nginx-unprivileged)
+#
+# Các nâng cấp & bản vá lỗ hổng cho luồng 'feature -> dev -> main -> tag v*':
+#   1. AWS Readiness Gate: Tự động kiểm tra AWS_OIDC_ROLE_ARN trước khi chạy.
+#   2. Giải quyết triệt để lỗi lệch Commit SHA khi merge PR từ 'dev' sang 'main':
+#      Khi gắn tag 'v*' trên commit merge của nhánh 'main', script tự động tra cứu:
+#        (a) Tag 'sha-<main_sha>' (nếu fast-forward merge), HOẶC
+#        (b) Tag 'sha-<dev_parent_sha>' (commit cha thứ 2 từ nhánh 'dev' qua HEAD^2), HOẶC
+#        (c) Ảnh 'staging-latest' đã được kiểm thử trên Staging.
+#   3. Vá lỗi điều kiện Rollback: Chỉ cho phép deploy-production chạy khi validate-rollback
+#      thành công (nếu là rollback) HOẶC promote-images thành công (nếu là release tag).
+# ══════════════════════════════════════════════════════════════════════════════
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      rollback_image_tag:
+        description: 'Image tag to rollback to on Production (e.g. v1.0.0 or sha-12345678)'
+        required: true
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+  actions: read
+
+env:
+  AWS_REGION: ap-southeast-1
+  ECR_REPO_API_GATEWAY: oep-api-gateway
+  ECR_REPO_CORE_LMS: oep-core-lms-service
+  ECR_REPO_ASSESSMENT: oep-assessment-service
+  ECR_REPO_WORKER: oep-worker-service
+  ECR_REPO_FRONTEND: oep-frontend
+  ECS_CLUSTER: oep-production-cluster
+  ECS_SERVICE_API_GATEWAY: oep-api-gateway
+  ECS_SERVICE_CORE_LMS: oep-core-lms-service
+  ECS_SERVICE_ASSESSMENT: oep-assessment-service
+  ECS_SERVICE_WORKER: oep-worker-service
+  ECS_SERVICE_FRONTEND: oep-frontend-service
+
+jobs:
+  # -------------------------------------------------------------
+  # Job 00: Check AWS Environment Readiness
+  # -------------------------------------------------------------
+  check-aws-readiness:
+    name: Check AWS Environment Readiness
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      aws_ready: ${{ steps.check.outputs.aws_ready }}
+    steps:
+      - name: Verify AWS OIDC Configuration
+        id: check
+        env:
+          AWS_ROLE: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+        run: |
+          if [ -z "$AWS_ROLE" ]; then
+            echo "aws_ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Chưa cấu hình secrets.AWS_OIDC_ROLE_ARN. Bỏ qua triển khai Production an toàn."
+            echo "## ℹ️ Production CD Bypassed (AWS Infrastructure Not Deployed Yet)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "aws_ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # -------------------------------------------------------------
+  # Job 0: Validate Rollback Target Images (if 1-click rollback)
+  # -------------------------------------------------------------
+  validate-rollback:
+    name: Validate Rollback Target Images
+    needs: [check-aws-readiness]
+    runs-on: ubuntu-latest
+    if: needs.check-aws-readiness.outputs.aws_ready == 'true' && github.event_name == 'workflow_dispatch' && github.event.inputs.rollback_image_tag != ''
+    steps:
+      - name: Validate & Sanitize Image Tag
+        env:
+          INPUT_TAG: ${{ github.event.inputs.rollback_image_tag }}
+        run: |
+          if [[ ! "$INPUT_TAG" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
+            echo "::error::Invalid rollback tag format '$INPUT_TAG'! Only alphanumeric, dots, dashes, and underscores are permitted."
+            exit 1
+          fi
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify Image Tag Exists in ECR
+        env:
+          INPUT_TAG: ${{ github.event.inputs.rollback_image_tag }}
+        run: |
+          TAG="$INPUT_TAG"
+          REPOS=(
+            "${{ env.ECR_REPO_API_GATEWAY }}"
+            "${{ env.ECR_REPO_CORE_LMS }}"
+            "${{ env.ECR_REPO_ASSESSMENT }}"
+            "${{ env.ECR_REPO_WORKER }}"
+            "${{ env.ECR_REPO_FRONTEND }}"
+          )
+          MISSING=0
+          for REPO in "${REPOS[@]}"; do
+            EXISTS=$(aws ecr describe-images --repository-name "$REPO" --image-ids imageTag="$TAG" --query 'imageDetails[0].imageTags' --output text 2>/dev/null || true)
+            if [ -z "$EXISTS" ] || [ "$EXISTS" = "None" ]; then
+              echo "❌ ERROR: Target rollback tag '$TAG' does NOT exist in ECR repo '$REPO'!"
+              MISSING=$((MISSING + 1))
+            else
+              echo "  ✅ Found $REPO:$TAG"
+            fi
+          done
+          if [ "$MISSING" -gt 0 ]; then
+            exit 1
+          fi
+
+  # -------------------------------------------------------------
+  # Job 1: Promote Staging Images to Release (Supports dev -> main merge commits)
+  # -------------------------------------------------------------
+  promote-images:
+    name: Promote Staging Images to Release
+    needs: [check-aws-readiness]
+    runs-on: ubuntu-latest
+    if: needs.check-aws-readiness.outputs.aws_ready == 'true' && github.event_name == 'push'
+    outputs:
+      tag: ${{ steps.vars.outputs.tag }}
+      short_sha: ${{ steps.vars.outputs.short_sha }}
+      dev_short_sha: ${{ steps.vars.outputs.dev_short_sha }}
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine Image Release Tag & Commit Ancestry (dev -> main)
+        id: vars
+        env:
+          STRICT_GATE: ${{ vars.STRICT_QUALITY_GATE || 'false' }}
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            echo "::error::Production promotion must be triggered by a Git tag!"
+            exit 1
+          fi
+
+          COMMIT_SHA=$(git rev-parse HEAD)
+          SHORT_SHA="${COMMIT_SHA::8}"
+
+          # Lấy SHA của nhánh dev được merge vào main (nếu là Merge Commit HEAD^2)
+          DEV_PARENT_SHA=$(git rev-parse HEAD^2 2>/dev/null || git rev-parse HEAD^1 2>/dev/null || echo "$COMMIT_SHA")
+          DEV_SHORT_SHA="${DEV_PARENT_SHA::8}"
+
+          echo "🔍 Verifying commit ancestry on 'main' branch..."
+          git fetch origin main dev || true
+          if git merge-base --is-ancestor "$COMMIT_SHA" origin/main 2>/dev/null; then
+            echo "✅ Verified: Commit $COMMIT_SHA belongs to origin/main history."
+          else
+            MSG="Commit $COMMIT_SHA is not detected as an ancestor of origin/main! Release tags must be created from main."
+            if [ "$STRICT_GATE" = "true" ]; then
+              echo "::error::$MSG"
+              exit 1
+            else
+              echo "::warning::$MSG (Soft Gate warning mode)"
+            fi
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "dev_short_sha=$DEV_SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "Promoting release tag: $TAG (main SHA: $SHORT_SHA, dev parent SHA: $DEV_SHORT_SHA)"
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Promote Tested Images from Staging to Release
+        run: |
+          TAG="${{ steps.vars.outputs.tag }}"
+          MAIN_TAG="sha-${{ steps.vars.outputs.short_sha }}"
+          DEV_TAG="sha-${{ steps.vars.outputs.dev_short_sha }}"
+
+          REPOS=(
+            "${{ env.ECR_REPO_API_GATEWAY }}"
+            "${{ env.ECR_REPO_CORE_LMS }}"
+            "${{ env.ECR_REPO_ASSESSMENT }}"
+            "${{ env.ECR_REPO_WORKER }}"
+            "${{ env.ECR_REPO_FRONTEND }}"
+          )
+
+          echo "🚀 Promoting verified Staging images (checking $MAIN_TAG -> $DEV_TAG -> staging-latest) to $TAG & prod-latest..."
+
+          for REPO in "${REPOS[@]}"; do
+            MANIFEST=""
+            USED_SOURCE=""
+            for CANDIDATE in "$MAIN_TAG" "$DEV_TAG" "staging-latest"; do
+              M=$(aws ecr batch-get-image --repository-name "$REPO" --image-ids imageTag="$CANDIDATE" --query 'images[0].imageManifest' --output text 2>/dev/null || true)
+              if [ -n "$M" ] && [ "$M" != "None" ]; then
+                MANIFEST="$M"
+                USED_SOURCE="$CANDIDATE"
+                break
+              fi
+            done
+
+            if [ -n "$MANIFEST" ]; then
+              echo "  ✅ Re-tagging verified image ($REPO:$USED_SOURCE) -> $TAG & prod-latest..."
+              aws ecr put-image --repository-name "$REPO" --image-tag "$TAG" --image-manifest "$MANIFEST" >/dev/null || true
+              aws ecr put-image --repository-name "$REPO" --image-tag prod-latest --image-manifest "$MANIFEST" >/dev/null || true
+            else
+              echo "::error::No verified Staging image found for $REPO (checked $MAIN_TAG, $DEV_TAG, staging-latest)!"
+              exit 1
+            fi
+          done
+          echo "✅ All 5 images promoted to release tag '$TAG'."
+
+      - name: Scan All 5 Production Images (Trivy - HIGH & CRITICAL)
+        env:
+          STRICT_GATE: ${{ vars.STRICT_QUALITY_GATE || 'false' }}
+        run: |
+          REG=${{ steps.login-ecr.outputs.registry }}
+          TAG=${{ steps.vars.outputs.tag }}
+          EXIT_CODE=$( [ "$STRICT_GATE" = "true" ] && echo "1" || echo "0" )
+
+          REPOS=(
+            "${{ env.ECR_REPO_API_GATEWAY }}"
+            "${{ env.ECR_REPO_CORE_LMS }}"
+            "${{ env.ECR_REPO_ASSESSMENT }}"
+            "${{ env.ECR_REPO_WORKER }}"
+            "${{ env.ECR_REPO_FRONTEND }}"
+          )
+
+          mkdir -p /tmp/trivy-cache
+          for REPO in "${REPOS[@]}"; do
+            echo "→ Pulling & scanning $REG/$REPO:$TAG..."
+            docker pull "$REG/$REPO:$TAG"
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v /tmp/trivy-cache:/root/.cache/ \
+              aquasecurity/trivy:0.59.0 image \
+              --severity HIGH,CRITICAL \
+              --exit-code "$EXIT_CODE" \
+              --ignore-unfixed \
+              "$REG/$REPO:$TAG"
+          done
+
+  # -------------------------------------------------------------
+  # Job 2: Manual Approval Gate & Deploy to Production ECS Fargate
+  # -------------------------------------------------------------
+  deploy-production:
+    name: Deploy to Production ECS Fargate (Manual Approval)
+    needs: [check-aws-readiness, validate-rollback, promote-images]
+    if: |
+      always() &&
+      needs.check-aws-readiness.outputs.aws_ready == 'true' && (
+        (github.event_name == 'workflow_dispatch' && needs.validate-rollback.result == 'success') ||
+        (github.event_name == 'push' && needs.promote-images.result == 'success')
+      )
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://oep.internal
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Determine Target Image Tag
+        id: target
+        env:
+          INPUT_TAG: ${{ github.event.inputs.rollback_image_tag }}
+        run: |
+          if [ -n "$INPUT_TAG" ]; then
+            TAG="$INPUT_TAG"
+            echo "ACTION=ROLLBACK" >> "$GITHUB_OUTPUT"
+            echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            echo "ACTION=DEPLOY" >> "$GITHUB_OUTPUT"
+            echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
+          else
+            exit 1
+          fi
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Deploy Services to Production ECS & Update Task Definitions
+        run: |
+          TAG=${{ steps.target.outputs.TAG }}
+          ACTION=${{ steps.target.outputs.ACTION }}
+          REG=${{ steps.login-ecr.outputs.registry }}
+
+          REPOS=(
+            "${{ env.ECR_REPO_API_GATEWAY }}"
+            "${{ env.ECR_REPO_CORE_LMS }}"
+            "${{ env.ECR_REPO_ASSESSMENT }}"
+            "${{ env.ECR_REPO_WORKER }}"
+            "${{ env.ECR_REPO_FRONTEND }}"
+          )
+
+          if [ "$ACTION" = "ROLLBACK" ]; then
+            for REPO in "${REPOS[@]}"; do
+              MANIFEST=$(aws ecr batch-get-image --repository-name "$REPO" --image-ids imageTag="$TAG" --query 'images[0].imageManifest' --output text 2>/dev/null || true)
+              if [ -n "$MANIFEST" ] && [ "$MANIFEST" != "None" ]; then
+                aws ecr put-image --repository-name "$REPO" --image-tag prod-latest --image-manifest "$MANIFEST" >/dev/null || true
+              else
+                exit 1
+              fi
+            done
+          fi
+
+          SERVICES=(
+            "${{ env.ECS_SERVICE_API_GATEWAY }}"
+            "${{ env.ECS_SERVICE_CORE_LMS }}"
+            "${{ env.ECS_SERVICE_ASSESSMENT }}"
+            "${{ env.ECS_SERVICE_WORKER }}"
+            "${{ env.ECS_SERVICE_FRONTEND }}"
+          )
+
+          for SERVICE in "${SERVICES[@]}"; do
+            REPO_NAME="${SERVICE/oep-frontend-service/oep-frontend}"
+            TASK_DEF_ARN=$(aws ecs describe-services --cluster "${{ env.ECS_CLUSTER }}" --services "$SERVICE" --query "services[0].taskDefinition" --output text 2>/dev/null || true)
+
+            if [ -n "$TASK_DEF_ARN" ] && [ "$TASK_DEF_ARN" != "None" ]; then
+              TASK_DEF_JSON=$(aws ecs describe-task-definition --task-definition "$TASK_DEF_ARN" --query "taskDefinition" 2>/dev/null || true)
+              if [ -n "$TASK_DEF_JSON" ]; then
+                NEW_DEF=$(echo "$TASK_DEF_JSON" | jq --arg IMAGE "$REG/$REPO_NAME:$TAG" '
+                  .containerDefinitions[0].image = $IMAGE |
+                  del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)
+                ')
+                NEW_TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json "$NEW_DEF" --query 'taskDefinition.taskDefinitionArn' --output text 2>/dev/null || true)
+                if [ -n "$NEW_TASK_DEF_ARN" ] && [ "$NEW_TASK_DEF_ARN" != "None" ]; then
+                  aws ecs update-service --cluster "${{ env.ECS_CLUSTER }}" --service "$SERVICE" --task-definition "$NEW_TASK_DEF_ARN" --force-new-deployment >/dev/null
+                  continue
+                fi
+              fi
+            fi
+
+            aws ecs update-service \
+              --cluster "${{ env.ECS_CLUSTER }}" \
+              --service "$SERVICE" \
+              --force-new-deployment >/dev/null
+          done
+
+          aws ecs wait services-stable \
+            --cluster "${{ env.ECS_CLUSTER }}" \
+            --services "${SERVICES[@]}"
+
+      - name: Production Health & Rollout Verification
+        run: |
+          SERVICES=(
+            "${{ env.ECS_SERVICE_API_GATEWAY }}"
+            "${{ env.ECS_SERVICE_CORE_LMS }}"
+            "${{ env.ECS_SERVICE_ASSESSMENT }}"
+            "${{ env.ECS_SERVICE_WORKER }}"
+            "${{ env.ECS_SERVICE_FRONTEND }}"
+          )
+          FAILURES=0
+          for SERVICE in "${SERVICES[@]}"; do
+            RUNNING=$(aws ecs describe-services --cluster "${{ env.ECS_CLUSTER }}" --services "$SERVICE" --query "services[0].runningCount" --output text 2>/dev/null || echo "0")
+            DESIRED=$(aws ecs describe-services --cluster "${{ env.ECS_CLUSTER }}" --services "$SERVICE" --query "services[0].desiredCount" --output text 2>/dev/null || echo "0")
+            ROLLOUT=$(aws ecs describe-services --cluster "${{ env.ECS_CLUSTER }}" --services "$SERVICE" --query "services[0].deployments[0].rolloutState" --output text 2>/dev/null || echo "UNKNOWN")
+            if [ "$RUNNING" -lt "$DESIRED" ] || [ "$DESIRED" -eq 0 ] || [ "$ROLLOUT" = "FAILED" ]; then
+              FAILURES=$((FAILURES + 1))
+            fi
+          done
+          if [ "$FAILURES" -gt 0 ]; then
+            exit 1
+          fi
+
+  # -------------------------------------------------------------
+  # Job 3: Unified Production Deployment Status Notification
+  # -------------------------------------------------------------
+  notify-status:
+    name: Notify Production Deployment Status
+    needs: [check-aws-readiness, validate-rollback, promote-images, deploy-production]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Production Notification Summary
+        env:
+          AWS_READY: ${{ needs.check-aws-readiness.outputs.aws_ready }}
+          VALIDATE: ${{ needs.validate-rollback.result }}
+          PROMOTE: ${{ needs.promote-images.result }}
+          DEPLOY: ${{ needs.deploy-production.result }}
+        run: |
+          if [ "$AWS_READY" != "true" ]; then
+            exit 0
+          fi
+
+          echo "## 🚀 Production Deployment Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Pipeline Stage | Result |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| :--- | :--- |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Rollback Tag Validation | $VALIDATE |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Image Promotion & Trivy Scan | $PROMOTE |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Production ECS Deployment | $DEPLOY |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$VALIDATE" = "failure" ] || [ "$PROMOTE" = "failure" ] || [ "$DEPLOY" = "failure" ] || \
+             [ "$VALIDATE" = "cancelled" ] || [ "$PROMOTE" = "cancelled" ] || [ "$DEPLOY" = "cancelled" ]; then
+            echo "❌ **Status: FAILED** - Production deployment pipeline failed." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          else
+            echo "✅ **Status: SUCCESS** - Production release deployed successfully." >> "$GITHUB_STEP_SUMMARY"
+          fi

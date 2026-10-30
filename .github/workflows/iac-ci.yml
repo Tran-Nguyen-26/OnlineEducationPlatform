@@ -1,0 +1,67 @@
+name: Infrastructure as Code (IaC) CI
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Kiểm định chất lượng mã hạ tầng Terraform (IaC):
+#   - Cơ chế Graceful Bypass: Tự động bỏ qua an toàn khi chưa có file *.tf trong terraform/
+#   - Định dạng: terraform fmt -check -recursive terraform/
+#   - Cú pháp & Schema: terraform init -backend=false && terraform validate
+#   - Bảo mật hạ tầng: Trivy config scan (chế độ cảnh báo mềm hoặc chặn cứng theo STRICT_QUALITY_GATE)
+# ══════════════════════════════════════════════════════════════════════════════
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+
+permissions:
+  contents: read
+
+jobs:
+  terraform-verify:
+    name: Lint, Validate & Security Scan Terraform
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Check for Terraform Files (Graceful Bypass)
+        id: check-tf
+        run: |
+          mkdir -p terraform
+          TF_COUNT=$(find terraform -name "*.tf" -not -path "*/.*" 2>/dev/null | wc -l)
+          echo "Found $TF_COUNT Terraform files in terraform/."
+          if [ "$TF_COUNT" -eq 0 ]; then
+            echo "has_tf=false" >> "$GITHUB_OUTPUT"
+            echo "ℹ️ Chưa triển khai mã nguồn Terraform trong thư mục terraform/ — bỏ qua kiểm tra IaC an toàn." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "has_tf=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Terraform CLI
+        if: steps.check-tf.outputs.has_tf == 'true'
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.0
+
+      - name: Terraform Format Check
+        if: steps.check-tf.outputs.has_tf == 'true'
+        run: terraform fmt -check -recursive terraform/
+
+      - name: Terraform Validate
+        if: steps.check-tf.outputs.has_tf == 'true'
+        run: |
+          for dir in $(find terraform -type f -name "*.tf" -exec dirname {} \; | sort -u); do
+            echo "→ Validating Terraform in $dir..."
+            (cd "$dir" && terraform init -backend=false && terraform validate)
+          done
+
+      - name: Terraform Security Scan (Trivy Config)
+        if: steps.check-tf.outputs.has_tf == 'true'
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: 'config'
+          scan-ref: 'terraform/'
+          severity: 'HIGH,CRITICAL'
+          exit-code: ${{ vars.STRICT_QUALITY_GATE == 'true' && '1' || '0' }}

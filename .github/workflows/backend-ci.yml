@@ -1,57 +1,351 @@
 name: Backend CI
 
-on:
-  pull_request:
-    branches: [main, dev, nam/frontend-setup]
-    paths:
-      - 'backend/**'
-      - '.github/workflows/backend-ci.yml'
-  push:
-    branches: [main, dev, nam/frontend-setup]
-    paths:
-      - 'backend/**'
+# ══════════════════════════════════════════════════════════════════════════════
+# Bao quát toàn bộ 5 Maven modules (giữ nguyên mô hình 5 modules trên ECS):
+#   core-model | api-gateway | core-lms-service | assessment-service | worker-service
+#
+# Hạ tầng dịch vụ CI: PostgreSQL 16 (pgvector) + Redis 7 + RabbitMQ 3
+# Cải tiến cốt lõi:
+#   - Sắp xếp Flyway SQL bằng 'sort -V' (version sort) tránh lỗi V10 chạy trước V2
+#   - Kiểm tra quy ước đặt tên migration (cảnh báo mềm khi chưa khớp chuẩn V{module}_{số}__)
+#   - Chế độ Soft Gate (Warning Mode mặc định): Cảnh báo (::warning::) cho ArchUnit,
+#     Security Matrix (mục tiêu >= 120 RBAC cases, >= 12 IDOR), và JaCoCo (>= 70% toàn bộ 5 modules).
+#     Khi biến repo STRICT_QUALITY_GATE == 'true', tự động chuyển sang chặn cứng (exit 1).
+# ══════════════════════════════════════════════════════════════════════════════
 
-concurrency:
-  group: backend-ci-${{ github.ref }}
-  cancel-in-progress: true
+on:
+  workflow_call:
+  workflow_dispatch:
+
+
+permissions:
+  contents: read
+  pull-requests: read
 
 jobs:
-  build:
-    name: Build & Verify Backend
+  build-and-verify:
+    name: Build, Test & Security Verification (5 Modules)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: oep_test
+          POSTGRES_USER: oep
+          POSTGRES_PASSWORD: oep
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U oep"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      rabbitmq:
+        image: rabbitmq:3-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: oep
+          RABBITMQ_DEFAULT_PASS: oep
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 5
 
     steps:
-      - name: Checkout code
+      - name: Checkout Codebase
         uses: actions/checkout@v4
-
-      # ──────────────────────────────────────────────────────────────────────
-      # Maven dependency cache — giảm ≥ 40% thời gian CI từ lần chạy thứ 2
-      # ──────────────────────────────────────────────────────────────────────
-      - name: Cache Maven local repository
-        uses: actions/cache@v4
         with:
-          path: ~/.m2/repository
-          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            maven-${{ runner.os }}-
+          fetch-depth: 0
 
-      - name: Set up JDK 21
+      # ── Early Security Gate 1: Gitleaks Secret Scanning ────────────────────
+      - name: Secret Scanning (Gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: ${{ vars.STRICT_QUALITY_GATE != 'true' }}
+
+      # ── Early Security Gate 2: Dependency Vulnerability Scan (Trivy fs) ────
+      - name: Dependency Vulnerability Scan (Trivy fs)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: 'fs'
+          scan-ref: 'backend'
+          format: 'table'
+          severity: 'HIGH,CRITICAL'
+          exit-code: ${{ vars.STRICT_QUALITY_GATE == 'true' && '1' || '0' }}
+          ignore-unfixed: true
+
+      # ── Set up JDK 21 & Built-in Maven Cache ───────────────────────────────
+      - name: Set up JDK 21 & Cache Maven
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
+          cache: 'maven'
+          cache-dependency-path: 'backend/**/pom.xml'
 
-      - name: Build & verify
-        run: mvn -B verify --no-transfer-progress
+      # ── Database Migration Validation & Dry-run (Fixed Version Sort -V) ────
+      - name: Validate & Dry-run Database Migrations (PostgreSQL + pgvector)
+        run: |
+          echo "Initializing pgvector extension on oep_test..."
+          PGPASSWORD=oep psql -h localhost -U oep -d oep_test -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
+          MIGRATION_FILES=$(find backend -path "*/db/migration/V*__*.sql" -not -path "*/target/*" 2>/dev/null | sort -V || true)
+          if [ -z "$MIGRATION_FILES" ]; then
+            echo "::warning::No Flyway SQL migration files (V*__*.sql) found in backend/**/db/migration/ yet."
+            exit 0
+          fi
+
+          echo "Dry-running all Flyway SQL migrations in natural version order (sort -V)..."
+          for sql in $MIGRATION_FILES; do
+            fname=$(basename "$sql")
+            if [[ ! "$fname" =~ ^V[0-9]+(_[0-9]+)?__[a-zA-Z0-9_-]+\.sql$ ]]; then
+              echo "::warning::Migration file '$fname' does not strictly follow V{module}_{num}__{desc}.sql naming convention."
+            fi
+            echo "→ Applying migration: $sql"
+            PGPASSWORD=oep psql -h localhost -U oep -d oep_test -v ON_ERROR_STOP=1 -f "$sql"
+          done
+          echo "✅ All SQL migrations executed successfully on test DB"
+
+      # ── Build, Test & Generate JaCoCo Coverage ──────────────────────────────
+      - name: Build, Test all 5 Modules & Generate Coverage
+        env:
+          SPRING_PROFILES_ACTIVE: test
+          STRICT_GATE: ${{ vars.STRICT_QUALITY_GATE || 'false' }}
         working-directory: backend
+        run: |
+          mvn -B verify --no-transfer-progress \
+            -Djacoco.haltOnFailure="$STRICT_GATE" \
+            -Dspring.datasource.url=jdbc:postgresql://localhost:5432/oep_test \
+            -Dspring.datasource.username=oep \
+            -Dspring.datasource.password=oep \
+            -Dspring.data.redis.host=localhost \
+            -Dspring.data.redis.port=6379 \
+            -Dspring.rabbitmq.host=localhost \
+            -Dspring.rabbitmq.port=5672 \
+            -Dspring.rabbitmq.username=oep \
+            -Dspring.rabbitmq.password=oep
 
-      - name: Upload build artifacts (jars)
+      # ── Verify Architecture Boundaries (ArchUnit - Soft/Hard Gate) ──────────
+      - name: Verify Architecture Boundaries (ArchUnit)
+        if: always()
+        env:
+          STRICT_GATE: ${{ vars.STRICT_QUALITY_GATE || 'false' }}
+        run: |
+          python3 -c '
+          import xml.etree.ElementTree as ET
+          import glob, os, sys
+
+          strict = os.environ.get("STRICT_GATE", "false").lower() == "true"
+          files = glob.glob("backend/**/TEST-*Architecture*Test*.xml", recursive=True)
+
+          summary = ["## 🏛️ Clean Architecture Boundary Verification (ArchUnit)"]
+          if not files:
+              msg = "No ArchUnit surefire report (*Architecture*Test*) found yet. Target: >= 6 rules by Day 16-22."
+              summary.append(f"- **Status**: ⚠️ WARNING ({msg})")
+              with open(sys.argv[1], "a") as f_out:
+                  f_out.write("\n".join(summary) + "\n\n")
+              if strict:
+                  print(f"::error::{msg}")
+                  sys.exit(1)
+              else:
+                  print(f"::warning::{msg}")
+                  sys.exit(0)
+
+          total_tests = 0
+          total_failures = 0
+          total_errors = 0
+          summary.append("| Rule | Status | Duration |")
+          summary.append("| :--- | :--- | :--- |")
+
+          for f in files:
+              tree = ET.parse(f)
+              root = tree.getroot()
+              total_tests += int(root.attrib.get("tests", 0))
+              total_failures += int(root.attrib.get("failures", 0))
+              total_errors += int(root.attrib.get("errors", 0))
+              for tc in root.findall("testcase"):
+                  name = tc.attrib.get("name", "unknown").replace("_", " ")
+                  time_s = tc.attrib.get("time", "0")
+                  has_fail = tc.find("failure") is not None or tc.find("error") is not None
+                  status = "❌ FAIL" if has_fail else "✅ PASS"
+                  summary.append(f"| {name} | {status} | {time_s}s |")
+
+          passed = total_tests - total_failures - total_errors
+          summary.append(f"\n**Result:** {passed}/{total_tests} Clean Architecture rules passed (Plan target: >= 6 rules).")
+
+          with open(sys.argv[1], "a") as f_out:
+              f_out.write("\n".join(summary) + "\n\n")
+
+          if total_failures > 0 or total_errors > 0:
+              if strict:
+                  print("::error::ArchUnit boundary violations detected!")
+                  sys.exit(1)
+              else:
+                  print("::warning::ArchUnit boundary violations detected (Soft Gate warning mode).")
+          ' "$GITHUB_STEP_SUMMARY"
+
+      # ── Security & Permission Matrix Verification Gate (Soft/Hard Gate) ─────
+      - name: Verify Security & Permission Matrix Test Suite
+        if: always()
+        env:
+          STRICT_GATE: ${{ vars.STRICT_QUALITY_GATE || 'false' }}
+        run: |
+          python3 -c '
+          import xml.etree.ElementTree as ET
+          import glob, os, sys
+
+          strict = os.environ.get("STRICT_GATE", "false").lower() == "true"
+          patterns = [
+              "backend/**/TEST-*AuthServiceTest*.xml",
+              "backend/**/TEST-*Security*Test*.xml",
+              "backend/**/TEST-*Rbac*Test*.xml",
+              "backend/**/TEST-*Idor*Test*.xml",
+              "backend/**/TEST-*PromptInjection*Test*.xml"
+          ]
+          sec_files = set()
+          for p in patterns:
+              sec_files.update(glob.glob(p, recursive=True))
+
+          total_sec_tests = 0
+          total_failures = 0
+          for f in sorted(sec_files):
+              tree = ET.parse(f)
+              root = tree.getroot()
+              total_sec_tests += len(root.findall("testcase"))
+              total_failures += int(root.attrib.get("failures", 0)) + int(root.attrib.get("errors", 0))
+
+          summary = [
+              "## 🛡️ Security & Permission Matrix Verification",
+              f"- **Matched Security Test Suites**: {len(sec_files)} suite(s)",
+              f"- **Active Security Cases Executed**: {total_sec_tests} test(s) (Day 37-43 target: >= 120 RBAC cases, >= 12 IDOR, 5 XSS, 10 Prompt Injection)",
+              f"- **Failures / Errors**: {total_failures}"
+          ]
+
+          if total_failures > 0:
+              summary.append(f"- **Status**: ❌ FAIL ({total_failures} security tests failed)")
+              with open(sys.argv[1], "a") as f_out:
+                  f_out.write("\n".join(summary) + "\n\n")
+              print(f"::error::{total_failures} security test(s) failed!")
+              sys.exit(1)
+
+          if total_sec_tests < 120:
+              msg = f"Executed {total_sec_tests}/120 target security matrix test cases."
+              summary.append(f"- **Status**: ⚠️ WARNING ({msg})")
+              with open(sys.argv[1], "a") as f_out:
+                  f_out.write("\n".join(summary) + "\n\n")
+              if strict and total_sec_tests == 0:
+                  print(f"::error::{msg}")
+                  sys.exit(1)
+              else:
+                  print(f"::warning::{msg}")
+                  sys.exit(0)
+
+          summary.append("- **Status**: ✅ Security matrix test threshold (>= 120 cases) satisfied.")
+          with open(sys.argv[1], "a") as f_out:
+              f_out.write("\n".join(summary) + "\n\n")
+          ' "$GITHUB_STEP_SUMMARY"
+
+      # ── JaCoCo Coverage Summary across All 5 Modules (Soft/Hard Gate) ───────
+      - name: Summary JaCoCo Code Coverage (All 5 Modules)
+        if: always()
+        env:
+          STRICT_GATE: ${{ vars.STRICT_QUALITY_GATE || 'false' }}
+        run: |
+          python3 -c '
+          import xml.etree.ElementTree as ET
+          import glob, os, sys
+
+          strict = os.environ.get("STRICT_GATE", "false").lower() == "true"
+          jacoco_files = sorted(glob.glob("backend/**/target/site/jacoco/jacoco.xml", recursive=True))
+          if not jacoco_files:
+              print("::warning::No JaCoCo XML reports generated yet.")
+              sys.exit(0)
+
+          summary = [
+              "## 📊 JaCoCo Code Coverage Summary (All 5 Modules)",
+              "| Module | Line Coverage | Branch Coverage | Status (Target >= 70%) |",
+              "| :--- | :--- | :--- | :--- |"
+          ]
+          below_threshold = []
+
+          for f in jacoco_files:
+              tree = ET.parse(f)
+              root = tree.getroot()
+              mod_name = root.attrib.get("name", f)
+              line_cov = "N/A"
+              branch_cov = "N/A"
+              line_pct = 0.0
+              has_lines = False
+              for c in root.findall("counter"):
+                  c_type = c.attrib.get("type")
+                  missed = int(c.attrib.get("missed", 0))
+                  covered = int(c.attrib.get("covered", 0))
+                  total = missed + covered
+                  pct = (covered / total * 100) if total > 0 else 0.0
+                  if c_type == "LINE":
+                      has_lines = total > 0
+                      line_pct = pct
+                      line_cov = f"{covered}/{total} ({pct:.1f}%)"
+                  elif c_type == "BRANCH":
+                      branch_cov = f"{covered}/{total} ({pct:.1f}%)"
+
+              if not has_lines:
+                  status = "ℹ️ N/A (No executable lines)"
+              elif line_pct >= 70.0:
+                  status = "✅ PASS"
+              else:
+                  status = "⚠️ BELOW 70%" if not strict else "❌ BELOW 70%"
+                  below_threshold.append(f"{mod_name} ({line_pct:.1f}%)")
+
+              summary.append(f"| {mod_name} | {line_cov} | {branch_cov} | {status} |")
+
+          with open(sys.argv[1], "a") as f_out:
+              f_out.write("\n".join(summary) + "\n\n")
+
+          if below_threshold:
+              threshold_list = ", ".join(below_threshold)
+              msg = f"JaCoCo line coverage below 70% target for: {threshold_list}"
+              if strict:
+                  print(f"::error::{msg}")
+                  sys.exit(1)
+              else:
+                  print(f"::warning::{msg} (Soft Gate warning mode active)")
+          ' "$GITHUB_STEP_SUMMARY"
+
+      # ── Code Coverage Artifact ──────────────────────────────────────────────
+      - name: Upload JaCoCo Coverage Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage-report
+          path: backend/**/target/site/jacoco/
+          retention-days: 7
+
+      # ── Upload Service Executable JARs ──────────────────────────────────────
+      - name: Upload Service Executable JARs
         uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: backend-jars
+          name: backend-service-jars
           path: |
-            backend/**/target/*.jar
-            !backend/**/target/*-sources.jar
+            backend/api-gateway/target/api-gateway-*.jar
+            backend/core-lms-service/target/core-lms-service-*.jar
+            backend/assessment-service/target/assessment-service-*.jar
+            backend/worker-service/target/worker-service-*.jar
           retention-days: 3

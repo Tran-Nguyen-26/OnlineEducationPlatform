@@ -25,8 +25,7 @@ for BRANCH in "${BRANCHES[@]}"; do
   "required_status_checks": {
     "strict": true,
     "contexts": [
-      "Build & Verify Backend",
-      "Lint, Type-check & Build Frontend"
+      "CI Gate / Quality & Security Assurance"
     ]
   },
   "enforce_admins": false,
@@ -43,7 +42,7 @@ for BRANCH in "${BRANCHES[@]}"; do
 }
 EOF
 
-  echo "✅  Branch '$BRANCH' đã được bảo vệ!"
+  echo "✅  Branch '$BRANCH' đã được bảo vệ thành công!"
 done
 
 echo ""
