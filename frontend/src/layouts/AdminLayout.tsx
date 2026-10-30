@@ -2,15 +2,24 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   Users,
+  UserCheck,
   BookOpen,
   Settings,
   LogOut,
   GraduationCap,
   Shield,
 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { fetchInstructorApplicationStats } from '@/api/instructorApplications'
 
 export function AdminLayout() {
   const navigate = useNavigate()
+
+  const { data: appStats } = useQuery({
+    queryKey: ['instructorApplicationStats'],
+    queryFn: fetchInstructorApplicationStats,
+    staleTime: 30 * 1000,
+  })
 
   let adminName = 'Quản trị viên'
   let adminEmail = 'admin@eduplatform.vn'
@@ -81,6 +90,27 @@ export function AdminLayout() {
               >
                 <Users className="h-4 w-4 text-[#00695c]" />
                 <span>Quản lý người dùng</span>
+              </NavLink>
+
+              <NavLink
+                to="/admin/instructor-applications"
+                className={({ isActive }) =>
+                  `flex items-center justify-between rounded-lg px-3.5 py-2.5 text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-[#e6f4ea] text-[#00695c] font-semibold'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  }`
+                }
+              >
+                <div className="flex items-center gap-3">
+                  <UserCheck className="h-4 w-4 text-[#00695c]" />
+                  <span>Duyệt đơn giảng viên</span>
+                </div>
+                {appStats?.pending != null && appStats.pending > 0 && (
+                  <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs">
+                    {appStats.pending}
+                  </span>
+                )}
               </NavLink>
 
               <NavLink

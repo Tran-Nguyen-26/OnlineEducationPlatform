@@ -18,6 +18,7 @@ const EnrollmentPage = lazy(() => import('@/features/enrollment/EnrollmentPage')
 const AssessmentPage = lazy(() => import('@/features/assessment/AssessmentPage'))
 const DashboardPage = lazy(() => import('@/features/dashboard/DashboardPage'))
 const AdminUsersPage = lazy(() => import('@/features/admin/users/AdminUsersPage'))
+const InstructorApplicationsPage = lazy(() => import('@/features/admin/instructorApplications/InstructorApplicationsPage'))
 const AdminDashboardPage = lazy(() => import('@/features/admin/AdminPlaceholders').then(m => ({ default: m.AdminDashboardPage })))
 const AdminCoursesPage = lazy(() => import('@/features/admin/AdminPlaceholders').then(m => ({ default: m.AdminCoursesPage })))
 const AdminSettingsPage = lazy(() => import('@/features/admin/AdminPlaceholders').then(m => ({ default: m.AdminSettingsPage })))
@@ -77,6 +78,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/admin/users" replace /> },
       { path: 'users', element: withSuspense(AdminUsersPage) },
+      { path: 'instructor-applications', element: withSuspense(InstructorApplicationsPage) },
       { path: 'dashboard', element: withSuspense(AdminDashboardPage) },
       { path: 'courses', element: withSuspense(AdminCoursesPage) },
       { path: 'settings', element: withSuspense(AdminSettingsPage) },

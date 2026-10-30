@@ -2,6 +2,7 @@ package com.oep.corelms.service;
 
 import com.oep.corelms.dto.instructor.InstructorApplicationRequest;
 import com.oep.corelms.dto.instructor.InstructorApplicationResponse;
+import com.oep.corelms.dto.instructor.InstructorApplicationStatsResponse;
 import com.oep.corelms.dto.instructor.RejectApplicationRequest;
 import com.oep.corelms.repository.AuthIdentityRepository;
 import com.oep.corelms.repository.InstructorApplicationRepository;
@@ -89,9 +90,20 @@ public class InstructorApplicationService {
 
     @Transactional(readOnly = true)
     public Page<InstructorApplicationResponse> getApplications(InstructorApplicationStatus status, String search, Pageable pageable) {
-        String sanitizedSearch = (search != null && !search.isBlank()) ? search.trim() : null;
+        String sanitizedSearch = (search != null && !search.isBlank())
+                ? "%" + search.trim().toLowerCase() + "%"
+                : null;
         return applicationRepository.findAllWithFilter(status, sanitizedSearch, pageable)
                 .map(InstructorApplicationResponse::fromEntity);
+    }
+
+    @Transactional(readOnly = true)
+    public InstructorApplicationStatsResponse getApplicationStats() {
+        long total = applicationRepository.count();
+        long pending = applicationRepository.countByStatus(InstructorApplicationStatus.PENDING);
+        long approved = applicationRepository.countByStatus(InstructorApplicationStatus.APPROVED);
+        long rejected = applicationRepository.countByStatus(InstructorApplicationStatus.REJECTED);
+        return new InstructorApplicationStatsResponse(total, pending, approved, rejected);
     }
 
     @Transactional(readOnly = true)

@@ -204,7 +204,7 @@ export interface paths {
       }
     }
   }
-  '/auth/register-teacher': {
+  '/auth/register-instructor': {
     post: {
       requestBody: {
         content: {

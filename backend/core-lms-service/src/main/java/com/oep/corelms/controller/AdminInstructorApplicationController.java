@@ -29,12 +29,24 @@ public class AdminInstructorApplicationController {
 
     @GetMapping
     public ResponseEntity<Page<InstructorApplicationResponse>> getApplications(
-            @RequestParam(required = false) InstructorApplicationStatus status,
+            @RequestParam(required = false) String status,
             @RequestParam(required = false) String search,
-            @PageableDefault(size = 20, sort = "submittedAt", direction = Sort.Direction.DESC) Pageable pageable
+            @PageableDefault(size = 8, sort = "submittedAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
-        Page<InstructorApplicationResponse> response = applicationService.getApplications(status, search, pageable);
+        InstructorApplicationStatus appStatus = null;
+        if (status != null && !status.trim().isEmpty() && !status.equalsIgnoreCase("ALL")) {
+            try {
+                appStatus = InstructorApplicationStatus.valueOf(status.trim().toUpperCase());
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        Page<InstructorApplicationResponse> response = applicationService.getApplications(appStatus, search, pageable);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<com.oep.corelms.dto.instructor.InstructorApplicationStatsResponse> getApplicationStats() {
+        return ResponseEntity.ok(applicationService.getApplicationStats());
     }
 
     @GetMapping("/{id}")

@@ -311,7 +311,7 @@ export interface InstructorApplicationRequest {
 
 /**
  * Submit an instructor registration application.
- * Calls POST /api/auth/register-teacher
+ * Calls POST /api/auth/register-instructor
  */
 export async function registerInstructor(
   payload: InstructorApplicationRequest
@@ -329,7 +329,7 @@ export async function registerInstructor(
   }
 
   try {
-    const { data, error, response } = await apiClient.POST('/auth/register-teacher', {
+    const { data, error, response } = await apiClient.POST('/auth/register-instructor', {
       body,
     })
 
