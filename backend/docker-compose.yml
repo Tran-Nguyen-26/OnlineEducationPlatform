@@ -6,7 +6,7 @@ services:
       POSTGRES_DB: oep
       POSTGRES_USER: oep
       POSTGRES_PASSWORD: oep
-    ports: ["5432:5432"]
+    ports: ["5434:5432"]
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./docker/postgres/primary-init.sh:/docker-entrypoint-initdb.d/01-replication.sh:ro
@@ -16,7 +16,7 @@ services:
     user: postgres
     entrypoint: ["bash", "/replica-entrypoint.sh"]
     ports:
-      - "5433:5432"
+      - "5435:5432"
     volumes:
       - pgdata-replica:/var/lib/postgresql/data
       - ./docker/postgres/replica-entrypoint.sh:/replica-entrypoint.sh:ro
@@ -33,6 +33,14 @@ services:
       RABBITMQ_DEFAULT_USER: oep
       RABBITMQ_DEFAULT_PASS: oep
     ports: ["5673:5672", "15673:15672"]
+
+  localstack:
+    image: localstack/localstack:3.4
+    ports: ["4566:4566"]
+    environment:
+      - SERVICES=sqs
+      - AWS_DEFAULT_REGION=ap-southeast-1
+
 
 volumes:
   pgdata:

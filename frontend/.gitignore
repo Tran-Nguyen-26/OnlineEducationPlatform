@@ -13,6 +13,8 @@ dist-ssr
 coverage
 playwright-report
 *.local
+coverage
+
 
 # Editor directories and files
 .vscode/*

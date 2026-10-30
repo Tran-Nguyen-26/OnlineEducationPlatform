@@ -233,4 +233,46 @@ class NotificationPublisherTest {
         );
         assertEquals(ErrorCode.VALIDATION_FAILED, exBlank.getCode());
     }
+
+    @Test
+    @DisplayName("Should throw BusinessException when payload exceeds 256KB limit")
+    void publish_PayloadExceeds256KB_ThrowsBusinessException() {
+        UUID aggregateId = UUID.randomUUID();
+        String hugePayload = "x".repeat(257 * 1024);
+
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                notificationPublisher.publish("COURSE", aggregateId, "COURSE_UPDATED", hugePayload)
+        );
+
+        assertEquals(ErrorCode.VALIDATION_FAILED, ex.getCode());
+        assertTrue(ex.getMessage().contains("256KB"));
+        verify(outboxEventRepository, never()).save(any(OutboxEvent.class));
+    }
+
+    @Test
+    @DisplayName("Should successfully include targetType in payload when using overloaded method")
+    void publishNotificationEvent_WithTargetType_IncludesTargetTypeInPayload() throws Exception {
+        UUID targetId = UUID.randomUUID();
+        UUID recipientUserId = UUID.randomUUID();
+
+        when(objectMapper.writeValueAsString(any())).thenAnswer(inv ->
+                new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(inv.getArgument(0)));
+        when(outboxEventRepository.save(any(OutboxEvent.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OutboxEvent result = notificationPublisher.publishNotificationEvent(
+                "LESSON_COMPLETED",
+                "LESSON",
+                targetId,
+                recipientUserId,
+                "Lesson Done",
+                "You finished lesson",
+                "/lessons/" + targetId,
+                Map.of("score", 100)
+        );
+
+        assertNotNull(result);
+        assertTrue(result.getPayload().contains("\"targetType\":\"LESSON\""));
+        assertTrue(result.getPayload().contains("\"score\":100"));
+        verify(outboxEventRepository).save(any(OutboxEvent.class));
+    }
 }

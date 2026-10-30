@@ -18,7 +18,9 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
-@Table(name = "lessons", indexes = {@Index(name = "idx_lessons_module_id_position", columnList = "module_id, position")})
+@Table(name = "lessons",
+        uniqueConstraints = {@UniqueConstraint(name = "uk_lessons_module_position", columnNames = {"module_id", "position"})},
+        indexes = {@Index(name = "idx_lessons_module_id_position", columnList = "module_id, position")})
 public class Lesson extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
