@@ -207,9 +207,9 @@ export default function LoginPage() {
               />
               Ghi nhớ đăng nhập
             </label>
-            <a href="#" className="lp-forgot">
+            <Link to="/forgot-password" className="lp-forgot">
               Quên mật khẩu?
-            </a>
+            </Link>
           </div>
 
           {/* Submit */}

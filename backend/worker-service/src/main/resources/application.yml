@@ -5,7 +5,7 @@ spring:
   application:
     name: worker-service
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/oep}
+    url: ${DB_URL:jdbc:postgresql://localhost:5434/oep}
     username: ${DB_USER:oep}
     password: ${DB_PASSWORD:oep}
   jpa:
@@ -14,6 +14,24 @@ spring:
     open-in-view: false
   rabbitmq:
     host: ${RABBIT_HOST:localhost}
-    port: ${RABBIT_PORT:5673}
-    username: ${RABBIT_USER:oep}
-    password: ${RABBIT_PASSWORD:oep}
+    port: ${RABBIT_PORT:5672}
+    username: ${RABBIT_USER:guest}
+    password: ${RABBIT_PASSWORD:guest}
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:nguyendinhquocdeptrai2k5@gmail.com}
+    password: ${MAIL_PASSWORD:cxtg yrnh zoop woeu}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+        debug: false
+    default-encoding: UTF-8
+
+logging:
+  level:
+    com.oep.worker: INFO
