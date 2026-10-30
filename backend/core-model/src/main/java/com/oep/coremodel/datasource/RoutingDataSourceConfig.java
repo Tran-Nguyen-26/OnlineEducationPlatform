@@ -3,8 +3,8 @@ package com.oep.coremodel.datasource;
 import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -19,14 +19,26 @@ public class RoutingDataSourceConfig {
 
     @Bean
     @ConfigurationProperties("oep.datasource.primary")
-    public HikariDataSource primaryDataSource() {
-        return DataSourceBuilder.create().type(HikariDataSource.class).build();
+    public DataSourceProperties primaryDataSourceProperties() {
+        return new DataSourceProperties();
     }
 
     @Bean
     @ConfigurationProperties("oep.datasource.replica")
-    public HikariDataSource replicaDataSource() {
-        return DataSourceBuilder.create().type(HikariDataSource.class).build();
+    public DataSourceProperties replicaDataSourceProperties() {
+        return new DataSourceProperties();
+    }
+
+    @Bean
+    public HikariDataSource primaryDataSource(
+            @Qualifier("primaryDataSourceProperties") DataSourceProperties properties) {
+        return properties.initializeDataSourceBuilder().type(HikariDataSource.class).build();
+    }
+
+    @Bean
+    public HikariDataSource replicaDataSource(
+            @Qualifier("replicaDataSourceProperties") DataSourceProperties properties) {
+        return properties.initializeDataSourceBuilder().type(HikariDataSource.class).build();
     }
 
     @Bean
