@@ -2,3 +2,11 @@
 graphify-out
 openspec
 
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+
+
