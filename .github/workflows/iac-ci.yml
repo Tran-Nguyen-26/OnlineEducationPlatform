@@ -62,7 +62,7 @@ jobs:
 
       - name: Terraform Security Scan (Trivy Config)
         if: steps.check-tf.outputs.has_tf == 'true'
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@v0.29.0
         with:
           scan-type: 'config'
           scan-ref: 'terraform/'
