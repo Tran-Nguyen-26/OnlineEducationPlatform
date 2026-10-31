@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Lock, Eye, EyeOff, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Lock, Eye, EyeOff, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react'
 import { PasswordStrengthMeter } from './PasswordStrengthMeter'
 
 export interface StepResetPasswordProps {
@@ -47,7 +47,7 @@ export function StepResetPassword({ onSubmit, loading, error }: StepResetPasswor
     <div className="fp-step-content">
       {/* Header */}
       <div className="fp-header">
-        <h1 className="fp-title">Đặt lại mật khẩu</h1>
+        <h1 className="fp-title">ĐẶT LẠI MẬT KHẨU</h1>
         <p className="fp-subtitle">
           Tạo mật khẩu mới an toàn cho tài khoản của bạn. Mọi phiên đăng nhập cũ trên thiết bị khác
           sẽ tự động bị thu hồi.
@@ -69,7 +69,7 @@ export function StepResetPassword({ onSubmit, loading, error }: StepResetPasswor
         {/* New password */}
         <div className="fp-field">
           <label htmlFor="fp-new-password" className="fp-label">
-            Mật khẩu mới <span className="fp-required">*</span>
+            MẬT KHẨU MỚI <span className="fp-required">*</span>
           </label>
           <div className="fp-input-wrap">
             <span className="fp-input-icon">
@@ -109,7 +109,7 @@ export function StepResetPassword({ onSubmit, loading, error }: StepResetPasswor
         {/* Confirm password */}
         <div className="fp-field">
           <label htmlFor="fp-confirm-password" className="fp-label">
-            Xác nhận mật khẩu mới <span className="fp-required">*</span>
+            XÁC NHẬN MẬT KHẨU <span className="fp-required">*</span>
           </label>
           <div className="fp-input-wrap">
             <span className="fp-input-icon">
@@ -172,12 +172,16 @@ export function StepResetPassword({ onSubmit, loading, error }: StepResetPasswor
                 stroke="currentColor"
                 strokeWidth="2.5"
               >
-                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" />
+                <path d="M12 2a10 10 0 0110 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
               </svg>
-              Đang lưu mật khẩu...
+              <span>ĐANG CẬP NHẬT...</span>
             </>
           ) : (
-            'Lưu mật khẩu mới'
+            <>
+              <span>CẬP NHẬT MẬT KHẨU</span>
+              <ArrowRight className="fp-btn-arrow" />
+            </>
           )}
         </button>
       </form>

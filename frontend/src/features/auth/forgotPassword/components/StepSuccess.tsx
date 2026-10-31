@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Check, ShieldCheck } from 'lucide-react'
+import { Check, ShieldCheck, ArrowRight } from 'lucide-react'
 import { useCountdownTimer } from '../hooks/useCountdownTimer'
 
 export interface StepSuccessProps {
@@ -46,7 +46,7 @@ export function StepSuccess({ email }: StepSuccessProps) {
 
       {/* Heading */}
       <div className="fp-header fp-header--center">
-        <h1 className="fp-title fp-title--success">Đặt lại mật khẩu thành công!</h1>
+        <h1 className="fp-title fp-title--success">ĐẶT LẠI MẬT KHẨU THÀNH CÔNG!</h1>
         <p className="fp-subtitle">
           Mật khẩu tài khoản của bạn đã được cập nhật an toàn. Mọi phiên đăng nhập cũ trên các thiết
           bị khác đã được thu hồi.
@@ -76,7 +76,8 @@ export function StepSuccess({ email }: StepSuccessProps) {
           id="fp-btn-login-now"
           className="fp-submit-btn"
         >
-          Đăng nhập ngay
+          <span>ĐĂNG NHẬP NGAY</span>
+          <ArrowRight className="fp-btn-arrow" />
         </button>
       </div>
     </div>

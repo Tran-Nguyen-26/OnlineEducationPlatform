@@ -128,18 +128,21 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="fp-page">
-      {/* ── Topbar Logo ── */}
+      {/* ── Topbar Logo matching Login style ── */}
       <Link to="/" className="fp-topbar">
-        <div className="fp-topbar-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 14l9-5-9-5-9 5 9 5z" />
-            <path d="M12 14l6.16-3.422A12.083 12.083 0 0112 21.93a12.083 12.083 0 01-6.16-11.352L12 14z" />
+        <div className="fp-logo-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="fp-cap-icon">
+            <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+            <path d="M6 12v5c3 3 9 3 12 0v-5" />
           </svg>
         </div>
-        <span className="fp-topbar-name">EduPlatform</span>
+        <div className="fp-brand-text">
+          <span className="fp-brand-title">EDUPLATFORM</span>
+          <span className="fp-brand-sub">HỆ THỐNG ĐÀO TẠO CHUẨN MỰC</span>
+        </div>
       </Link>
 
-      {/* ── Main Card ── */}
+      {/* ── Main Centered Card ── */}
       <div className="fp-card">
         {/* Render Stepper for Steps 1, 2, 3 */}
         {currentStep <= 3 && <ForgotPasswordStepper currentStep={currentStep} />}
@@ -184,8 +187,17 @@ export default function ForgotPasswordPage() {
         {currentStep === 4 && <StepSuccess email={email} />}
       </div>
 
-      {/* ── Footer Copyright ── */}
-      <p className="fp-footer-copyright">&copy; {CURRENT_YEAR} EduPlatform. Bảo lưu mọi quyền.</p>
+      {/* ── Footer matching Login ── */}
+      <footer className="fp-footer">
+        <div className="fp-ssl-footer">
+          <span>BẢO MẬT SSL 256-BIT</span>
+          <span className="fp-ssl-dot">·</span>
+          <a href="#" className="fp-ssl-link">QUYỀN RIÊNG TƯ</a>
+          <span className="fp-ssl-dot">·</span>
+          <a href="#" className="fp-ssl-link">ĐIỀU KHOẢN</a>
+        </div>
+        <p className="fp-footer-copyright">&copy; {CURRENT_YEAR} EduPlatform Inc. Bảo lưu mọi quyền.</p>
+      </footer>
     </div>
   )
 }

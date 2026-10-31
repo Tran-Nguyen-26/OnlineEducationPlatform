@@ -109,6 +109,7 @@ export function OtpInput({
           maxLength={1}
           autoComplete="one-time-code"
           value={digits[i]}
+          onFocus={(e) => e.target.select()}
           onChange={(e) => handleInputChange(i, e)}
           onKeyDown={(e) => handleKeyDown(i, e)}
           onPaste={handlePaste}

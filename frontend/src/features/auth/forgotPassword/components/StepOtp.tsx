@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Clock, RefreshCw, ArrowLeft, AlertCircle } from 'lucide-react'
+import { Clock, RefreshCw, ArrowLeft, AlertCircle, ArrowRight } from 'lucide-react'
 import { OtpInput } from './OtpInput'
 import { useCountdownTimer } from '../hooks/useCountdownTimer'
 
@@ -71,7 +71,7 @@ export function StepOtp({
     <div className="fp-step-content">
       {/* Header */}
       <div className="fp-header">
-        <h1 className="fp-title">Xác thực mã OTP</h1>
+        <h1 className="fp-title">XÁC THỰC MÃ OTP</h1>
         <p className="fp-subtitle">
           Mã xác thực gồm 6 chữ số đã được gửi tới hộp thư{' '}
           <strong className="fp-email-highlight">{maskedEmail || 'email của bạn'}</strong>.
@@ -111,7 +111,7 @@ export function StepOtp({
       <form onSubmit={handleSubmit} className="fp-form" noValidate>
         <div className="fp-field">
           <label className="fp-label fp-label--center">
-            Nhập mã bảo mật 6 số <span className="fp-required">*</span>
+            NHẬP MÃ BẢO MẬT 6 SỐ <span className="fp-required">*</span>
           </label>
 
           <OtpInput
@@ -159,12 +159,16 @@ export function StepOtp({
                 stroke="currentColor"
                 strokeWidth="2.5"
               >
-                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" />
+                <path d="M12 2a10 10 0 0110 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
               </svg>
-              Đang xác thực...
+              <span>ĐANG XÁC THỰC...</span>
             </>
           ) : (
-            'Xác thực mã OTP'
+            <>
+              <span>XÁC THỰC OTP</span>
+              <ArrowRight className="fp-btn-arrow" />
+            </>
           )}
         </button>
 

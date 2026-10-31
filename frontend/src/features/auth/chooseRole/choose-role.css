@@ -1,6 +1,13 @@
 /* ========================================================
-   Trang Chọn Loại Tài Khoản – Layout & Styles
+   ROLE SELECTION – EDUPLATFORM (Chuẩn Role Selection.png)
    ======================================================== */
+
+/* ── Reset / Base ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 
 /* ── Khung nền toàn trang ── */
 .cr-page {
@@ -9,308 +16,390 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 2.5rem 1.5rem 4rem;
+  justify-content: flex-start;
+  padding: 3rem 1.5rem 3rem;
   box-sizing: border-box;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #0f172a;
 }
 
-/* ── Logo ── */
+/* ── Logo EduPlatform ── */
 .cr-logo {
   display: flex;
   align-items: center;
   gap: 0.625rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
   text-decoration: none;
+  transition: transform 0.2s ease, opacity 0.2s;
 }
-.cr-logo-icon {
-  width: 2.5rem;
-  height: 2.5rem;
-  background: #0d9488;
+
+.cr-logo:hover {
+  transform: translateY(-1px);
+  opacity: 0.95;
+}
+
+.cr-logo-box {
+  width: 2.25rem;
+  height: 2.25rem;
+  background: #f5b823;
+  border-radius: 0.375rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #111827;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(245, 184, 35, 0.25);
+}
+
+.cr-cap-icon {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.cr-logo-name {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: 0.04em;
+}
+
+/* ── Tiêu đề Header ── */
+.cr-header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+  max-width: 720px;
+}
+
+.cr-title {
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+  margin: 0 0 0.75rem;
+  text-transform: uppercase;
+}
+
+.cr-subtitle {
+  font-size: 1.05rem;
+  color: #64748b;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* ── 2 Role Cards Grid ── */
+.cr-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.75rem;
+  width: 100%;
+  max-width: 860px;
+  margin-bottom: 2.25rem;
+}
+
+/* ── Card Cơ bản ── */
+.cr-card {
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 1.25rem;
+  padding: 2rem 1.875rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+  user-select: none;
+  outline: none;
+}
+
+.cr-card:hover {
+  transform: translateY(-3px);
+  border-color: #cbd5e1;
+  box-shadow: 0 8px 30px -4px rgba(15, 23, 42, 0.08);
+}
+
+.cr-card--selected {
+  border-color: #f5b823 !important;
+  box-shadow: 0 0 0 1px #f5b823, 0 8px 30px -4px rgba(245, 184, 35, 0.2) !important;
+}
+
+/* ── Card Top Row ── */
+.cr-card-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.cr-role-icon {
+  width: 3.25rem;
+  height: 3.25rem;
   border-radius: 0.625rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  padding: 0.45rem;
-  flex-shrink: 0;
-  box-sizing: border-box;
-}
-.cr-logo-icon svg {
-  width: 100%;
-  height: 100%;
-}
-.cr-logo-name {
-  font-size: 1.25rem;
-  font-weight: 800;
-  color: #111827;
-}
-
-/* ── Tiêu đề header ── */
-.cr-header {
-  text-align: center;
-  margin-bottom: 2.5rem;
-}
-.cr-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #0d9488;
-  background: #ccfbf1;
-  padding: 0.3rem 0.875rem;
-  border-radius: 9999px;
-  margin-bottom: 1rem;
-}
-.cr-badge svg {
-  width: 0.875rem;
-  height: 0.875rem;
   flex-shrink: 0;
 }
-.cr-title {
-  font-size: 2rem;
-  font-weight: 800;
+
+.cr-role-icon--student {
+  background: #f5b823;
   color: #111827;
-  line-height: 1.2;
-  margin-bottom: 0.625rem;
-}
-.cr-subtitle {
-  font-size: 0.9375rem;
-  color: #6b7280;
-  line-height: 1.6;
-  max-width: 500px;
-  margin: 0 auto;
+  box-shadow: 0 2px 8px rgba(245, 184, 35, 0.25);
 }
 
-/* ── Grid 2 card ── */
-.cr-cards {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-  width: 100%;
-  max-width: 1000px;
-  margin-bottom: 2rem;
+.cr-role-icon--student svg {
+  width: 1.85rem;
+  height: 1.85rem;
 }
 
-/* ── Card cơ bản ── */
-.cr-card {
-  background: #fff;
-  border: 2px solid #e5e7eb;
-  border-radius: 1.25rem;
-  padding: 2.25rem 2rem;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: stretch;
-  gap: 1.5rem;
-  cursor: pointer;
-  position: relative;
-  transition:
-    border-color 0.22s,
-    box-shadow 0.22s,
-    transform 0.18s;
-  text-align: left;
-  overflow: hidden;
-}
-.cr-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  transition: opacity 0.22s;
-  pointer-events: none;
-}
-.cr-card--student::before,
-.cr-card--teacher::before {
-  background: linear-gradient(135deg, rgba(13, 148, 136, 0.04), rgba(13, 148, 136, 0.02));
-}
-.cr-card:hover::before {
-  opacity: 1;
-}
-.cr-card--student:hover,
-.cr-card--student.cr-card--selected,
-.cr-card--teacher:hover,
-.cr-card--teacher.cr-card--selected {
-  border-color: #0d9488;
-  box-shadow: 0 8px 32px rgba(13, 148, 136, 0.15);
-  transform: translateY(-3px);
+.cr-role-icon--teacher {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #334155;
 }
 
-/* ── Icon card ── */
-.cr-card-icon {
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: 0.875rem;
+.cr-role-icon--teacher svg {
+  width: 1.85rem;
+  height: 1.85rem;
+}
+
+/* Radio check button */
+.cr-radio-check {
+  width: 1.625rem;
+  height: 1.625rem;
+  border-radius: 50%;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  padding: 0.75rem;
-  box-sizing: border-box;
-}
-.cr-card-icon svg {
-  width: 100%;
-  height: 100%;
-}
-.cr-card--student .cr-card-icon,
-.cr-card--teacher .cr-card-icon {
-  background: #ccfbf1;
-  color: #0d9488;
+  transition: all 0.2s ease;
 }
 
-/* ── Nội dung card ── */
-.cr-card-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-.cr-card-title {
-  font-size: 1.125rem;
-  font-weight: 800;
+.cr-radio-check--active {
+  background: #f5b823;
+  border-color: #f5b823;
   color: #111827;
+  box-shadow: 0 2px 6px rgba(245, 184, 35, 0.3);
 }
+
+.cr-radio-check svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+/* ── Tier Badge ── */
+.cr-tier-badge {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.375rem;
+  text-transform: uppercase;
+  margin-bottom: 0.625rem;
+  align-self: flex-start;
+}
+
+/* ── Card Title & Description ── */
+.cr-card-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+  margin: 0 0 0.5rem;
+  text-transform: uppercase;
+}
+
 .cr-card-desc {
   font-size: 0.875rem;
-  color: #6b7280;
+  color: #64748b;
   line-height: 1.55;
+  margin: 0 0 1.25rem;
+  min-height: 2.75rem;
 }
 
-/* ── Danh sách điểm nổi bật ── */
-.cr-card-features {
+/* ── Subcard Features ── */
+.cr-subcard {
+  background: #f8fafc;
+  border: 1px solid #edf2f7;
+  border-radius: 0.75rem;
+  padding: 1.25rem 1.125rem;
+  position: relative;
+  overflow: hidden;
+  margin-top: auto;
+}
+
+.cr-subcard-features {
   list-style: none;
   padding: 0;
-  margin: 0.75rem 0 0;
+  margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.75rem;
+  position: relative;
+  z-index: 1;
 }
-.cr-card-feature {
+
+.cr-subcard-item {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.625rem;
   font-size: 0.8125rem;
-  color: #4b5563;
+  font-weight: 600;
+  color: #334155;
+  line-height: 1.4;
 }
-.cr-card-feature-dot {
-  width: 0.75rem;
-  height: 0.75rem;
-  border-radius: 9999px;
+
+.cr-feature-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  color: #0f172a;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.cr-card--student .cr-card-feature-dot,
-.cr-card--teacher .cr-card-feature-dot {
-  color: #0d9488;
-}
-.cr-card-feature-dot svg {
+
+.cr-feature-icon svg {
   width: 100%;
   height: 100%;
 }
 
-/* ── Nút CTA trong Card ── */
-.cr-btn {
+.cr-subcard-watermark {
+  position: absolute;
+  right: -0.5rem;
+  bottom: -0.5rem;
+  width: 6rem;
+  height: 6rem;
+  color: #0f172a;
+  opacity: 0.04;
+  pointer-events: none;
+}
+
+.cr-subcard-watermark svg {
   width: 100%;
-  margin-top: auto;
-  padding: 0.9375rem;
-  border: none;
-  border-radius: 0.875rem;
+  height: 100%;
+}
+
+/* ── Primary Action Button (Nút vàng chủ đạo) ── */
+.cr-cta-btn {
+  width: 100%;
+  max-width: 500px;
+  background: #f5b823;
+  color: #111827;
   font-size: 0.9375rem;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  padding: 1rem 1.5rem;
+  border: none;
+  border-radius: 0.375rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  transition:
-    background 0.2s,
-    box-shadow 0.2s,
-    transform 0.12s,
-    opacity 0.2s;
-  box-sizing: border-box;
-}
-.cr-btn:active {
-  transform: translateY(1px);
-}
-.cr-btn--student,
-.cr-btn--teacher {
-  background: #0d9488;
-  color: #fff;
-  box-shadow: 0 2px 10px rgba(13, 148, 136, 0.28);
-}
-.cr-btn--student:hover,
-.cr-btn--teacher:hover {
-  background: #0f766e;
-  box-shadow: 0 4px 18px rgba(13, 148, 136, 0.38);
-}
-.cr-btn svg {
-  width: 1.125rem;
-  height: 1.125rem;
-  flex-shrink: 0;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(245, 184, 35, 0.25);
+  text-transform: uppercase;
+  margin-bottom: 1.25rem;
 }
 
-/* ── Link quay lại đăng nhập ── */
-.cr-login-link {
+.cr-cta-btn:hover {
+  background: #ebb01c;
+  box-shadow: 0 4px 14px rgba(245, 184, 35, 0.35);
+  transform: translateY(-1px);
+}
+
+.cr-cta-btn:active {
+  transform: translateY(0);
+}
+
+.cr-arrow-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  transition: transform 0.2s;
+}
+
+.cr-cta-btn:hover .cr-arrow-icon {
+  transform: translateX(3px);
+}
+
+/* ── Đăng nhập ngay ── */
+.cr-signin-row {
   font-size: 0.875rem;
-  color: #6b7280;
+  color: #475569;
   text-align: center;
-}
-.cr-login-link a {
-  font-weight: 700;
-  color: #0d9488;
-  text-decoration: none;
-}
-.cr-login-link a:hover {
-  text-decoration: underline;
+  margin: 0.5rem 0 2rem;
 }
 
-/* ── Divider ── */
-.cr-divider {
-  width: 100%;
-  max-width: 800px;
-  border: none;
-  border-top: 1px solid #e5e7eb;
-  margin: 0.5rem 0 1.5rem;
+.cr-signin-link {
+  font-weight: 800;
+  color: #0f172a;
+  text-decoration: none;
+  border-bottom: 2px solid #f5b823;
+  padding-bottom: 1px;
+  margin-left: 0.25rem;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.cr-signin-link:hover {
+  color: #d99b0f;
+  border-color: #d99b0f;
+}
+
+/* ── Chứng nhận Bảo mật (Certifications) ── */
+.cr-certifications {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.cr-cert-item {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.cr-cert-item svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  color: #64748b;
+}
+
+.cr-cert-dot {
+  color: #cbd5e1;
 }
 
 /* ── Footer ── */
 .cr-footer {
   font-size: 0.75rem;
-  color: #9ca3af;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  justify-content: center;
-  margin-top: 2rem;
-}
-.cr-footer-dot {
-  color: #d1d5db;
-}
-.cr-footer-link {
-  color: #9ca3af;
-  text-decoration: none;
-}
-.cr-footer-link:hover {
-  color: #0d9488;
+  color: #94a3b8;
+  text-align: center;
+  margin-top: auto;
 }
 
-/* ── Responsive ── */
-@media (max-width: 640px) {
+/* ── Responsive (Mobile & Tablet) ── */
+@media (max-width: 820px) {
   .cr-cards {
     grid-template-columns: 1fr;
+    max-width: 460px;
   }
+
   .cr-title {
-    font-size: 1.5rem;
+    font-size: 1.625rem;
   }
-  .cr-card {
-    padding: 1.75rem 1.5rem;
-  }
-  .cr-logo {
-    margin-bottom: 2rem;
-  }
-  .cr-header {
-    margin-bottom: 1.75rem;
+
+  .cr-cta-btn {
+    max-width: 460px;
   }
 }

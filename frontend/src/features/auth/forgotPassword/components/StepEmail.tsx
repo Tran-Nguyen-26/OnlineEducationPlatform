@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Mail, ArrowLeft, AlertCircle, Info } from 'lucide-react'
+import { ArrowLeft, AlertCircle, Info, ArrowRight } from 'lucide-react'
 
 export interface StepEmailProps {
   email: string
@@ -47,9 +47,9 @@ export function StepEmail({
     <div className="fp-step-content">
       {/* Header */}
       <div className="fp-header">
-        <h1 className="fp-title">Quên mật khẩu?</h1>
+        <h1 className="fp-title">QUÊN MẬT KHẨU?</h1>
         <p className="fp-subtitle">
-          Nhập địa chỉ email đã đăng ký để nhận mã xác thực OTP gồm 6 chữ số khôi phục tài khoản.
+          Nhập địa chỉ email tài khoản đã đăng ký để nhận mã xác thực OTP gồm 6 chữ số khôi phục tài khoản.
         </p>
       </div>
 
@@ -75,11 +75,11 @@ export function StepEmail({
       <form onSubmit={handleSubmit} className="fp-form" noValidate>
         <div className="fp-field">
           <label htmlFor="fp-email-input" className="fp-label">
-            Địa chỉ Email <span className="fp-required">*</span>
+            EMAIL TÀI KHOẢN / ĐƠN VỊ <span className="fp-required">*</span>
           </label>
           <div className="fp-input-wrap">
             <span className="fp-input-icon">
-              <Mail />
+              <span className="fp-at-symbol">@</span>
             </span>
             <input
               id="fp-email-input"
@@ -92,7 +92,7 @@ export function StepEmail({
                 setEmail(e.target.value)
                 if (localError) setLocalError(null)
               }}
-              placeholder="name@example.com"
+              placeholder="scholar@university.edu"
               className={`fp-input ${displayedError ? 'fp-input--error' : ''}`}
             />
           </div>
@@ -101,7 +101,7 @@ export function StepEmail({
           </p>
         </div>
 
-        {/* Submit button */}
+        {/* Submit button matching Login */}
         <button type="submit" id="fp-btn-send-email" disabled={loading} className="fp-submit-btn">
           {loading ? (
             <>
@@ -112,12 +112,16 @@ export function StepEmail({
                 stroke="currentColor"
                 strokeWidth="2.5"
               >
-                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" />
+                <path d="M12 2a10 10 0 0110 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
               </svg>
-              Đang gửi mã xác thực...
+              <span>ĐANG GỬI MÃ XÁC THỰC...</span>
             </>
           ) : (
-            'Gửi mã xác thực'
+            <>
+              <span>GỬI MÃ XÁC THỰC</span>
+              <ArrowRight className="fp-btn-arrow" />
+            </>
           )}
         </button>
 
