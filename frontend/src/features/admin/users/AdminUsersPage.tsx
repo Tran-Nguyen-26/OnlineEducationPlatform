@@ -6,13 +6,12 @@ import {
   updateAdminUserStatus,
   type AdminUserItem,
 } from '@/api/adminUsers'
-import { AdminUserMetrics } from './components/AdminUserMetrics'
 import { AdminUserFilters } from './components/AdminUserFilters'
 import { AdminUserTable } from './components/AdminUserTable'
 import { AdminUserPagination } from './components/AdminUserPagination'
 import { UserDetailModal } from './components/UserDetailModal'
 import { UserLockModal } from './components/UserLockModal'
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, Search, Plus } from 'lucide-react'
 
 export default function AdminUsersPage() {
   const queryClient = useQueryClient()
@@ -38,12 +37,11 @@ export default function AdminUsersPage() {
   }
 
   // Stats query from database
-  const { data: stats = { totalUsers: 0, activeUsers: 0, lockedUsers: 0 }, isLoading: statsLoading } =
-    useQuery({
-      queryKey: ['adminUserStats'],
-      queryFn: fetchAdminUserStats,
-      staleTime: 30 * 1000,
-    })
+  const { data: stats = { totalUsers: 0, activeUsers: 0, lockedUsers: 0 } } = useQuery({
+    queryKey: ['adminUserStats'],
+    queryFn: fetchAdminUserStats,
+    staleTime: 30 * 1000,
+  })
 
   // Users query from database
   const { data: usersData, isLoading: usersLoading } = useQuery({
@@ -61,7 +59,7 @@ export default function AdminUsersPage() {
 
   const users = usersData?.content ?? []
   const totalPages = usersData?.totalPages ?? 1
-  const totalCount = usersData?.totalElements ?? 0
+  const totalCount = usersData?.totalElements ?? stats.totalUsers ?? 0
 
   // Reset all filters
   const handleResetFilters = () => {
@@ -101,46 +99,57 @@ export default function AdminUsersPage() {
     <div className="space-y-6">
       {/* Toast Alert */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 shadow-lg">
-          <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 rounded-lg border border-emerald-200 bg-white px-4 py-3 text-xs font-semibold text-emerald-800 shadow-xl">
+          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* ── Page Header & Metrics ── */}
-      <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
-        {/* Title area */}
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-              Quản lý người dùng
-            </h1>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#dbeafe] px-2.5 py-0.5 text-xs font-semibold text-[#1e40af]">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#2563eb]" />
-              Hệ thống xác thực
-            </span>
-          </div>
-          <p className="mt-1 text-sm text-slate-500">
-            Xem và quản lý tài khoản trên hệ thống, phân quyền truy cập và kiểm soát trạng thái.
-          </p>
+      {/* ── Top Header Bar (USER MANAGEMENT + COUNT + SEARCH + ADD BUTTON) ── */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        {/* Title & Total Users Pill */}
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-black tracking-tight text-slate-900 uppercase">
+            QUẢN LÝ NGƯỜI DÙNG
+          </h1>
+          <span className="rounded bg-slate-200/90 px-2.5 py-1 text-xs font-bold tracking-wider text-slate-700 uppercase">
+            {totalCount.toLocaleString('vi-VN')} NGƯỜI DÙNG
+          </span>
         </div>
 
-        {/* Top right metric cards */}
-        <AdminUserMetrics stats={stats} loading={statsLoading} />
+        {/* Right Action: Search Box & + THÊM NGƯỜI DÙNG */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Quick Search */}
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(0)
+              }}
+              placeholder="Tìm kiếm theo tên hoặc ID..."
+              className="w-full rounded-md border border-slate-300 bg-white py-2 pl-9 pr-3 text-xs text-slate-800 placeholder-slate-400 focus:border-slate-500 focus:outline-none"
+            />
+          </div>
+
+          {/* + THÊM NGƯỜI DÙNG Button */}
+          <button
+            type="button"
+            onClick={() => alert('Chức năng thêm người dùng đang được hoàn thiện.')}
+            className="flex items-center gap-1.5 rounded-md bg-[#f5b823] px-4 py-2 text-xs font-black tracking-wider text-slate-950 uppercase shadow-xs hover:bg-[#e6ab1f] transition-colors"
+          >
+            <Plus className="h-4 w-4 stroke-[3]" />
+            <span>THÊM NGƯỜI DÙNG</span>
+          </button>
+        </div>
       </div>
 
-      {/* ── Search & Filter Controls ── */}
+      {/* ── Secondary Minimalist Filters (Role, Status, Reset) ── */}
       <AdminUserFilters
-        search={search}
         role={role}
         status={status}
-        totalCount={totalCount}
-        page={page}
-        size={pageSize}
-        onSearchChange={(val) => {
-          setSearch(val)
-          setPage(0)
-        }}
         onRoleChange={(val) => {
           setRole(val)
           setPage(0)
@@ -152,7 +161,7 @@ export default function AdminUsersPage() {
         onReset={handleResetFilters}
       />
 
-      {/* ── User Data Table ── */}
+      {/* ── Minimalist User Data Table ── */}
       <AdminUserTable
         users={users}
         loading={usersLoading}
@@ -165,6 +174,7 @@ export default function AdminUsersPage() {
         currentPage={page}
         totalPages={totalPages}
         size={pageSize}
+        totalCount={totalCount}
         onPageChange={(newPage) => setPage(newPage)}
       />
 

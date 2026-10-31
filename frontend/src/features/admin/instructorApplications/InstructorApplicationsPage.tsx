@@ -2,19 +2,17 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   fetchInstructorApplications,
-  fetchInstructorApplicationStats,
   approveInstructorApplication,
   rejectInstructorApplication,
   type InstructorApplicationItem,
 } from '@/api/instructorApplications'
-import { ApplicationMetrics } from './components/ApplicationMetrics'
 import { ApplicationFilters } from './components/ApplicationFilters'
 import { ApplicationTable } from './components/ApplicationTable'
 import { ApplicationDetailModal } from './components/ApplicationDetailModal'
 import { ApplicationApproveModal } from './components/ApplicationApproveModal'
 import { ApplicationRejectModal } from './components/ApplicationRejectModal'
 import { AdminUserPagination } from '../users/components/AdminUserPagination'
-import { CheckCircle2, UserCheck } from 'lucide-react'
+import { CheckCircle2, Search } from 'lucide-react'
 
 export default function InstructorApplicationsPage() {
   const queryClient = useQueryClient()
@@ -38,14 +36,6 @@ export default function InstructorApplicationsPage() {
     setToastMessage(msg)
     setTimeout(() => setToastMessage(null), 4000)
   }
-
-  // Stats query
-  const { data: stats = { total: 0, pending: 0, approved: 0, rejected: 0 }, isLoading: statsLoading } =
-    useQuery({
-      queryKey: ['instructorApplicationStats'],
-      queryFn: fetchInstructorApplicationStats,
-      staleTime: 30 * 1000,
-    })
 
   // Applications list query
   const { data: appData, isLoading: appLoading } = useQuery({
@@ -125,47 +115,47 @@ export default function InstructorApplicationsPage() {
     <div className="space-y-6">
       {/* Toast Alert */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 shadow-lg">
-          <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 rounded-lg border border-emerald-200 bg-white px-4 py-3 text-xs font-semibold text-emerald-800 shadow-xl">
+          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* ── Page Header ── */}
-      <div className="flex flex-col justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-              Duyệt đơn đăng ký giảng viên
-            </h1>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-[#00695c] border border-emerald-200/50">
-              <UserCheck className="h-3.5 w-3.5 text-[#00695c]" />
-              Xét duyệt hồ sơ
-            </span>
-          </div>
-          <p className="mt-1 text-sm text-slate-500">
-            Thẩm định hồ sơ năng lực, xét duyệt tài khoản và cấp quyền giảng dạy trên hệ thống EduPlatform.
-          </p>
+      {/* ── Top Header Bar (DUYỆT GIẢNG VIÊN + COUNT + SEARCH) ── */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        {/* Title & Total Count Pill */}
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-black tracking-tight text-slate-900 uppercase">
+            DUYỆT GIẢNG VIÊN
+          </h1>
+          <span className="rounded bg-slate-200/90 px-2.5 py-1 text-xs font-bold tracking-wider text-slate-700 uppercase">
+            {totalCount.toLocaleString('vi-VN')} HỒ SƠ
+          </span>
         </div>
 
-        {/* Top 4 Metrics Cards */}
-        <ApplicationMetrics stats={stats} loading={statsLoading} />
+        {/* Right Action: Quick Search Box */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(0)
+              }}
+              placeholder="Tìm kiếm theo tên hoặc email..."
+              className="w-full rounded-md border border-slate-300 bg-white py-2 pl-9 pr-3 text-xs text-slate-800 placeholder-slate-400 focus:border-slate-500 focus:outline-none"
+            />
+          </div>
+        </div>
       </div>
 
-      {/* ── Filter Controls ── */}
+      {/* ── Secondary Minimalist Filters (Status & Reset) ── */}
       <ApplicationFilters
         status={status}
-        search={search}
-        totalCount={totalCount}
-        pendingCount={stats.pending}
-        page={page}
-        size={pageSize}
         onStatusChange={(val) => {
           setStatus(val)
-          setPage(0)
-        }}
-        onSearchChange={(val) => {
-          setSearch(val)
           setPage(0)
         }}
         onReset={handleResetFilters}
@@ -185,6 +175,7 @@ export default function InstructorApplicationsPage() {
         currentPage={page}
         totalPages={totalPages}
         size={pageSize}
+        totalCount={totalCount}
         onPageChange={(newPage) => setPage(newPage)}
       />
 

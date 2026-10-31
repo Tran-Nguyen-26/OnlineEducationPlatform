@@ -1,112 +1,51 @@
-import { Search, RotateCcw, Info } from 'lucide-react'
+import { RotateCcw } from 'lucide-react'
 
 interface ApplicationFiltersProps {
   status: string
-  search: string
-  totalCount: number
-  pendingCount?: number
-  page: number
-  size: number
-  onStatusChange: (status: string) => void
-  onSearchChange: (search: string) => void
+  onStatusChange: (value: string) => void
   onReset: () => void
 }
 
-const STATUS_TABS = [
-  { key: 'ALL', label: 'Tất cả' },
-  { key: 'PENDING', label: 'Chờ xét duyệt' },
-  { key: 'APPROVED', label: 'Đã phê duyệt' },
-  { key: 'REJECTED', label: 'Đã từ chối' },
-]
-
 export function ApplicationFilters({
   status,
-  search,
-  totalCount,
-  pendingCount = 0,
-  page,
-  size,
   onStatusChange,
-  onSearchChange,
   onReset,
 }: ApplicationFiltersProps) {
-  const startItem = totalCount === 0 ? 0 : page * size + 1
-  const endItem = Math.min((page + 1) * size, totalCount)
+  const isFiltered = status !== 'ALL'
 
   return (
-    <div className="space-y-4">
-      {/* ── Status Tabs Bar ── */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 pb-2">
-        <div className="flex items-center gap-1.5">
-          {STATUS_TABS.map((tab) => {
-            const isActive = status === tab.key
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => onStatusChange(tab.key)}
-                className={`relative flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${
-                  isActive
-                    ? 'bg-[#00695c] text-white shadow-xs'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                }`}
-              >
-                <span>{tab.label}</span>
-                {tab.key === 'PENDING' && pendingCount > 0 && (
-                  <span
-                    className={`rounded-full px-2 py-0.2 text-[11px] font-bold ${
-                      isActive
-                        ? 'bg-amber-400 text-slate-900'
-                        : 'bg-amber-100 text-amber-800'
-                    }`}
-                  >
-                    {pendingCount}
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Counter Info */}
-        <div className="flex items-center gap-1.5 text-xs text-slate-500">
-          <Info className="h-4 w-4 text-slate-400" />
-          <span>
-            Hiển thị{' '}
-            <strong className="font-semibold text-slate-700">
-              {startItem} - {endItem}
-            </strong>{' '}
-            trong tổng số{' '}
-            <strong className="font-semibold text-slate-700">
-              {totalCount.toLocaleString()}
-            </strong>{' '}
-            hồ sơ
-          </span>
+    <div className="flex flex-wrap items-center gap-3">
+      {/* Status select */}
+      <div className="relative">
+        <select
+          value={status}
+          onChange={(e) => onStatusChange(e.target.value)}
+          className="appearance-none rounded-md border border-slate-200 bg-white py-1.5 pl-3 pr-8 text-xs font-medium text-slate-700 transition-colors focus:border-slate-400 focus:outline-none"
+        >
+          <option value="ALL">Tất cả trạng thái</option>
+          <option value="PENDING">Chờ xét duyệt</option>
+          <option value="APPROVED">Đã phê duyệt</option>
+          <option value="REJECTED">Đã từ chối</option>
+        </select>
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
+          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+          </svg>
         </div>
       </div>
 
-      {/* ── Search & Action Bar ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="relative min-w-[320px] flex-1 sm:max-w-md">
-          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Tìm theo họ tên, email, cơ quan, chuyên môn..."
-            className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-800 placeholder-slate-400 transition-all focus:border-[#00695c] focus:outline-none focus:ring-2 focus:ring-[#00695c]/20"
-          />
-        </div>
-
+      {/* Reset button if filtered */}
+      {isFiltered && (
         <button
           type="button"
           onClick={onReset}
-          className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 active:bg-slate-100"
+          className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
+          title="Đặt lại bộ lọc"
         >
-          <RotateCcw className="h-4 w-4 text-slate-500" />
+          <RotateCcw className="h-3.5 w-3.5" />
           <span>Đặt lại</span>
         </button>
-      </div>
+      )}
     </div>
   )
 }

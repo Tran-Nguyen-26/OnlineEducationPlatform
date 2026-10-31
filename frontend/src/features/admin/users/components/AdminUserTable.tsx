@@ -1,4 +1,5 @@
-import { Eye, Lock, Unlock } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { MoreVertical, Eye, Lock, Unlock } from 'lucide-react'
 import type { AdminUserItem, UserRole, AccountStatus } from '@/api/adminUsers'
 
 interface AdminUserTableProps {
@@ -6,37 +7,6 @@ interface AdminUserTableProps {
   loading?: boolean
   onViewDetail: (user: AdminUserItem) => void
   onToggleLock: (user: AdminUserItem) => void
-}
-
-function getAvatarStyle(fullName: string, role: UserRole): { bg: string; text: string; initials: string } {
-  // Extract initials (up to 2 letters)
-  const parts = fullName.replace(/^(TS\.|ThS\.|KS\.|PGS\.|GS\.)\s*/i, '').trim().split(/\s+/)
-  let initials = ''
-  if (parts.length >= 2) {
-    initials = `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
-  } else if (parts.length === 1 && parts[0].length > 0) {
-    initials = parts[0].slice(0, 2).toUpperCase()
-  } else {
-    initials = 'US'
-  }
-
-  if (role === 'ADMIN') {
-    return { bg: 'bg-[#00695c]', text: 'text-white font-semibold', initials }
-  }
-
-  // Consistent color mapping based on initials
-  const palette = [
-    { bg: 'bg-emerald-100', text: 'text-emerald-800' },
-    { bg: 'bg-blue-100', text: 'text-blue-800' },
-    { bg: 'bg-teal-100', text: 'text-teal-800' },
-    { bg: 'bg-indigo-100', text: 'text-indigo-800' },
-    { bg: 'bg-rose-100', text: 'text-rose-800' },
-    { bg: 'bg-purple-100', text: 'text-purple-800' },
-    { bg: 'bg-amber-100', text: 'text-amber-800' },
-    { bg: 'bg-cyan-100', text: 'text-cyan-800' },
-  ]
-  const charCode = (initials.charCodeAt(0) + (initials.charCodeAt(1) || 0)) % palette.length
-  return { ...palette[charCode], initials }
 }
 
 function formatDate(dateString: string): string {
@@ -52,50 +22,32 @@ function formatDate(dateString: string): string {
   }
 }
 
-function renderRoleBadge(role: UserRole) {
+function renderRoleText(role: UserRole) {
   switch (role) {
     case 'STUDENT':
-      return (
-        <span className="inline-flex items-center rounded-full bg-[#dbeafe] px-3 py-1 text-xs font-medium text-[#1e40af]">
-          Học viên (STUDENT)
-        </span>
-      )
+      return 'Học viên'
     case 'INSTRUCTOR':
-      return (
-        <span className="inline-flex items-center rounded-full bg-[#ede9fe] px-3 py-1 text-xs font-medium text-[#5b21b6]">
-          Giảng viên (INSTRUCTOR)
-        </span>
-      )
+      return 'Giảng viên'
     case 'ADMIN':
-      return (
-        <span className="inline-flex items-center rounded-full bg-[#d1fae5] px-3 py-1 text-xs font-semibold text-[#065f46]">
-          Quản trị viên (ADMIN)
-        </span>
-      )
+      return 'Quản trị viên'
     default:
-      return (
-        <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
-          {role}
-        </span>
-      )
+      return role
   }
 }
 
-function renderStatusBadge(status: AccountStatus) {
+function renderStatusText(status: AccountStatus) {
   const isLocked = status === 'LOCKED' || status === 'SUSPENDED'
-
   if (isLocked) {
     return (
-      <div className="inline-flex items-center gap-1.5 rounded-full bg-[#fee2e2] px-3 py-1 text-xs font-semibold text-[#991b1b]">
-        <span className="h-2 w-1 rounded-full bg-[#ef4444]" />
+      <div className="inline-flex items-center gap-1.5 text-xs text-rose-600 font-medium">
+        <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
         <span>Đã khóa</span>
       </div>
     )
   }
-
   return (
-    <div className="inline-flex items-center gap-1.5 rounded-full bg-[#e6f4ea] px-3 py-1 text-xs font-semibold text-[#065f46]">
-      <span className="h-2 w-1 rounded-full bg-[#10b981]" />
+    <div className="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
       <span>Đang hoạt động</span>
     </div>
   )
@@ -107,12 +59,28 @@ export function AdminUserTable({
   onViewDetail,
   onToggleLock,
 }: AdminUserTableProps) {
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null)
+  const menuRef = useRef<HTMLDivElement | null>(null)
+
+  // Close popup menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setActiveMenuId(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
+
   if (loading) {
     return (
-      <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs">
-        <div className="flex h-96 flex-col items-center justify-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#00695c] border-t-transparent" />
-          <p className="text-sm font-medium text-slate-500">Đang tải danh sách người dùng...</p>
+      <div className="rounded-lg border border-slate-200 bg-white shadow-xs">
+        <div className="flex h-80 flex-col items-center justify-center gap-3">
+          <div className="h-7 w-7 animate-spin rounded-full border-2 border-[#f5b823] border-t-transparent" />
+          <p className="text-xs font-medium text-slate-500">Đang tải danh sách người dùng...</p>
         </div>
       </div>
     )
@@ -120,12 +88,9 @@ export function AdminUserTable({
 
   if (users.length === 0) {
     return (
-      <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-12 text-center shadow-xs">
-        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-          <Eye className="h-6 w-6" />
-        </div>
-        <h3 className="text-base font-semibold text-slate-800">Không tìm thấy người dùng</h3>
-        <p className="mt-1 text-sm text-slate-500">
+      <div className="rounded-lg border border-slate-200 bg-white p-12 text-center shadow-xs">
+        <h3 className="text-sm font-semibold text-slate-800">Không tìm thấy người dùng</h3>
+        <p className="mt-1 text-xs text-slate-500">
           Không có tài khoản nào phù hợp với bộ lọc tìm kiếm hiện tại.
         </p>
       </div>
@@ -133,119 +98,126 @@ export function AdminUserTable({
   }
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-xs">
-      <table className="w-full text-left text-sm text-slate-600">
-        <thead className="border-b border-slate-100 bg-slate-50/60 text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+    <div className="relative rounded-lg border border-slate-200 bg-white shadow-xs">
+      <table className="w-full text-left text-xs text-slate-600">
+        <thead className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-bold tracking-wider text-slate-500 uppercase">
           <tr>
-            <th scope="col" className="px-6 py-4 font-semibold">
-              STT
-            </th>
-            <th scope="col" className="px-6 py-4 font-semibold">
+            <th scope="col" className="px-6 py-3.5 font-bold">
               Họ và tên
             </th>
-            <th scope="col" className="px-6 py-4 font-semibold">
+            <th scope="col" className="px-6 py-3.5 font-bold">
               Email
             </th>
-            <th scope="col" className="px-6 py-4 font-semibold">
+            <th scope="col" className="px-6 py-3.5 font-bold">
               Vai trò
             </th>
-            <th scope="col" className="px-6 py-4 font-semibold">
-              Ngày tạo tài khoản
+            <th scope="col" className="px-6 py-3.5 font-bold">
+              Ngày tạo
             </th>
-            <th scope="col" className="px-6 py-4 font-semibold">
+            <th scope="col" className="px-6 py-3.5 font-bold">
               Trạng thái
             </th>
-            <th scope="col" className="px-6 py-4 text-right font-semibold">
+            <th scope="col" className="px-6 py-3.5 text-right font-bold">
               Thao tác
             </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {users.map((user) => {
-            const avatar = getAvatarStyle(user.fullName, user.role)
             const isLocked = user.accountStatus === 'LOCKED' || user.accountStatus === 'SUSPENDED'
             const isAdmin = user.role === 'ADMIN'
+            const isMenuOpen = activeMenuId === user.id
 
             return (
               <tr
                 key={user.id}
-                className="transition-colors hover:bg-slate-50/70"
+                className="transition-colors hover:bg-slate-50/60"
               >
-                {/* STT */}
-                <td className="px-6 py-4.5 font-mono text-xs text-slate-400">
-                  {user.stt || '01'}
+                {/* 1. Họ và tên - Duy nhất 1 thông tin */}
+                <td className="px-6 py-4 font-semibold text-slate-900 whitespace-nowrap">
+                  {user.fullName}
                 </td>
 
-                {/* Họ và tên with Avatar */}
-                <td className="px-6 py-4.5">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatar.bg} ${avatar.text}`}
-                    >
-                      {avatar.initials}
-                    </div>
-                    <span className="font-semibold text-slate-900">
-                      {user.fullName}
-                    </span>
-                  </div>
-                </td>
-
-                {/* Email */}
-                <td className="px-6 py-4.5 font-mono text-xs text-slate-600">
+                {/* 2. Email - Duy nhất 1 thông tin */}
+                <td className="px-6 py-4 font-mono text-xs text-slate-600 whitespace-nowrap">
                   {user.email}
                 </td>
 
-                {/* Vai trò */}
-                <td className="px-6 py-4.5 whitespace-nowrap">
-                  {renderRoleBadge(user.role)}
+                {/* 3. Vai trò - Tối giản không màu sắc, duy nhất 1 thông tin */}
+                <td className="px-6 py-4 text-slate-700 whitespace-nowrap">
+                  {renderRoleText(user.role)}
                 </td>
 
-                {/* Ngày tạo tài khoản */}
-                <td className="px-6 py-4.5 text-slate-600 whitespace-nowrap">
+                {/* 4. Ngày tạo - Duy nhất 1 thông tin */}
+                <td className="px-6 py-4 text-slate-500 whitespace-nowrap">
                   {formatDate(user.createdAt)}
                 </td>
 
-                {/* Trạng thái */}
-                <td className="px-6 py-4.5 whitespace-nowrap">
-                  {renderStatusBadge(user.accountStatus)}
+                {/* 5. Trạng thái - Tối giản, không nền badge màu lòe loẹt */}
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {renderStatusText(user.accountStatus)}
                 </td>
 
-                {/* Thao tác */}
-                <td className="px-6 py-4.5 text-right whitespace-nowrap">
-                  <div className="flex items-center justify-end gap-3.5">
-                    {/* Xem chi tiết button */}
+                {/* 6. Thao tác - Menu 3 chấm (⋮) tối giản */}
+                <td className="px-6 py-4 text-right whitespace-nowrap relative">
+                  <div className="relative inline-block text-left">
                     <button
                       type="button"
-                      onClick={() => onViewDetail(user)}
-                      className="inline-flex items-center gap-1.5 text-xs font-medium text-[#00695c] transition-colors hover:text-[#004d40] hover:underline"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setActiveMenuId(isMenuOpen ? null : user.id)
+                      }}
+                      className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                      title="Thao tác"
                     >
-                      <Eye className="h-4 w-4" />
-                      <span>Xem chi tiết</span>
+                      <MoreVertical className="h-4 w-4" />
                     </button>
 
-                    {/* Khóa / Mở khóa button (hidden for ADMIN accounts) */}
-                    {!isAdmin && (
-                      <>
-                        {isLocked ? (
+                    {/* Popover Action Menu */}
+                    {isMenuOpen && (
+                      <div
+                        ref={menuRef}
+                        className="absolute right-0 top-full mt-1 w-36 rounded-lg border border-slate-200 bg-white py-1 shadow-lg z-30"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveMenuId(null)
+                            onViewDetail(user)
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 transition-colors"
+                        >
+                          <Eye className="h-3.5 w-3.5 text-slate-500" />
+                          <span>Xem chi tiết</span>
+                        </button>
+
+                        {!isAdmin && (
                           <button
                             type="button"
-                            onClick={() => onToggleLock(user)}
-                            className="inline-flex items-center gap-1 text-xs font-medium text-[#00695c] transition-colors hover:text-[#004d40] hover:underline"
+                            onClick={() => {
+                              setActiveMenuId(null)
+                              onToggleLock(user)
+                            }}
+                            className={`flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors ${
+                              isLocked
+                                ? 'text-emerald-700 hover:bg-emerald-50'
+                                : 'text-rose-600 hover:bg-rose-50'
+                            }`}
                           >
-                            <Unlock className="h-4 w-4" />
-                            <span>Mở khóa</span>
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => onToggleLock(user)}
-                            className="inline-flex items-center gap-1 text-xs font-medium text-rose-600 transition-colors hover:text-rose-700 hover:underline"
-                          >
-                            <Lock className="h-4 w-4" />
-                            <span>Khóa</span>
+                            {isLocked ? (
+                              <>
+                                <Unlock className="h-3.5 w-3.5 text-emerald-600" />
+                                <span>Mở khóa</span>
+                              </>
+                            ) : (
+                              <>
+                                <Lock className="h-3.5 w-3.5 text-rose-500" />
+                                <span>Khóa</span>
+                              </>
+                            )}
                           </button>
                         )}
-                      </>
+                      </div>
                     )}
                   </div>
                 </td>
