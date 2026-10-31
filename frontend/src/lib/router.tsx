@@ -1,7 +1,6 @@
 // oxlint-disable react/only-export-components -- router config file legitimately re-exports lazy components
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { RootLayout } from '@/layouts/RootLayout'
-import { RegisterLayout } from '@/layouts/RegisterLayout'
 import { AdminLayout } from '@/layouts/AdminLayout'
 
 // Lazy-loaded feature pages
@@ -68,9 +67,9 @@ export const router = createBrowserRouter([
     element: withSuspense(ForgotPasswordPage),
   },
   {
-    path: '/',
-    element: <RegisterLayout />,
-    children: [{ path: 'register', element: withSuspense(RegisterPage) }],
+    // RegisterStudentPage is self-contained (full-page layout)
+    path: '/register',
+    element: withSuspense(RegisterPage),
   },
   {
     path: '/admin',

@@ -1,35 +1,46 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import {
+  GraduationCap,
+  Mail,
+  Lock,
+  User,
+  Phone,
+  Calendar,
+  Building2,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  Code2,
+  Compass,
+  Laptop,
+  ArrowRight,
+  AlertCircle,
+} from 'lucide-react'
 import { registerUser } from '@/api/auth.ts'
 import './register-student.css'
 
-function getPasswordStrength(password: string): { level: number; label: string } {
-  if (!password) return { level: 0, label: '' }
+function getPasswordStrength(password: string): { level: number; label: string; color: string } {
+  if (!password) return { level: 0, label: '', color: '' }
   let score = 0
   if (password.length >= 6) score++
   if (password.length >= 10) score++
   if (/[A-Z]/.test(password)) score++
   if (/[0-9]/.test(password)) score++
   if (/[^A-Za-z0-9]/.test(password)) score++
-  if (score <= 1) return { level: 1, label: 'Yếu' }
-  if (score <= 2) return { level: 2, label: 'Trung bình' }
-  if (score <= 3) return { level: 3, label: 'Khá' }
-  return { level: 4, label: 'Mạnh' }
-}
 
-const strengthColors = ['', '#ef4444', '#f97316', '#eab308', '#10b981']
-const strengthColorNames = [
-  '',
-  'reg-strength-weak',
-  'reg-strength-fair',
-  'reg-strength-good',
-  'reg-strength-strong',
-]
+  if (score <= 1) return { level: 1, label: 'Yếu', color: '#ef4444' }
+  if (score <= 2) return { level: 2, label: 'Trung bình', color: '#f97316' }
+  if (score <= 3) return { level: 3, label: 'Khá', color: '#eab308' }
+  return { level: 4, label: 'Mạnh', color: '#10b981' }
+}
 
 export default function RegisterStudentPage() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // Form states
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -40,13 +51,18 @@ export default function RegisterStudentPage() {
   const [dob, setDob] = useState('')
   const [school, setSchool] = useState('')
   const [about, setAbout] = useState('')
+  const [agreeTerms, setAgreeTerms] = useState(true)
 
   const strength = getPasswordStrength(password)
-  const passwordsMatch = confirmPassword.length > 0 && password === confirmPassword
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    if (!agreeTerms) {
+      setError('Vui lòng đồng ý với Điều khoản dịch vụ và Chính sách bảo mật.')
+      return
+    }
 
     if (password !== confirmPassword) {
       setError('Mật khẩu xác nhận không trùng khớp.')
@@ -93,355 +109,374 @@ export default function RegisterStudentPage() {
   }
 
   return (
-    <>
-      {/* Page header */}
-      <div className="reg-form-header">
-        <h2 className="reg-form-title">Tạo Tài Khoản Học Viên</h2>
-        <p className="reg-form-subtitle">
-          Tham gia EduPlatform và bắt đầu hành trình học tập của bạn ngay hôm nay.
-        </p>
-      </div>
+    <div className="student-reg-container">
+      {/* ── Left Brand & Features Panel ── */}
+      <aside className="student-reg-left">
+        <div className="student-reg-left-content">
+          {/* Logo & Brand */}
+          <Link to="/" className="student-reg-brand">
+            <div className="student-reg-logo-box">
+              <GraduationCap className="h-5 w-5" strokeWidth={2.5} />
+            </div>
+            <div className="student-reg-brand-text">
+              <span className="student-reg-brand-name">EduPlatform</span>
+              <span className="student-reg-brand-sub">Cổng Học Viện</span>
+            </div>
+          </Link>
 
-      {error && (
-        <div className="reg-alert-error" role="alert">
-          <svg
-            className="reg-alert-icon"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-          <span>{error}</span>
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="reg-form-body">
-        {/* ── Section: Account Information ── */}
-        <div className="reg-section-header">
-          <span className="reg-section-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="11" width="18" height="11" rx="2" />
-              <path d="M7 11V7a5 5 0 0110 0v4" />
-            </svg>
-          </span>
-          <span className="reg-section-title">THÔNG TIN TÀI KHOẢN</span>
-        </div>
-
-        {/* Email */}
-        <div className="reg-field">
-          <label htmlFor="regEmail" className="reg-label">
-            Địa chỉ Email <span className="reg-required">*</span>
-          </label>
-          <div className="reg-input-wrap">
-            <span className="reg-input-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                <polyline points="22,6 12,13 2,6" />
-              </svg>
-            </span>
-            <input
-              id="regEmail"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="hocvien@example.com"
-              className="reg-input reg-input-with-icon"
-            />
+          {/* Slogan Pill */}
+          <div className="student-reg-pill">
+            <span className="student-reg-pill-dot" />
+            <span>Học Tập · Thực Hành · Phát Triển</span>
           </div>
-        </div>
 
-        {/* Password */}
-        <div className="reg-field">
-          <div className="reg-label-row">
-            <label htmlFor="regPassword" className="reg-label">
-              Mật khẩu <span className="reg-required">*</span>
-            </label>
-            <span className="reg-label-hint">6–100 ký tự</span>
-          </div>
-          <div className="reg-input-wrap">
-            <span className="reg-input-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="11" width="18" height="11" rx="2" />
-                <path d="M7 11V7a5 5 0 0110 0v4" />
-              </svg>
-            </span>
-            <input
-              id="regPassword"
-              type={showPassword ? 'text' : 'password'}
-              required
-              minLength={6}
-              maxLength={100}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••••••••"
-              className="reg-input reg-input-with-icon reg-input-with-toggle"
-            />
-            <button
-              type="button"
-              className="reg-toggle-btn"
-              onClick={() => setShowPassword((v) => !v)}
-              aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-            >
-              {showPassword ? (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
-                  <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
-                  <line x1="1" y1="1" x2="23" y2="23" />
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-              )}
-            </button>
-          </div>
-          {/* Strength bar */}
-          {password && (
-            <div className="reg-strength-row">
-              <span className="reg-strength-label">Độ mạnh:</span>
-              <div className="reg-strength-bars">
-                {[1, 2, 3, 4].map((i) => (
-                  <div
-                    key={i}
-                    className="reg-strength-bar"
-                    style={{
-                      backgroundColor:
-                        i <= strength.level ? strengthColors[strength.level] : '#e5e7eb',
-                    }}
-                  />
-                ))}
+          {/* Hero Typography */}
+          <h1 className="student-reg-hero-title">
+            Bắt Đầu Hành Trình Học Tập
+          </h1>
+          <p className="student-reg-hero-desc">
+            Tạo tài khoản, khám phá chương trình học chuẩn mực và phát triển năng lực chuyên môn cùng EduPlatform.
+          </p>
+
+          {/* 4 Feature Cards */}
+          <div className="student-reg-features">
+            {/* Card 1 */}
+            <div className="student-reg-card">
+              <div className="student-reg-card-icon">
+                <Laptop className="h-4 w-4" />
               </div>
-              <span className={`reg-strength-text ${strengthColorNames[strength.level]}`}>
-                {strength.label}
-              </span>
+              <div>
+                <div className="student-reg-card-title">Cổng Học Viên Chính Thức</div>
+                <div className="student-reg-card-desc">
+                  Truy cập toàn diện vào môi trường thực hành đám mây, kho bài giảng và tài nguyên mã nguồn.
+                </div>
+              </div>
+            </div>
+
+            {/* Card 2 */}
+            <div className="student-reg-card">
+              <div className="student-reg-card-icon">
+                <Compass className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="student-reg-card-title">Lộ Trình Công Nghệ Tuyển Chọn</div>
+                <div className="student-reg-card-desc">
+                  Các chuyên ngành thiết kế chuẩn kỹ sư cho Điện toán đám mây, Fullstack và Trí tuệ nhân tạo.
+                </div>
+              </div>
+            </div>
+
+            {/* Card 3 */}
+            <div className="student-reg-card">
+              <div className="student-reg-card-icon">
+                <Code2 className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="student-reg-card-title">Dự Án Thực Hành Lập Trình</div>
+                <div className="student-reg-card-desc">
+                  Xây dựng dự án thực tế đưa vào portfolio với đánh giá chi tiết từ đội ngũ trợ giảng.
+                </div>
+              </div>
+            </div>
+
+            {/* Card 4 */}
+            <div className="student-reg-card">
+              <div className="student-reg-card-icon">
+                <ShieldCheck className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="student-reg-card-title">Chứng Chỉ Kỹ Năng Xác Thực</div>
+                <div className="student-reg-card-desc">
+                  Chứng chỉ số bảo mật được doanh nghiệp công nhận, liên kết trực tiếp vào hồ sơ tuyển dụng.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Left Footer */}
+        <div className="student-reg-left-footer">
+          <div className="student-reg-ssl-badge">
+            <Lock className="h-3.5 w-3.5 text-slate-400" />
+            <span>Bảo mật SSL 256-bit</span>
+          </div>
+          <div>© 2026 EduPlatform</div>
+        </div>
+      </aside>
+
+      {/* ── Right Form Card Panel ── */}
+      <main className="student-reg-right">
+        <div className="student-reg-form-card">
+          {/* Card Header */}
+          <div className="student-reg-header-row">
+            <div>
+              <h2 className="student-reg-header-title">Tạo Tài Khoản Học Viên</h2>
+              <p className="student-reg-header-sub">
+                Hoàn tất thông tin đăng ký để truy cập không gian học tập và thực hành.
+              </p>
+            </div>
+          </div>
+
+          {/* Error Alert */}
+          {error && (
+            <div className="student-reg-alert" role="alert">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{error}</span>
             </div>
           )}
-        </div>
 
-        {/* Confirm password */}
-        <div className="reg-field">
-          <div className="reg-label-row">
-            <label htmlFor="regConfirmPassword" className="reg-label">
-              Xác nhận mật khẩu <span className="reg-required">*</span>
-            </label>
-            {passwordsMatch && (
-              <span className="reg-match-badge">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                Mật khẩu trùng khớp
-              </span>
-            )}
-          </div>
-          <div className="reg-input-wrap">
-            <span className="reg-input-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
-              </svg>
-            </span>
-            <input
-              id="regConfirmPassword"
-              type={showConfirm ? 'text' : 'password'}
-              required
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="••••••••••••••"
-              className={`reg-input reg-input-with-icon reg-input-with-toggle${
-                confirmPassword && !passwordsMatch ? 'reg-input-error' : ''
-              }`}
-            />
-            <button
-              type="button"
-              className="reg-toggle-btn"
-              onClick={() => setShowConfirm((v) => !v)}
-              aria-label={showConfirm ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-            >
-              {showConfirm ? (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
-                  <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
-                  <line x1="1" y1="1" x2="23" y2="23" />
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* ── Section: Personal Profile ── */}
-        <div className="reg-section-header" style={{ marginTop: '1.5rem' }}>
-          <span className="reg-section-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
-          </span>
-          <span className="reg-section-title">HỒ SƠ CÁ NHÂN</span>
-        </div>
-        <p className="reg-section-desc">
-          Cho chúng tôi biết thêm về bạn. Bạn có thể cập nhật hồ sơ sau.
-        </p>
-
-        {/* Full Name */}
-        <div className="reg-field">
-          <div className="reg-label-row">
-            <label htmlFor="regFullName" className="reg-label">
-              Họ và tên <span className="reg-required">*</span>
-            </label>
-            <span className="reg-label-hint">Tối đa 255 ký tự</span>
-          </div>
-          <div className="reg-input-wrap">
-            <span className="reg-input-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
-            </span>
-            <input
-              id="regFullName"
-              type="text"
-              required
-              maxLength={255}
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="Nguyễn Văn An"
-              className="reg-input reg-input-with-icon"
-            />
-          </div>
-        </div>
-
-        {/* Phone + Date of Birth */}
-        <div className="reg-two-col">
-          <div className="reg-field">
-            <div className="reg-label-row">
-              <label htmlFor="regPhone" className="reg-label">
-                Số điện thoại
-              </label>
-              <span className="reg-optional">Tùy chọn</span>
+          {/* Form */}
+          <form onSubmit={handleSubmit}>
+            {/* ── Section 1: Thông tin tài khoản ── */}
+            <div className="student-reg-section-bar">
+              <span className="student-reg-section-num">1</span>
+              <span className="student-reg-section-title">THÔNG TIN TÀI KHOẢN</span>
             </div>
-            <div className="reg-input-wrap">
-              <span className="reg-input-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.63A2 2 0 012 .18h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 14z" />
-                </svg>
-              </span>
-              <input
-                id="regPhone"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="0901234567"
-                className="reg-input reg-input-with-icon"
+
+            {/* Email */}
+            <div className="student-reg-field">
+              <label htmlFor="regEmail" className="student-reg-label">
+                ĐỊA CHỈ EMAIL <span className="student-reg-required">*</span>
+              </label>
+              <div className="student-reg-input-wrap">
+                <span className="student-reg-input-icon">
+                  <Mail className="h-4 w-4" />
+                </span>
+                <input
+                  id="regEmail"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.com"
+                  className="student-reg-input student-reg-input-with-icon"
+                />
+              </div>
+            </div>
+
+            {/* Password & Confirm Password (2 Columns) */}
+            <div className="student-reg-two-col">
+              {/* Password */}
+              <div className="student-reg-field">
+                <label htmlFor="regPassword" className="student-reg-label">
+                  MẬT KHẨU <span className="student-reg-required">*</span>
+                </label>
+                <div className="student-reg-input-wrap">
+                  <span className="student-reg-input-icon">
+                    <Lock className="h-4 w-4" />
+                  </span>
+                  <input
+                    id="regPassword"
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Tối thiểu 6 ký tự"
+                    className="student-reg-input student-reg-input-with-icon student-reg-input-with-toggle"
+                  />
+                  <button
+                    type="button"
+                    className="student-reg-toggle-btn"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {/* Password strength indicator */}
+                {password && (
+                  <div className="student-reg-strength-box">
+                    <div className="student-reg-strength-bars">
+                      {[1, 2, 3, 4].map((i) => (
+                        <div
+                          key={i}
+                          className="student-reg-strength-bar"
+                          style={{
+                            backgroundColor: i <= strength.level ? strength.color : '#e2e8f0',
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <span className="student-reg-strength-text" style={{ color: strength.color }}>
+                      {strength.label}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Confirm Password */}
+              <div className="student-reg-field">
+                <label htmlFor="regConfirmPassword" className="student-reg-label">
+                  XÁC NHẬN MẬT KHẨU <span className="student-reg-required">*</span>
+                </label>
+                <div className="student-reg-input-wrap">
+                  <span className="student-reg-input-icon">
+                    <Lock className="h-4 w-4" />
+                  </span>
+                  <input
+                    id="regConfirmPassword"
+                    type={showConfirm ? 'text' : 'password'}
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Nhập lại mật khẩu"
+                    className="student-reg-input student-reg-input-with-icon student-reg-input-with-toggle"
+                  />
+                  <button
+                    type="button"
+                    className="student-reg-toggle-btn"
+                    onClick={() => setShowConfirm(!showConfirm)}
+                    aria-label={showConfirm ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  >
+                    {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Section 2: Hồ sơ cá nhân ── */}
+            <div className="student-reg-section-bar">
+              <span className="student-reg-section-num">2</span>
+              <span className="student-reg-section-title">HỒ SƠ CÁ NHÂN</span>
+            </div>
+
+            {/* Full Name */}
+            <div className="student-reg-field">
+              <label htmlFor="regFullName" className="student-reg-label">
+                HỌ VÀ TÊN <span className="student-reg-required">*</span>
+              </label>
+              <div className="student-reg-input-wrap">
+                <span className="student-reg-input-icon">
+                  <User className="h-4 w-4" />
+                </span>
+                <input
+                  id="regFullName"
+                  type="text"
+                  required
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Ví dụ: Nguyễn Văn An"
+                  className="student-reg-input student-reg-input-with-icon"
+                />
+              </div>
+            </div>
+
+            {/* Phone & Date of Birth (2 Columns) */}
+            <div className="student-reg-two-col">
+              {/* Phone */}
+              <div className="student-reg-field">
+                <label htmlFor="regPhone" className="student-reg-label">
+                  SỐ ĐIỆN THOẠI
+                </label>
+                <div className="student-reg-input-wrap">
+                  <span className="student-reg-input-icon">
+                    <Phone className="h-4 w-4" />
+                  </span>
+                  <input
+                    id="regPhone"
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="0901234567"
+                    className="student-reg-input student-reg-input-with-icon"
+                  />
+                </div>
+              </div>
+
+              {/* Date of Birth */}
+              <div className="student-reg-field">
+                <label htmlFor="regDob" className="student-reg-label">
+                  NGÀY SINH
+                </label>
+                <div className="student-reg-input-wrap">
+                  <span className="student-reg-input-icon">
+                    <Calendar className="h-4 w-4" />
+                  </span>
+                  <input
+                    id="regDob"
+                    type="date"
+                    value={dob}
+                    onChange={(e) => setDob(e.target.value)}
+                    className="student-reg-input student-reg-input-with-icon"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* University / Organization */}
+            <div className="student-reg-field">
+              <label htmlFor="regSchool" className="student-reg-label">
+                TRƯỜNG ĐẠI HỌC / TỔ CHỨC
+              </label>
+              <div className="student-reg-input-wrap">
+                <span className="student-reg-input-icon">
+                  <Building2 className="h-4 w-4" />
+                </span>
+                <input
+                  id="regSchool"
+                  type="text"
+                  value={school}
+                  onChange={(e) => setSchool(e.target.value)}
+                  placeholder="Ví dụ: Đại học Bách Khoa, FPT..."
+                  className="student-reg-input student-reg-input-with-icon"
+                />
+              </div>
+            </div>
+
+            {/* About Me */}
+            <div className="student-reg-field">
+              <label htmlFor="regAbout" className="student-reg-label">
+                GIỚI THIỆU BẢN THÂN
+              </label>
+              <textarea
+                id="regAbout"
+                rows={3}
+                value={about}
+                onChange={(e) => setAbout(e.target.value)}
+                placeholder="Chia sẻ mục tiêu nghề nghiệp, nền tảng học vấn hoặc công nghệ bạn muốn chinh phục..."
+                className="student-reg-textarea"
               />
             </div>
-          </div>
-          <div className="reg-field">
-            <div className="reg-label-row">
-              <label htmlFor="regDob" className="reg-label">
-                Ngày sinh
+
+            {/* Agreement Checkbox */}
+            <div className="student-reg-agree">
+              <input
+                id="regAgree"
+                type="checkbox"
+                checked={agreeTerms}
+                onChange={(e) => setAgreeTerms(e.target.checked)}
+              />
+              <label htmlFor="regAgree">
+                Tôi đồng ý với <Link to="/terms">Điều khoản dịch vụ</Link> và{' '}
+                <Link to="/privacy">Chính sách bảo mật</Link> của EduPlatform.
               </label>
-              <span className="reg-optional">Tùy chọn</span>
             </div>
-            <input
-              id="regDob"
-              type="date"
-              value={dob}
-              onChange={(e) => setDob(e.target.value)}
-              className="reg-input"
-            />
-          </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="student-reg-submit"
+            >
+              {loading ? (
+                <span>Đang xử lý đăng ký...</span>
+              ) : (
+                <>
+                  <span>TẠO TÀI KHOẢN</span>
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
+            </button>
+
+            {/* Sign in Link */}
+            <div className="student-reg-signin">
+              Đã có tài khoản?
+              <Link to="/login">Đăng nhập ngay</Link>
+            </div>
+          </form>
         </div>
-
-        {/* School / Organization */}
-        <div className="reg-field">
-          <div className="reg-label-row">
-            <label htmlFor="regSchool" className="reg-label">
-              Trường / Tổ chức
-            </label>
-            <span className="reg-optional">Tùy chọn</span>
-          </div>
-          <div className="reg-input-wrap">
-            <span className="reg-input-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="2" y="7" width="20" height="14" rx="2" />
-                <path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" />
-                <line x1="12" y1="12" x2="12" y2="16" />
-                <line x1="10" y1="14" x2="14" y2="14" />
-              </svg>
-            </span>
-            <input
-              id="regSchool"
-              type="text"
-              value={school}
-              onChange={(e) => setSchool(e.target.value)}
-              placeholder="Đại học Quốc gia Việt Nam"
-              className="reg-input reg-input-with-icon"
-            />
-          </div>
-        </div>
-
-        {/* About You */}
-        <div className="reg-field">
-          <div className="reg-label-row">
-            <label htmlFor="regAbout" className="reg-label">
-              Giới thiệu bản thân
-            </label>
-            <span className="reg-optional">Tùy chọn</span>
-          </div>
-          <textarea
-            id="regAbout"
-            rows={3}
-            value={about}
-            onChange={(e) => setAbout(e.target.value)}
-            placeholder="Tôi quan tâm đến phát triển web full-stack và kỹ thuật phần mềm đám mây."
-            className="reg-input reg-textarea"
-          />
-        </div>
-
-        {/* Submit */}
-        <button type="submit" disabled={loading} className="reg-submit-btn">
-          {loading ? (
-            <>
-              <svg className="reg-spinner" viewBox="0 0 24 24" fill="none">
-                <circle
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeOpacity="0.25"
-                />
-                <path
-                  d="M12 2a10 10 0 0110 10"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                />
-              </svg>
-              Đang tạo tài khoản…
-            </>
-          ) : (
-            'Tạo Tài Khoản'
-          )}
-        </button>
-
-        <p className="reg-signin-link">
-          Đã có tài khoản?{' '}
-          <Link to="/login" className="reg-signin-link-a">
-            Đăng nhập
-          </Link>
-        </p>
-      </form>
-    </>
+      </main>
+    </div>
   )
 }
