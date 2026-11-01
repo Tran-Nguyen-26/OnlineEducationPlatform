@@ -73,3 +73,17 @@ Capacity changes and PUBLIC/PRIVATE visibility changes are rejected by course PA
 - The public catalog returned an empty list while the newly created course was `DRAFT`; this is expected because the catalog only includes `PUBLIC` + `PUBLISHED` courses.
 - Vietnamese request data was confirmed stored as UTF-8 in PostgreSQL. Windows PowerShell 5.1 displayed some JSON response text with mojibake; this was a client display/decoding issue.
 - M2.3 local gateway/PostgreSQL API smoke checks passed on 2026-10-22 after installing the updated `core-model` artifact. The process used `TZ=UTC` because PostgreSQL rejected the host-provided `Asia/Saigon` session timezone.
+
+## M4 Quiz Engine delivered scope (2026-11-01)
+
+- Added full CRUD Quiz, Question Bank, Questions + Options in `core-lms-service` for Instructor and Admin roles.
+- `POST /api/v1/courses/{courseId}/quizzes`: create Quiz with question source, time limits, deadline, max attempts, grading policy, and shuffle settings.
+- `PATCH /api/v1/courses/{courseId}/quizzes/{quizId}`: update quiz metadata; blocks updates if `is_locked` is true (`QUIZ_NOT_EDITABLE`).
+- `DELETE /api/v1/courses/{courseId}/quizzes/{quizId}`: blocks deletion if attempts exist (`QUIZ_HAS_ATTEMPTS`).
+- Question Bank CRUD: `GET/POST/PATCH/DELETE /api/v1/courses/{courseId}/question-banks`; blocks deletion when non-empty (`QUESTION_BANK_NOT_EMPTY`).
+- Questions & Options: embedded option management, option validation per QuestionType (`TRUE_FALSE`, `SINGLE_CHOICE`, `MULTIPLE_CHOICE`).
+- `POST /api/v1/courses/{courseId}/quizzes/{quizId}/questions/reorder`: two-phase collision-safe reordering with negative temporary positions.
+- Score adjustment: `POST /api/v1/courses/{courseId}/quizzes/{quizId}/results/{resultId}/adjust-score`; validates `final_score <= sum(points)` (`SCORE_OUT_OF_RANGE`).
+- Admin Quiz overview: `GET /api/v1/admin/quizzes` with pagination, course filter, and attempt counts.
+- Service unit tests: `QuizManagementServiceTest` (11 test cases) all pass.
+
