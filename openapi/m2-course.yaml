@@ -1386,8 +1386,8 @@ paths:
         OWNER or CO_INSTRUCTOR only. Position is a zero-based insertion index. Existing content at or after
         the requested index is shifted right in its current order; an omitted position appends the content.
         TEXT/LINK content is AVAILABLE immediately. File content is created
-        PENDING with validated MIME type and declared size (up to 100 MiB), then becomes AVAILABLE only
-        after storage verification.
+        PENDING with validated MIME type and declared size (VIDEO up to 2 GiB; other files up to 50 MiB),
+        then becomes AVAILABLE only after storage verification. VIDEO requires duration_seconds.
       parameters:
         - { $ref: "#/components/parameters/CourseId" }
         - { $ref: "#/components/parameters/ModuleId" }
@@ -1428,9 +1428,9 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
         "422": { $ref: "#/components/responses/Unprocessable" }
         "409": { $ref: "#/components/responses/Conflict" }
-        "413": { $ref: "#/components/responses/PayloadTooLarge" }
         "415": { $ref: "#/components/responses/UnsupportedMedia" }
         "500":
           description: Internal server error
@@ -1605,10 +1605,11 @@ paths:
       tags: [Contents]
       operationId: reorderLessonContents
       summary: Reorder lesson contents
-      x-implementation-status: planned
+      x-implementation-status: implemented
       description:
         OWNER or CO_INSTRUCTOR only. ordered_ids must contain exactly the content IDs currently in
-        the lesson.
+        the lesson. The complete list is written as contiguous zero-based positions in one transaction.
+        Pending file content is included; ordering does not change upload state.
       parameters:
         - { $ref: "#/components/parameters/CourseId" }
         - { $ref: "#/components/parameters/ModuleId" }
@@ -1657,8 +1658,9 @@ paths:
       description: |
         OWNER or CO_INSTRUCTOR only. File metadata is recorded when the content item is created. Content
         must be a file in PENDING or FAILED state. The server generates and stores an opaque object key;
-        clients receive a presigned PUT URL valid for 10 minutes and must send the declared Content-Type.
-        The maximum file size is 100 MiB.
+        clients receive a presigned PUT URL valid for 15 minutes and must send the declared Content-Type.
+        VIDEO is limited to 2 GiB; PDF and SLIDE are limited to 50 MiB. Other file types are limited to 50 MiB.
+        Large VIDEO files use multipart-upload; single PUT is rejected for files above 50 MiB.
       parameters:
         - { $ref: "#/components/parameters/ContentId" }
       responses:
@@ -1694,6 +1696,88 @@ paths:
       x-request-example: POST /api/v1/contents/44444444-4444-4444-8444-444444444444/upload-url
       x-error-codes:
         [UPLOAD_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, INVALID_UPLOAD_STATE]
+  /contents/{contentId}/multipart-upload:
+    post:
+      tags: [Files]
+      operationId: issueMultipartUploadUrls
+      summary: Start a multipart video upload
+      description: |
+        OWNER or CO_INSTRUCTOR only. Starts an S3-compatible multipart upload for a VIDEO between 50 MiB
+        and 2 GiB and returns one presigned URL per 10 MiB part, valid for 15 minutes. The response never
+        exposes the server-managed object key. The client uploads at most three parts concurrently and
+        records each response ETag for completion.
+      parameters:
+        - { $ref: "#/components/parameters/ContentId" }
+      responses:
+        "200":
+          description: Multipart upload started
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MultipartUploadResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+      x-request-example: POST /api/v1/contents/44444444-4444-4444-8444-444444444444/multipart-upload
+      x-error-codes: [INVALID_CONTENT_METADATA, INVALID_UPLOAD_STATE, UPLOAD_TOO_LARGE]
+    delete:
+      tags: [Files]
+      operationId: cancelMultipartUpload
+      summary: Cancel a multipart video upload
+      description: OWNER or CO_INSTRUCTOR only. Aborts the active multipart upload and marks content FAILED.
+      parameters:
+        - { $ref: "#/components/parameters/ContentId" }
+      responses:
+        "200":
+          description: Multipart upload cancelled
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeleteResult" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+      x-request-example: DELETE /api/v1/contents/44444444-4444-4444-8444-444444444444/multipart-upload
+      x-error-codes: [INVALID_UPLOAD_STATE]
+  /contents/{contentId}/complete-multipart-upload:
+    post:
+      tags: [Files]
+      operationId: completeMultipartUpload
+      summary: Complete a multipart video upload
+      description: |
+        OWNER or CO_INSTRUCTOR only. Requires every expected part number and its storage ETag exactly once.
+        The server completes the multipart upload, checks object size and Content-Type, and only then marks
+        the content AVAILABLE. The request cannot select an object key or upload ID.
+      parameters:
+        - { $ref: "#/components/parameters/ContentId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CompleteMultipartUpload" }
+            example:
+              parts:
+                - { part_number: 1, e_tag: '"etag-part-1"' }
+                - { part_number: 2, e_tag: '"etag-part-2"' }
+      responses:
+        "200":
+          description: Multipart upload verified and available
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Content" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+      x-request-example: POST /api/v1/contents/44444444-4444-4444-8444-444444444444/complete-multipart-upload
+      x-error-codes: [INVALID_CONTENT_METADATA, INVALID_UPLOAD_STATE, UPLOAD_METADATA_MISMATCH]
   /contents/{contentId}/complete-upload:
     post:
       tags: [Files]
@@ -1701,8 +1785,8 @@ paths:
       summary: Confirm a content upload
       description: |
         OWNER or CO_INSTRUCTOR only. The request has no body. The server uses its stored object key and
-        verifies storage HEAD size and Content-Type before transitioning PENDING -> AVAILABLE. It rejects
-        missing objects and metadata mismatches; clients cannot submit or select an object key.
+        verifies storage HEAD size and Content-Type before transitioning PENDING -> UPLOADED -> AVAILABLE.
+        A missing object returns 409 and metadata mismatches are rejected; clients cannot select an object key.
       parameters:
         - { $ref: "#/components/parameters/ContentId" }
       responses:
@@ -1747,6 +1831,26 @@ paths:
                   details: {}
       x-request-example: POST /api/v1/contents/44444444-4444-4444-8444-444444444444/complete-upload
       x-error-codes: [UPLOAD_OBJECT_NOT_FOUND, UPLOAD_METADATA_MISMATCH, UPLOAD_TOO_LARGE, INVALID_UPLOAD_STATE]
+  /contents/{contentId}/fail-upload:
+    post:
+      tags: [Files]
+      operationId: failContentUpload
+      summary: Mark a failed upload and remove its partial object
+      description: |
+        OWNER or CO_INSTRUCTOR only. Marks a PENDING file upload FAILED and removes its partial object or
+        aborts its active multipart upload. Repeating the request for an already FAILED upload succeeds.
+        This lets the instructor retry with a fresh server-generated object key.
+      parameters:
+        - { $ref: "#/components/parameters/ContentId" }
+      responses:
+        "200": { description: Upload marked failed and partial data removed }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+      x-request-example: POST /api/v1/contents/44444444-4444-4444-8444-444444444444/fail-upload
+      x-error-codes: [INVALID_UPLOAD_STATE, CONTENT_STORAGE_UNAVAILABLE]
   /contents/{contentId}/access-url:
     get:
       tags: [Files]
@@ -2189,6 +2293,10 @@ components:
           type: integer
           minimum: 0
           nullable: true
+        duration_seconds:
+          type: integer
+          minimum: 1
+          nullable: true
         upload_status: { $ref: "#/components/schemas/UploadStatus" }
         position: { type: integer, minimum: 0 }
         version_number: { type: integer, minimum: 1 }
@@ -2213,13 +2321,15 @@ components:
           type: string
           maxLength: 100
         file_size: { type: integer, minimum: 1 }
+        duration_seconds: { type: integer, minimum: 1 }
         position: { type: integer, minimum: 0 }
       required: [content_type]
       description:
         TEXT requires text_content; LINK requires external_url; file types
         (VIDEO/PDF/SLIDE/DOCUMENT/FILE) require file_name, mime_type and file_size. Allowed MIME types are
-        checked against the content type, and file_size must not exceed 100 MiB. File content starts PENDING
-        and becomes AVAILABLE only after the server verifies the stored object.
+        checked against the content type; VIDEO requires duration_seconds and allows up to 2 GiB, while
+        PDF/SLIDE and other file types allow up to 50 MiB. File content starts PENDING and becomes AVAILABLE
+        only after the server verifies the stored object; pending uploads are cleaned up after 24 hours.
     UpdateContent:
       type: object
       properties:
@@ -2272,6 +2382,37 @@ components:
             type: string
         expires_at: { type: string, format: date-time }
       required: [upload_url, method, required_headers, expires_at]
+    MultipartUploadResponse:
+      type: object
+      properties:
+        upload_id: { type: string }
+        part_size_bytes: { type: integer, enum: [10485760] }
+        parts:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            properties:
+              part_number: { type: integer, minimum: 1 }
+              upload_url: { type: string, format: uri }
+            required: [part_number, upload_url]
+        expires_at: { type: string, format: date-time }
+      required: [upload_id, part_size_bytes, parts, expires_at]
+      description: Server stores the upload ID and object key; the client must not use the ID to choose a different object.
+    CompleteMultipartUpload:
+      type: object
+      properties:
+        parts:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/MultipartPart" }
+      required: [parts]
+    MultipartPart:
+      type: object
+      properties:
+        part_number: { type: integer, minimum: 1 }
+        e_tag: { type: string, minLength: 1, maxLength: 512 }
+      required: [part_number, e_tag]
     AccessUrlResponse:
       type: object
       properties:

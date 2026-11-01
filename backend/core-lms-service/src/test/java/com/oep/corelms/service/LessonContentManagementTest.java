@@ -154,6 +154,72 @@ class LessonContentManagementTest {
     }
 
     @Test
+    void reordersAllLessonContentsAndPersistsContiguousPositions() {
+        LessonContent first = content(ContentType.TEXT, 0);
+        LessonContent second = content(ContentType.LINK, 1);
+        LessonContent third = content(ContentType.PDF, 2);
+        List<LessonContent> current = List.of(first, second, third);
+        when(contents.findByLessonIdOrderByPositionAsc(lessonId)).thenReturn(current);
+
+        var result = service.reorderLessonContents(actorId, courseId, moduleId, lessonId,
+                new LessonContentDtos.ReorderRequest(List.of(third.getId(), first.getId(), second.getId())));
+
+        assertTrue(result.success());
+        assertEquals(List.of(third.getId(), first.getId(), second.getId()), result.orderedIds());
+        assertEquals(0, third.getPosition());
+        assertEquals(1, first.getPosition());
+        assertEquals(2, second.getPosition());
+        verify(contents, times(2)).saveAllAndFlush(anyIterable());
+    }
+
+    @Test
+    void rejectsContentOrderWithOmittedIdBeforeWriting() {
+        LessonContent first = content(ContentType.TEXT, 0);
+        LessonContent second = content(ContentType.LINK, 1);
+        when(contents.findByLessonIdOrderByPositionAsc(lessonId)).thenReturn(List.of(first, second));
+
+        BusinessException error = assertThrows(BusinessException.class, () -> service.reorderLessonContents(
+                actorId, courseId, moduleId, lessonId,
+                new LessonContentDtos.ReorderRequest(List.of(first.getId()))));
+
+        assertEquals(ErrorCode.INVALID_CONTENT_ORDER, error.getCode());
+        verify(contents, never()).saveAllAndFlush(anyIterable());
+    }
+
+    @Test
+    void rejectsDuplicateContentIdsBeforeWriting() {
+        LessonContent first = content(ContentType.TEXT, 0);
+        LessonContent second = content(ContentType.LINK, 1);
+        when(contents.findByLessonIdOrderByPositionAsc(lessonId)).thenReturn(List.of(first, second));
+
+        BusinessException error = assertThrows(BusinessException.class, () -> service.reorderLessonContents(
+                actorId, courseId, moduleId, lessonId,
+                new LessonContentDtos.ReorderRequest(List.of(first.getId(), first.getId()))));
+
+        assertEquals(ErrorCode.INVALID_CONTENT_ORDER, error.getCode());
+        verify(contents, never()).saveAllAndFlush(anyIterable());
+    }
+
+    @Test
+    void rejectsContentIdOutsideLessonBeforeWriting() {
+        LessonContent first = content(ContentType.TEXT, 0);
+        LessonContent second = content(ContentType.LINK, 1);
+        Lesson anotherLesson = new Lesson();
+        anotherLesson.setId(UUID.randomUUID());
+        anotherLesson.setModule(module);
+        LessonContent foreign = content(ContentType.TEXT, 0);
+        foreign.setLesson(anotherLesson);
+        when(contents.findByLessonIdOrderByPositionAsc(lessonId)).thenReturn(List.of(first, second));
+
+        BusinessException error = assertThrows(BusinessException.class, () -> service.reorderLessonContents(
+                actorId, courseId, moduleId, lessonId,
+                new LessonContentDtos.ReorderRequest(List.of(first.getId(), foreign.getId()))));
+
+        assertEquals(ErrorCode.INVALID_CONTENT_ORDER, error.getCode());
+        verify(contents, never()).saveAllAndFlush(anyIterable());
+    }
+
+    @Test
     void createsHttpLinkAndRejectsNonHttpSchemes() {
         when(contents.findByLessonIdOrderByPositionAsc(lessonId)).thenReturn(List.of());
         when(contents.saveAndFlush(any(LessonContent.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -191,7 +257,7 @@ class LessonContentManagementTest {
     void rejectsFileMetadataAboveTheLimit() {
         BusinessException error = assertThrows(BusinessException.class, () -> service.createLessonContent(actorId, courseId, moduleId,
                 lessonId, new LessonContentDtos.CreateRequest(ContentType.PDF, "Too large", null, null,
-                        "large.pdf", "application/pdf", FileUploadPolicy.MAX_FILE_SIZE_BYTES + 1, null)));
+                        "large.pdf", "application/pdf", FileUploadPolicy.maxFileSizeBytes(ContentType.PDF) + 1, null)));
 
         assertEquals(ErrorCode.UPLOAD_TOO_LARGE, error.getCode());
         verify(contents, never()).saveAndFlush(any(LessonContent.class));
@@ -250,6 +316,37 @@ class LessonContentManagementTest {
 
         assertEquals(true, response.success());
         verify(objectStorage).delete("opaque/object-key");
+        verify(contents).delete(file);
+    }
+
+    @Test
+    void deletesFailedFileWithoutAnObjectKey() {
+        LessonContent file = content(ContentType.PDF, 0);
+        file.setUploadStatus(UploadStatus.FAILED);
+        file.setObjectKey(null);
+        when(contents.findByIdAndLessonIdForUpdate(file.getId(), lessonId)).thenReturn(Optional.of(file));
+        when(contentReferences.isReferenced(file.getId())).thenReturn(false);
+
+        var response = service.deleteLessonContent(actorId, courseId, moduleId, lessonId, file.getId());
+
+        assertTrue(response.success());
+        verify(objectStorage, never()).delete(any());
+        verify(contents).delete(file);
+    }
+
+    @Test
+    void abortsIncompleteMultipartUploadWhenDeletingItsContent() {
+        LessonContent file = content(ContentType.VIDEO, 0);
+        file.setUploadStatus(UploadStatus.PENDING);
+        file.setObjectKey("opaque/video-key");
+        file.setMultipartUploadId("multipart-upload-id");
+        when(contents.findByIdAndLessonIdForUpdate(file.getId(), lessonId)).thenReturn(Optional.of(file));
+        when(contentReferences.isReferenced(file.getId())).thenReturn(false);
+
+        service.deleteLessonContent(actorId, courseId, moduleId, lessonId, file.getId());
+
+        verify(objectStorage).abortMultipartUpload("opaque/video-key", "multipart-upload-id");
+        verify(objectStorage).delete("opaque/video-key");
         verify(contents).delete(file);
     }
 

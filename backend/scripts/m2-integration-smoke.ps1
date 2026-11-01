@@ -16,6 +16,7 @@ $ownerEmail = $null
 $studentEmail = $null
 $studentId = $null
 $uploadFile = $null
+$multipartPartFile = $null
 $contentCleanupFailed = $false
 
 function Invoke-Api([string]$Method, [string]$Path, [string]$Token, $Body) {
@@ -185,11 +186,37 @@ try {
     $linkContentCurrent = $contentList.Data.items | Where-Object { $_.id -eq $linkId } | Select-Object -First 1
     Assert-True ($file.Data.position -eq 0 -and $linkContentCurrent.position -eq 1 -and $textContentCurrent.position -eq 2) 'duplicate content positions shift without losing order'
 
+    $contentOrderPath = "/api/v1/courses/$courseId/modules/$($moduleIds[0])/lessons/$($lessonIds[0])/content-order"
+    $contentOrder = Invoke-Api PATCH $contentOrderPath $ownerToken @{ ordered_ids = @($textId, $fileId, $linkId) }
+    Assert-Status $contentOrder 200 'reorder lesson contents'
+    Assert-True ($contentOrder.Data.ordered_ids[0] -eq $textId) 'content order response matches requested order'
+    $reorderedContentList = Invoke-Api GET $contentPath $ownerToken $null
+    Assert-Status $reorderedContentList 200 'read reordered lesson contents'
+    $textContentReordered = $reorderedContentList.Data.items | Where-Object { $_.id -eq $textId } | Select-Object -First 1
+    $fileContentReordered = $reorderedContentList.Data.items | Where-Object { $_.id -eq $fileId } | Select-Object -First 1
+    $linkContentReordered = $reorderedContentList.Data.items | Where-Object { $_.id -eq $linkId } | Select-Object -First 1
+    Assert-True ($textContentReordered.position -eq 0 -and $fileContentReordered.position -eq 1 -and $linkContentReordered.position -eq 2) 'content order is persisted contiguously'
+    Assert-Status (Invoke-Api PATCH $contentOrderPath $ownerToken @{ ordered_ids = @($textId, $fileId) }) 422 'reject incomplete content order'
+
     $tooLarge = Invoke-Api POST $contentPath $ownerToken @{
         content_type = 'PDF'; title = 'Oversize'; file_name = 'large.pdf';
-        mime_type = 'application/pdf'; file_size = 104857601
+        mime_type = 'application/pdf'; file_size = 52428801
     }
-    Assert-Status $tooLarge 413 'reject file over 100 MiB'
+    Assert-Status $tooLarge 413 'reject file over 50 MiB'
+
+    $failedFile = Invoke-Api POST $contentPath $ownerToken @{
+        content_type = 'PDF'; title = 'Failed upload'; file_name = 'failed.pdf';
+        mime_type = 'application/pdf'; file_size = $fileBytes.Length; position = 0
+    }
+    Assert-Status $failedFile 201 'create file metadata for failed upload'
+    $failedFileId = [string]$failedFile.Data.id
+    $createdContentIds.Add($failedFileId)
+    Assert-Status (Invoke-Api POST "/api/v1/contents/$failedFileId/fail-upload" $ownerToken $null) 200 'mark upload FAILED'
+    Assert-Status (Invoke-Api POST "/api/v1/contents/$failedFileId/fail-upload" $ownerToken $null) 200 'repeat failed-upload request'
+    $failedFileRead = Invoke-Api GET "$contentPath/$failedFileId" $ownerToken $null
+    Assert-Status $failedFileRead 200 'read failed upload metadata'
+    Assert-True ($failedFileRead.Data.upload_status -eq 'FAILED') 'failed upload remains FAILED'
+
     $fileUpload = Invoke-Api POST "/api/v1/contents/$fileId/upload-url" $ownerToken $null
     Assert-Status $fileUpload 200 'issue signed PUT URL'
     Assert-True (-not $fileUpload.Data.upload_url.Contains($fileId)) 'upload URL does not expose the content ID as object key'
@@ -205,6 +232,36 @@ try {
     $completed = Invoke-Api POST "/api/v1/contents/$fileId/complete-upload" $ownerToken $null
     Assert-Status $completed 200 'verify upload metadata and complete file'
     Assert-True ($completed.Data.upload_status -eq 'AVAILABLE') 'verified file becomes AVAILABLE'
+
+    $multipartFileSize = 56 * 1024 * 1024
+    $multipartVideo = Invoke-Api POST $contentPath $ownerToken @{
+        content_type = 'VIDEO'; title = 'Multipart integration video'; file_name = 'm28.mp4';
+        mime_type = 'video/mp4'; file_size = $multipartFileSize; duration_seconds = 56; position = 1
+    }
+    Assert-Status $multipartVideo 201 'create multipart video metadata'
+    $multipartVideoId = [string]$multipartVideo.Data.id
+    $createdContentIds.Add($multipartVideoId)
+    $multipartStart = Invoke-Api POST "/api/v1/contents/$multipartVideoId/multipart-upload" $ownerToken $null
+    Assert-Status $multipartStart 200 'start LocalStack multipart upload'
+    Assert-True ($multipartStart.Data.part_size_bytes -eq (10 * 1024 * 1024)) 'multipart part size is 10 MiB'
+    Assert-True ($multipartStart.Data.parts.Count -eq 6) '56 MiB video creates six multipart parts'
+
+    $multipartPartFile = Join-Path ([System.IO.Path]::GetTempPath()) "oep-m28-part-$tag.bin"
+    $multipartParts = @()
+    foreach ($part in $multipartStart.Data.parts) {
+        $partLength = if ($part.part_number -lt 6) { 10 * 1024 * 1024 } else { 6 * 1024 * 1024 }
+        [System.IO.File]::WriteAllBytes($multipartPartFile, [byte[]]::new($partLength))
+        $partUpload = Invoke-WebRequest -Uri $part.upload_url -Method Put -InFile $multipartPartFile -TimeoutSec 120 -UseBasicParsing
+        if ([int]$partUpload.StatusCode -notin @(200, 204)) { throw "Multipart part $($part.part_number) returned HTTP $([int]$partUpload.StatusCode)" }
+        $etag = [string]$partUpload.Headers['ETag']
+        Assert-True (-not [string]::IsNullOrWhiteSpace($etag)) "multipart part $($part.part_number) returns ETag"
+        $multipartParts += @{ part_number = [int]$part.part_number; e_tag = $etag }
+    }
+    $multipartComplete = Invoke-Api POST "/api/v1/contents/$multipartVideoId/complete-multipart-upload" $ownerToken @{ parts = $multipartParts }
+    Assert-Status $multipartComplete 200 'complete LocalStack multipart upload'
+    Assert-True ($multipartComplete.Data.upload_status -eq 'AVAILABLE') 'multipart video becomes AVAILABLE'
+    Assert-True ($multipartComplete.Data.file_size -eq $multipartFileSize) 'multipart object size matches declaration'
+
     Assert-Status (Invoke-Api GET $contentPath $ownerToken $null) 200 'list lesson contents'
     Assert-Status (Invoke-Api POST "/api/v1/courses/$courseId/publish" $ownerToken $null) 200 'publish ready course'
     Assert-Status (Invoke-Api GET "/api/v1/courses/$courseId/outline" $null $null) 200 'public published outline preview'
@@ -295,4 +352,5 @@ END
     }
 
     if ($uploadFile -and (Test-Path -LiteralPath $uploadFile)) { Remove-Item -LiteralPath $uploadFile -Force }
+    if ($multipartPartFile -and (Test-Path -LiteralPath $multipartPartFile)) { Remove-Item -LiteralPath $multipartPartFile -Force }
 }

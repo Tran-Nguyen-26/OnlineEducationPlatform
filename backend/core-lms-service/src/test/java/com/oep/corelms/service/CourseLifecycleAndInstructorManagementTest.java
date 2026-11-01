@@ -149,6 +149,16 @@ class CourseLifecycleAndInstructorManagementTest {
     }
 
     @Test
+    void rejectsPublishingCourseWithoutLesson() {
+        when(lessons.existsInCourse(courseId)).thenReturn(false);
+
+        BusinessException error = assertThrows(BusinessException.class, () -> service.publishCourse(ownerId, courseId));
+
+        assertEquals(ErrorCode.COURSE_NOT_READY, error.getCode());
+        verify(courses, never()).saveAndFlush(any(Course.class));
+    }
+
+    @Test
     void rejectsPublishingByCoInstructor() {
         UUID coInstructorId = UUID.randomUUID();
         CourseInstructor link = new CourseInstructor();

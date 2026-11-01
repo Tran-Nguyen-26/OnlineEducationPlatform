@@ -26,10 +26,11 @@ class M2CourseOpenApiContractTest {
             "listModules", "createModule", "getModule", "updateModule", "deleteModule", "reorderModules",
             "listLessons", "createLesson", "getLesson", "updateLesson", "deleteLesson", "reorderLessons",
             "listLessonContents", "createLessonContent", "getLessonContent", "updateLessonContent",
-            "deleteLessonContent", "issueUploadUrl", "completeContentUpload",
+            "deleteLessonContent", "reorderLessonContents", "issueUploadUrl", "completeContentUpload",
+            "issueMultipartUploadUrls", "completeMultipartUpload", "cancelMultipartUpload", "failContentUpload",
             "getContentAccessUrl");
 
-    private static final Set<String> PLANNED_OPERATIONS = Set.of("reorderLessonContents");
+    private static final Set<String> PLANNED_OPERATIONS = Set.of();
 
     @Test
     void implementedCourseOperationsMatchTheOpenApiInventory() throws IOException {
@@ -67,14 +68,20 @@ class M2CourseOpenApiContractTest {
         Map<String, Object> paths = asMap(spec.get("paths"));
         Map<String, Object> uploadUrl = operation(paths, "/contents/{contentId}/upload-url", "post");
         Map<String, Object> completeUpload = operation(paths, "/contents/{contentId}/complete-upload", "post");
+        Map<String, Object> multipartUpload = operation(paths, "/contents/{contentId}/multipart-upload", "post");
+        Map<String, Object> completeMultipart = operation(paths, "/contents/{contentId}/complete-multipart-upload", "post");
 
         assertFalse(uploadUrl.containsKey("requestBody"));
         assertFalse(completeUpload.containsKey("requestBody"));
+        assertFalse(multipartUpload.containsKey("requestBody"));
+        assertTrue(completeMultipart.containsKey("requestBody"));
 
         Map<String, Object> schemas = asMap(asMap(spec.get("components")).get("schemas"));
         assertFalse(asMap(asMap(schemas.get("UploadUrlResponse")).get("properties")).containsKey("object_key"));
         assertFalse(asMap(asMap(schemas.get("Content")).get("properties")).containsKey("object_key"));
-        assertTrue(String.valueOf(asMap(schemas.get("CreateContent")).get("description")).contains("100 MiB"));
+        assertTrue(String.valueOf(asMap(schemas.get("CreateContent")).get("description")).contains("2 GiB"));
+        assertTrue(String.valueOf(asMap(schemas.get("CreateContent")).get("description")).contains("50 MiB"));
+        assertFalse(asMap(asMap(schemas.get("MultipartUploadResponse")).get("properties")).containsKey("object_key"));
     }
 
     private static Map<String, Object> operation(Map<String, Object> paths, String path, String method) {
