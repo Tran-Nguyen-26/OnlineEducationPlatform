@@ -1,69 +1,159 @@
 name: Frontend CI
 
-on:
-  pull_request:
-    branches: [main, dev, nam/frontend-setup]
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/frontend-ci.yml'
-  push:
-    branches: [main, dev, nam/frontend-setup]
-    paths:
-      - 'frontend/**'
+# ══════════════════════════════════════════════════════════════════════════════
+# Bao quát toàn bộ Frontend React SPA + Hợp đồng OpenAPI:
+#   - Static Analysis: oxlint (--deny-warnings), Prettier (--check), tsc (--noEmit)
+#   - Unit Tests: Vitest (npm run test:coverage)
+#   - Contract Check: Kiểm tra số lượng file OpenAPI (mục tiêu >= 5 file M1-M6) & sinh TypeScript types
+#   - Security Gate: Trivy fs quét lỗ hổng HIGH & CRITICAL trong package-lock.json
+#   - Performance Gate: Kiểm tra kích thước gói Bundle ban đầu <= 250 KB gzip (Kế hoạch Ngày 4-8)
+#   - Chế độ Soft Gate (cảnh báo mặc định, chặn cứng khi STRICT_QUALITY_GATE == 'true')
+# ══════════════════════════════════════════════════════════════════════════════
 
-concurrency:
-  group: frontend-ci-${{ github.ref }}
-  cancel-in-progress: true
+on:
+  workflow_call:
+  workflow_dispatch:
+
+
+permissions:
+  contents: read
 
 jobs:
-  lint-and-build:
-    name: Lint, Type-check & Build Frontend
+  lint-test-build:
+    name: Lint, Test, Contract Verify & Build Frontend
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
 
     steps:
-      - name: Checkout code
+      - name: Checkout Codebase
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Set up Node.js & Cache npm
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
 
-      # ──────────────────────────────────────────────────────────────────────
-      # npm dependency cache — giảm ≥ 40% thời gian CI từ lần chạy thứ 2
-      # ──────────────────────────────────────────────────────────────────────
-      - name: Cache npm dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.npm
-            frontend/node_modules
-          key: npm-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
-          restore-keys: |
-            npm-${{ runner.os }}-
-
-      - name: Install dependencies
+      - name: Install Dependencies
         run: npm ci --prefer-offline
         working-directory: frontend
 
-      - name: Lint (oxlint — deny warnings)
+      # ── Static Analysis & Quality Gates ─────────────────────────────────────
+      - name: Lint Codebase (oxlint)
         run: npm run lint
         working-directory: frontend
 
-      - name: Check formatting (Prettier)
+      - name: Check Code Formatting (Prettier)
         run: npm run format:check
         working-directory: frontend
 
-      - name: TypeScript type-check
+      - name: TypeScript Strict Type-Check
         run: npm run type-check
         working-directory: frontend
 
-      - name: Build production bundle
+      # ── Unit Tests & Coverage ───────────────────────────────────────────────
+      - name: Unit Tests & Coverage (Vitest)
+        run: npm run test:coverage
+        working-directory: frontend
+
+      - name: Upload Frontend Coverage Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-coverage-report
+          path: frontend/coverage/
+          retention-days: 7
+
+      # ── OpenAPI Contract & Type Generation Check (Target >= 5 specs) ────────
+      - name: Validate OpenAPI Specs & TypeScript Type Generation
+        env:
+          STRICT_GATE: ${{ vars.STRICT_QUALITY_GATE || 'false' }}
+        run: |
+          shopt -s nullglob
+          SPECS=(openapi/*.yaml openapi/*.yml)
+          SPEC_COUNT=${#SPECS[@]}
+          echo "Found $SPEC_COUNT OpenAPI specification file(s) in openapi/."
+
+          if [ "$SPEC_COUNT" -lt 5 ]; then
+            MSG="Found $SPEC_COUNT/5 target OpenAPI spec files (Plan Day 4-8 requires >= 5 specs for M1-M6)."
+            if [ "$STRICT_GATE" = "true" ]; then
+              echo "::error::$MSG"
+              exit 1
+            else
+              echo "::warning::$MSG (Soft Gate warning mode)"
+            fi
+          fi
+
+          for f in "${SPECS[@]}"; do
+            echo "→ Validating YAML syntax for $f..."
+            npx --yes js-yaml "$f" > /dev/null && echo "  ✅ YAML syntax OK" || { echo "::error::YAML INVALID: $f"; exit 1; }
+            echo "→ Validating TypeScript types generation for $f..."
+            npx --yes openapi-typescript "$f" > /dev/null && echo "  ✅ Type generation OK" || { echo "::error::Typegen FAILED: $f"; exit 1; }
+          done
+
+      # ── Security Gate: Frontend Dependency Scan (Trivy fs) ──────────────────
+      - name: Scan Frontend Dependencies (Trivy fs)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: 'fs'
+          scan-ref: 'frontend'
+          format: 'table'
+          severity: 'HIGH,CRITICAL'
+          exit-code: ${{ vars.STRICT_QUALITY_GATE == 'true' && '1' || '0' }}
+          ignore-unfixed: true
+          trivyignores: 'frontend/.trivyignore'
+
+      # ── Production Build & Initial Bundle Size Check (<= 250 KB gzip) ───────
+      - name: Build Production Bundle
         run: npm run build
         working-directory: frontend
 
-      - name: Upload dist artifact
+      - name: Verify Initial JS Bundle Size (Target <= 250 KB gzip)
+        env:
+          STRICT_GATE: ${{ vars.STRICT_QUALITY_GATE || 'false' }}
+        run: |
+          echo "## 📦 Frontend Production Bundle Size Audit" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Asset File | Raw Size (KB) | Gzip Size (KB) | Target (<= 250 KB) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| :--- | :--- | :--- | :--- |" >> "$GITHUB_STEP_SUMMARY"
+
+          shopt -s nullglob
+          JS_FILES=(frontend/dist/assets/*.js)
+          MAX_GZIP_KB=0
+          EXCEEDED=0
+
+          for f in "${JS_FILES[@]}"; do
+            fname=$(basename "$f")
+            raw_bytes=$(wc -c < "$f")
+            gzip_bytes=$(gzip -c "$f" | wc -c)
+            raw_kb=$(( (raw_bytes + 1023) / 1024 ))
+            gzip_kb=$(( (gzip_bytes + 1023) / 1024 ))
+            if [ "$gzip_kb" -gt "$MAX_GZIP_KB" ]; then
+              MAX_GZIP_KB=$gzip_kb
+            fi
+            if [ "$gzip_kb" -gt 250 ]; then
+              status="⚠️ > 250 KB"
+              EXCEEDED=$((EXCEEDED + 1))
+            else
+              status="✅ OK"
+            fi
+            echo "| \`$fname\` | ${raw_kb} KB | ${gzip_kb} KB | $status |" >> "$GITHUB_STEP_SUMMARY"
+          done
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$EXCEEDED" -gt 0 ]; then
+            MSG="$EXCEEDED JS chunk(s) exceeded the 250 KB gzip budget (Max: ${MAX_GZIP_KB} KB). Consider React.lazy() code-splitting."
+            if [ "$STRICT_GATE" = "true" ]; then
+              echo "::error::$MSG"
+              exit 1
+            else
+              echo "::warning::$MSG (Soft Gate warning mode)"
+            fi
+          else
+            echo "✅ All JS chunks are within the 250 KB gzip budget (Max: ${MAX_GZIP_KB} KB)."
+          fi
+
+      - name: Upload dist Artifact
         uses: actions/upload-artifact@v4
         if: success()
         with:

@@ -1,0 +1,5 @@
+# Ignore known vulnerabilities in dev-only mock server (@stoplight/prism-cli)
+GHSA-qxc2-j82w-r537
+GHSA-r5fr-rjxr-66jc
+GHSA-f23m-r3pf-42rh
+GHSA-xxjr-mmjv-4gpg

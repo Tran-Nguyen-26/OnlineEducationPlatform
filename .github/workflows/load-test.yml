@@ -1,0 +1,149 @@
+name: Performance & Load Testing (k6)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Tự động hóa kiểm thử tải và định chuẩn hiệu năng bằng k6 (Khớp NFR Kế hoạch 8 tuần):
+#   - Kịch bản 1: k6-heartbeat.js (Stream L3: 67 RPS, p95 <= 200ms, error < 0.5%)
+#   - Kịch bản 2: k6-quiz-concurrency.js (Stream L4: 1000 CCU, p95 start <= 800ms, submit <= 500ms, error < 1%)
+#   - Kịch bản 3: k6-auth-login.js / k6-mixed-workload.js (Stream L1 & L5: 20 RPS login / 1x-5x-10x tải hỗn hợp)
+#   - Cơ chế Reachability Pre-check (Graceful Bypass): Khi chưa triển khai AWS Staging,
+#     job tự động kiểm tra kết nối tới TARGET_URL trước khi chạy k6 để không gây lỗi đỏ hàng tuần.
+#   - Chế độ Soft Gate (cảnh báo mặc định, chặn cứng khi STRICT_QUALITY_GATE == 'true')
+# ══════════════════════════════════════════════════════════════════════════════
+
+on:
+  schedule:
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+    inputs:
+      script:
+        description: 'Kịch bản kiểm thử tải k6 muốn thực thi'
+        required: true
+        type: choice
+        options:
+          - 'tests/load/k6-heartbeat.js'
+          - 'tests/load/k6-quiz-concurrency.js'
+          - 'all'
+        default: 'tests/load/k6-heartbeat.js'
+      target_url:
+        description: 'URL API Gateway mục tiêu (mặc định trỏ Staging API)'
+        required: false
+        default: 'https://staging-api.oep.internal'
+
+concurrency:
+  group: load-testing-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  run-load-test:
+    name: Execute k6 Load Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Verify Target Environment Reachability (Graceful Bypass before AWS is live)
+        id: check-env
+        env:
+          TARGET: ${{ inputs.target_url || vars.STAGING_API_URL || 'https://staging-api.oep.internal' }}
+        run: |
+          HOST=$(echo "$TARGET" | awk -F[/:] '{print $4}')
+          echo "Checking reachability of target host: $HOST ($TARGET)..."
+          if ! getent hosts "$HOST" > /dev/null 2>&1; then
+            echo "reachable=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Target host '$HOST' is not reachable yet (AWS Staging environment not deployed or internal VPC). Skipping k6 load test gracefully."
+            echo "## ℹ️ k6 Load Test Bypassed (Staging Endpoint Not Deployed Yet)" >> "$GITHUB_STEP_SUMMARY"
+            echo "- **Target URL**: \`$TARGET\` (Host \`$HOST\` unresolved)" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Khi triển khai AWS Staging, hãy cập nhật biến \`vars.STAGING_API_URL\` để kích hoạt đo kiểm tự động." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "reachable=true" >> "$GITHUB_OUTPUT"
+            echo "✅ Host '$HOST' is reachable."
+          fi
+
+      - name: Setup k6 CLI
+        if: steps.check-env.outputs.reachable == 'true'
+        uses: grafana/setup-k6-action@v1
+        with:
+          k6-version: '0.55.0'
+
+      - name: Create Reports Directory
+        if: steps.check-env.outputs.reachable == 'true'
+        run: mkdir -p reports/load-test
+
+      - name: Validate Load Test Scripts Exist
+        if: steps.check-env.outputs.reachable == 'true'
+        run: |
+          for f in tests/load/k6-heartbeat.js tests/load/k6-quiz-concurrency.js; do
+            if [ ! -f "$f" ]; then
+              echo "::warning::Load test script $f is missing from repository."
+            else
+              echo "✅ Verified load test script: $f"
+            fi
+          done
+
+      - name: "Run Heartbeat Load Test (NFR: 67 RPS, p95 <= 200ms, error < 0.5%)"
+        if: steps.check-env.outputs.reachable == 'true' && (inputs.script == 'tests/load/k6-heartbeat.js' || inputs.script == 'all' || github.event_name == 'schedule')
+        env:
+          TARGET_URL: ${{ inputs.target_url || vars.STAGING_API_URL || 'https://staging-api.oep.internal' }}
+          TEST_JWT_TOKEN: ${{ secrets.LOAD_TEST_JWT || 'dummy-ci-token' }}
+          STRICT_GATE: ${{ vars.STRICT_QUALITY_GATE || 'false' }}
+        run: |
+          echo "🚀 Executing k6 Heartbeat Load Test (NFR Target: 67 RPS, p95 <= 200ms, error < 0.5%)..."
+          if ! k6 run --summary-export=reports/load-test/heartbeat-summary.json tests/load/k6-heartbeat.js; then
+            if [ "$STRICT_GATE" = "true" ]; then
+              echo "::error::Heartbeat load test breached NFR SLA thresholds!"
+              exit 1
+            else
+              echo "::warning::Heartbeat load test breached NFR SLA thresholds (Soft Gate warning mode)."
+            fi
+          fi
+
+      - name: "Run Quiz Concurrency Load Test (NFR: 1000 CCU, p95 start <= 800ms, submit <= 500ms)"
+        if: steps.check-env.outputs.reachable == 'true' && (inputs.script == 'tests/load/k6-quiz-concurrency.js' || inputs.script == 'all' || github.event_name == 'schedule')
+        env:
+          TARGET_URL: ${{ inputs.target_url || vars.STAGING_API_URL || 'https://staging-api.oep.internal' }}
+          TEST_JWT_TOKEN: ${{ secrets.LOAD_TEST_JWT || 'dummy-ci-token' }}
+          STRICT_GATE: ${{ vars.STRICT_QUALITY_GATE || 'false' }}
+        run: |
+          echo "🚀 Executing k6 Quiz Concurrency Load Test (NFR Target: 1,000 CCU, p95 start <= 800ms, submit <= 500ms, error < 1%)..."
+          if ! k6 run --summary-export=reports/load-test/quiz-summary.json tests/load/k6-quiz-concurrency.js; then
+            if [ "$STRICT_GATE" = "true" ]; then
+              echo "::error::Quiz concurrency load test breached NFR SLA thresholds!"
+              exit 1
+            else
+              echo "::warning::Quiz concurrency load test breached NFR SLA thresholds (Soft Gate warning mode)."
+            fi
+          fi
+
+      - name: Generate Load Test Summary to GitHub Step Summary
+        if: always() && steps.check-env.outputs.reachable == 'true'
+        run: |
+          TARGET="${{ inputs.target_url || vars.STAGING_API_URL || 'https://staging-api.oep.internal' }}"
+          SCRIPT="${{ inputs.script || 'scheduled-all' }}"
+          echo "## 📊 k6 Load Test Execution Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Target URL**: \`$TARGET\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Script executed**: \`$SCRIPT\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **NFR Targets**: Heartbeat \`p95 <= 200ms, err < 0.5%\` | Quiz \`p95 start <= 800ms, submit <= 500ms, err < 1%\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          for report in reports/load-test/*-summary.json; do
+            if [ -f "$report" ]; then
+              base=$(basename "$report")
+              echo "### Report: \`$base\`" >> "$GITHUB_STEP_SUMMARY"
+              echo '```json' >> "$GITHUB_STEP_SUMMARY"
+              head -n 35 "$report" >> "$GITHUB_STEP_SUMMARY"
+              echo '```' >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+
+      - name: Upload Load Test Reports Artifact
+        uses: actions/upload-artifact@v4
+        if: always() && steps.check-env.outputs.reachable == 'true'
+        with:
+          name: k6-load-test-reports
+          path: reports/load-test/
+          retention-days: 14

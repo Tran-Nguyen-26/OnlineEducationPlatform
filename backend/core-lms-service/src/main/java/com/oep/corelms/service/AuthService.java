@@ -180,7 +180,6 @@ public class AuthService {
         identity.setMustChangePassword(false);
         authIdentityRepository.save(identity);
 
-        // Invalidate all existing refresh tokens
         refreshTokenRepository.revokeAllByUserId(userId);
 
         log.info("Changed password and revoked all sessions for user id={}", userId);

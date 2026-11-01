@@ -1,0 +1,38 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# CODEOWNERS for OnlineEducationPlatform
+# Ánh xạ trách nhiệm phân luồng theo Kế hoạch 8 tuần (L1 - L5)
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Mặc định: Tech Lead / Repo Owner chịu trách nhiệm toàn bộ nếu không match rule riêng
+* @nhnam200512
+
+# ── Luồng 1 (L1): Core, Architecture Boundary, IAM, Shared Contracts ─────────
+/backend/core-model/                            @nhnam200512
+/backend/api-gateway/                           @nhnam200512
+/backend/core-lms-service/src/main/java/com/oep/corelms/config/SecurityConfig.java @nhnam200512
+/backend/core-lms-service/src/main/java/com/oep/corelms/controller/AuthController.java @nhnam200512
+/backend/core-lms-service/src/main/java/com/oep/corelms/service/AuthService.java @nhnam200512
+/backend/core-lms-service/src/main/java/com/oep/corelms/service/JwtService.java @nhnam200512
+/backend/core-lms-service/src/test/java/com/oep/corelms/architecture/ @nhnam200512
+/openapi/                                       @nhnam200512
+
+# ── Luồng 2 (L2): Quản lý Khóa học, Nội dung & Upload Video ──────────────────
+/backend/core-lms-service/src/main/java/com/oep/corelms/repository/CourseRepository.java @nhnam200512
+/frontend/src/features/courses/                 @nhnam200512
+
+# ── Luồng 3 (L3): Ghi danh, Tiến độ học tập & Heartbeat ───────────────────────
+/backend/core-lms-service/src/main/java/com/oep/corelms/service/EnrollmentService.java @nhnam200512
+/backend/core-lms-service/src/main/java/com/oep/corelms/repository/EnrollmentRepository.java @nhnam200512
+/frontend/src/features/learning/                @nhnam200512
+
+# ── Luồng 4 (L4): Đánh giá, Bài tập & Quiz Engine ─────────────────────────────
+/backend/assessment-service/                    @nhnam200512
+/frontend/src/features/assessment/              @nhnam200512
+
+# ── Luồng 5 (L5): DevOps, Worker xử lý nền, Hạ tầng & QA Load Test ────────────
+/.github/                                       @nhnam200512
+/backend/worker-service/                        @nhnam200512
+/terraform/                                     @nhnam200512
+/docker/                                        @nhnam200512
+/docs/devops/                                   @nhnam200512
+/tests/                                         @nhnam200512

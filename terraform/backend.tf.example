@@ -1,0 +1,15 @@
+# =============================================================================
+# Remote Backend Configuration with S3 and DynamoDB State Locking
+# Copy this file to `backend.tf` once the bootstrap S3 & DynamoDB exist.
+# =============================================================================
+
+terraform {
+  backend "s3" {
+    bucket         = "oep-terraform-state-REPLACE_WITH_ACCOUNT_ID"
+    # S3 backend automatically places workspace states under: env:/<workspace>/<key>
+    key            = "oep/terraform.tfstate"
+    region         = "ap-southeast-1"
+    dynamodb_table = "oep-terraform-locks"
+    encrypt        = true
+  }
+}

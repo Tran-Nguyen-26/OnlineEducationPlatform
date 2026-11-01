@@ -8,12 +8,74 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5434/oep}
     username: ${DB_USER:oep}
     password: ${DB_PASSWORD:oep}
+    driver-class-name: org.postgresql.Driver
   jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: none
     open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
   rabbitmq:
     host: ${RABBIT_HOST:localhost}
-    port: ${RABBIT_PORT:5673}
+    port: ${RABBIT_PORT:5673} # Sửa lại đúng cổng AMQP 5673 của Docker Compose
     username: ${RABBIT_USER:oep}
     password: ${RABBIT_PASSWORD:oep}
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:nguyendinhquocdeptrai2k5@gmail.com}
+    password: ${MAIL_PASSWORD:cxtg yrnh zoop woeu}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+        debug: false
+    default-encoding: UTF-8
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    com.oep.worker: INFO
+
+aws:
+  region: ${AWS_REGION:ap-southeast-1}
+  sqs:
+    endpoint: ${AWS_SQS_ENDPOINT:http://localhost:4566}
+    queue-name: ${AWS_SQS_QUEUE_NAME:oep-notification-queue}
+    dlq-name: ${AWS_SQS_DLQ_NAME:oep-notification-dlq}
+    auto-create-queues: ${AWS_SQS_AUTO_CREATE:true}
+  credentials:
+    access-key: ${AWS_ACCESS_KEY_ID:test}
+    secret-key: ${AWS_SECRET_ACCESS_KEY:test}
+
+# Khai báo song song oep.datasource để tương thích với RoutingDataSourceConfig trong core-model
+oep:
+  datasource:
+    routing-enabled: false
+    primary:
+      url: ${DB_URL:jdbc:postgresql://localhost:5434/oep}
+      username: ${DB_USER:oep}
+      password: ${DB_PASSWORD:oep}
+      driver-class-name: org.postgresql.Driver
+  outbox:
+    worker:
+      enabled: ${OUTBOX_WORKER_ENABLED:true}
+      batch-size: 100
+      base-poll-delay-ms: 200
+      max-poll-delay-ms: 30000
+      max-retries: 5
+    consumer:
+      enabled: ${NOTIFICATION_CONSUMER_ENABLED:false}
+      poll-wait-seconds: 2
+      max-messages: 10
+      max-retries: 5

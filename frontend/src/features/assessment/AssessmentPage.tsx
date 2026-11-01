@@ -1,135 +1,326 @@
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-
-interface Quiz {
-  id: string
-  title: string
-  courseTitle: string
-  dueDate: string
-  status: 'pending' | 'submitted' | 'graded'
-  score?: number
-}
-
-const mockQuizzes: Quiz[] = [
-  {
-    id: '1',
-    title: 'Kiểm tra giữa kỳ - React Hooks',
-    courseTitle: 'Lập trình React',
-    dueDate: '2024-03-15',
-    status: 'graded',
-    score: 85,
-  },
-  {
-    id: '2',
-    title: 'Bài kiểm tra REST API',
-    courseTitle: 'Spring Boot',
-    dueDate: '2024-03-20',
-    status: 'pending',
-  },
-  {
-    id: '3',
-    title: 'Quiz Docker Networking',
-    courseTitle: 'DevOps',
-    dueDate: '2024-03-25',
-    status: 'submitted',
-  },
-]
-
-const statusConfig = {
-  pending: { label: 'Chưa làm', class: 'bg-orange-100 text-orange-700' },
-  submitted: { label: 'Đã nộp', class: 'bg-blue-100 text-blue-700' },
-  graded: { label: 'Đã chấm', class: 'bg-green-100 text-green-700' },
-}
+import React, { useState, useEffect } from 'react'
+import {
+  FileQuestion,
+  Layers,
+  Clock,
+  CheckCircle2,
+  Calendar,
+  Play,
+  Award,
+  Sparkles,
+  BookOpen,
+} from 'lucide-react'
+import { InstructorQuizManager } from './components/InstructorQuizManager'
+import { StudentQuizPlayer } from './components/StudentQuizPlayer'
+import type { QuizItem, QuestionItem, TeachingCourse } from '@/api/quiz'
+import { fetchTeachingCourses, fetchQuizzes, fetchQuestions } from '@/api/quiz'
 
 export default function AssessmentPage() {
-  const [activeTab, setActiveTab] = useState<Quiz['status'] | 'all'>('all')
+  // Detect current user role
+  let userRole = 'STUDENT'
+  let userName = 'Học viên'
+  try {
+    const rawUser = localStorage.getItem('user')
+    if (rawUser) {
+      const u = JSON.parse(rawUser)
+      if (u.role) userRole = u.role.toUpperCase()
+      if (u.fullName) userName = u.fullName
+    }
+  } catch {
+    // fallback
+  }
 
-  const { data: quizzes, isLoading } = useQuery({
-    queryKey: ['quizzes'],
-    queryFn: async () => {
-      // TODO: apiClient.GET('/assessment/quizzes/me')
-      await new Promise((resolve) => setTimeout(resolve, 300))
-      return mockQuizzes
-    },
+  const isInstructorOrAdmin = userRole === 'INSTRUCTOR' || userRole === 'ADMIN'
+
+  // Main Tab: 'student' or 'instructor'
+  const [activeMainTab, setActiveMainTab] = useState<'student' | 'instructor'>(
+    isInstructorOrAdmin ? 'instructor' : 'student'
+  )
+
+  // Student assessments state
+  const [courses, setCourses] = useState<TeachingCourse[]>([])
+  const [selectedCourseId, setSelectedCourseId] = useState<string>('')
+  const [studentQuizzes, setStudentQuizzes] = useState<QuizItem[]>([])
+  const [studentStatusFilter, setStudentStatusFilter] = useState<'all' | 'open' | 'locked'>('all')
+  const [loadingStudent, setLoadingStudent] = useState(false)
+
+  // Student player
+  const [takingQuiz, setTakingQuiz] = useState<QuizItem | null>(null)
+  const [takingQuestions, setTakingQuestions] = useState<QuestionItem[]>([])
+  const [completedScores, setCompletedScores] = useState<Record<string, number>>({})
+
+  useEffect(() => {
+    async function loadStudentCourses() {
+      try {
+        const cList = await fetchTeachingCourses()
+        setCourses(cList)
+        if (cList.length > 0) {
+          setSelectedCourseId(cList[0].id)
+        }
+      } catch {
+        // ignore
+      }
+    }
+    loadStudentCourses()
+  }, [])
+
+  useEffect(() => {
+    async function loadQuizzesForStudent() {
+      if (!selectedCourseId) return
+      setLoadingStudent(true)
+      try {
+        const res = await fetchQuizzes(selectedCourseId)
+        setStudentQuizzes(res.items || [])
+      } catch {
+        setStudentQuizzes([])
+      } finally {
+        setLoadingStudent(false)
+      }
+    }
+    loadQuizzesForStudent()
+  }, [selectedCourseId])
+
+  const handleStartExam = async (quiz: QuizItem) => {
+    try {
+      const qRes = await fetchQuestions(selectedCourseId, quiz.id)
+      setTakingQuiz(quiz)
+      setTakingQuestions(qRes.items || [])
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Không thể tải đề thi')
+    }
+  }
+
+  const filteredStudentQuizzes = studentQuizzes.filter((q) => {
+    if (studentStatusFilter === 'open') return !q.is_locked
+    if (studentStatusFilter === 'locked') return q.is_locked
+    return true
   })
 
-  const filtered = activeTab === 'all' ? quizzes : quizzes?.filter((q) => q.status === activeTab)
-
-  const tabs: { key: Quiz['status'] | 'all'; label: string }[] = [
-    { key: 'all', label: 'Tất cả' },
-    { key: 'pending', label: 'Chưa làm' },
-    { key: 'submitted', label: 'Đã nộp' },
-    { key: 'graded', label: 'Đã chấm' },
-  ]
-
   return (
-    <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Kiểm tra & Bài tập</h1>
-        <p className="mt-1 text-sm text-gray-500">Quản lý bài kiểm tra và theo dõi kết quả</p>
-      </div>
-
-      {/* Tabs */}
-      <div className="mb-6 flex gap-1 rounded-xl bg-gray-100 p-1">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
-              activeTab === tab.key
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-20 animate-pulse rounded-xl bg-gray-200" />
-          ))}
+    <div className="space-y-6">
+      {/* ── Page Header with Welcome & Role Badges ── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-3xl bg-linear-to-r from-slate-900 via-indigo-950 to-slate-900 p-8 text-white shadow-xl border border-slate-800">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-indigo-400 uppercase tracking-widest">
+            <Sparkles className="h-4 w-4" />
+            <span>Hệ thống Kiểm tra & Đánh giá năng lực</span>
+          </div>
+          <h1 className="mt-2 text-2xl md:text-3xl font-extrabold tracking-tight">
+            Kiểm tra & Bài tập (Quiz Engine)
+          </h1>
+          <p className="mt-1 text-sm text-slate-300">
+            Xin chào, <strong className="text-white">{userName}</strong>!{' '}
+            {isInstructorOrAdmin
+              ? 'Bạn có quyền quản lý và soạn thảo các bộ đề thi trắc nghiệm.'
+              : 'Theo dõi và hoàn thành các bài kiểm tra được giao để nâng cao điểm số.'}
+          </p>
         </div>
+
+        {/* Role Switcher Tabs */}
+        {isInstructorOrAdmin && (
+          <div className="flex rounded-2xl bg-white/10 p-1.5 backdrop-blur-md border border-white/15">
+            <button
+              onClick={() => setActiveMainTab('instructor')}
+              className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold transition ${
+                activeMainTab === 'instructor'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/40'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <Layers className="h-4 w-4" />
+              Quản lý đề thi (Giảng viên)
+            </button>
+            <button
+              onClick={() => setActiveMainTab('student')}
+              className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold transition ${
+                activeMainTab === 'student'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/40'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <Award className="h-4 w-4" />
+              Làm bài kiểm tra (Học viên)
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Tab Content ── */}
+      {activeMainTab === 'instructor' && isInstructorOrAdmin ? (
+        <InstructorQuizManager />
       ) : (
-        <div className="space-y-3">
-          {filtered?.map((quiz) => {
-            const statusCfg = statusConfig[quiz.status]
-            return (
-              <div
-                key={quiz.id}
-                className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm"
+        /* ── Student Assessment View ── */
+        <div className="space-y-6">
+          {/* Filter Bar */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl bg-white p-5 border border-slate-200 shadow-xs">
+            <div className="flex items-center gap-3">
+              <BookOpen className="h-5 w-5 text-blue-600" />
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                Khóa học:
+              </label>
+              <select
+                value={selectedCourseId}
+                onChange={(e) => setSelectedCourseId(e.target.value)}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none"
               >
-                <div>
-                  <h2 className="font-semibold text-gray-900">{quiz.title}</h2>
-                  <p className="text-sm text-gray-500">{quiz.courseTitle}</p>
-                  <p className="mt-1 text-xs text-gray-400">
-                    Hạn: {new Date(quiz.dueDate).toLocaleDateString('vi-VN')}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  {quiz.score !== undefined && (
-                    <span className="text-lg font-bold text-green-600">{quiz.score}/100</span>
-                  )}
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusCfg.class}`}
+                {courses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex rounded-xl bg-slate-100 p-1">
+              <button
+                onClick={() => setStudentStatusFilter('all')}
+                className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition ${
+                  studentStatusFilter === 'all'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Tất cả ({studentQuizzes.length})
+              </button>
+              <button
+                onClick={() => setStudentStatusFilter('open')}
+                className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition ${
+                  studentStatusFilter === 'open'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Đang mở
+              </button>
+              <button
+                onClick={() => setStudentStatusFilter('locked')}
+                className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition ${
+                  studentStatusFilter === 'locked'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Đã đóng
+              </button>
+            </div>
+          </div>
+
+          {/* Student Quizzes Cards */}
+          {loadingStudent ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-48 rounded-2xl bg-slate-200 animate-pulse" />
+              ))}
+            </div>
+          ) : filteredStudentQuizzes.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-slate-300 bg-white py-16 text-center text-slate-400">
+              <FileQuestion className="mx-auto mb-3 h-12 w-12 text-slate-300" />
+              <p className="text-base font-bold text-slate-700">Không có bài kiểm tra nào</p>
+              <p className="text-xs mt-1">
+                Hiện tại khóa học này chưa có bài kiểm tra nào được phát hành.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {filteredStudentQuizzes.map((quiz) => {
+                const score = completedScores[quiz.id]
+                return (
+                  <div
+                    key={quiz.id}
+                    className="flex flex-col justify-between rounded-3xl border border-slate-200 bg-white p-6 shadow-xs hover:border-slate-300 hover:shadow-lg transition group"
                   >
-                    {statusCfg.label}
-                  </span>
-                  {quiz.status === 'pending' && (
-                    <button className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700">
-                      Làm bài
-                    </button>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-          {filtered?.length === 0 && (
-            <p className="py-12 text-center text-gray-400">Không có bài kiểm tra nào.</p>
+                    <div>
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 border border-blue-200">
+                          Quiz
+                        </span>
+                        {quiz.is_locked ? (
+                          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold text-slate-600">
+                            Đã đóng
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                            Đang mở làm bài
+                          </span>
+                        )}
+                      </div>
+
+                      <h3 className="mt-3 text-base font-bold text-slate-900 group-hover:text-blue-600 transition">
+                        {quiz.title}
+                      </h3>
+                      <p className="mt-1 text-xs text-slate-500 line-clamp-2">
+                        {quiz.description || 'Bài kiểm tra trắc nghiệm kiến thức'}
+                      </p>
+
+                      <div className="mt-5 space-y-2 text-xs text-slate-600">
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4 text-blue-500" />
+                          <span>
+                            Thời lượng:{' '}
+                            <strong className="text-slate-800">
+                              {quiz.time_limit_seconds
+                                ? `${Math.round(quiz.time_limit_seconds / 60)} phút`
+                                : 'Không giới hạn'}
+                            </strong>
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                          <span>
+                            Lượt làm bài:{' '}
+                            <strong className="text-slate-800">{quiz.max_attempts} lần</strong>
+                          </span>
+                        </div>
+                        {quiz.deadline && (
+                          <div className="flex items-center gap-2 text-amber-600">
+                            <Calendar className="h-4 w-4" />
+                            <span>
+                              Hạn chót: {new Date(quiz.deadline).toLocaleDateString('vi-VN')}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
+                      {score !== undefined ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-400">Điểm:</span>
+                          <span className="text-base font-bold text-emerald-600">{score.toFixed(1)}</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400">Chưa nộp bài</span>
+                      )}
+
+                      <button
+                        onClick={() => handleStartExam(quiz)}
+                        className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-blue-600/20 hover:bg-blue-700 transition"
+                      >
+                        <Play className="h-3.5 w-3.5 fill-current" />
+                        {score !== undefined ? 'Làm lại' : 'Làm bài ngay'}
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           )}
         </div>
+      )}
+
+      {/* ── Active Student Quiz Player Modal ── */}
+      {takingQuiz && (
+        <StudentQuizPlayer
+          quiz={takingQuiz}
+          questions={takingQuestions}
+          onClose={() => setTakingQuiz(null)}
+          onCompleted={(achieved) => {
+            setCompletedScores((prev) => ({
+              ...prev,
+              [takingQuiz.id]: achieved,
+            }))
+          }}
+        />
       )}
     </div>
   )

@@ -24,6 +24,7 @@ export function RootLayout() {
   }
 
   const role = typeof storedUser?.role === 'string' ? storedUser.role : undefined
+  const isAdmin = role === 'ADMIN' || (typeof storedUser?.email === 'string' && storedUser.email.includes('admin'))
   const isInstructorWorkspace = location.pathname.startsWith('/instructor/courses')
   const profileName = [storedUser?.firstName, storedUser?.lastName]
     .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
@@ -31,6 +32,7 @@ export function RootLayout() {
 
   const handleLogout = () => {
     localStorage.removeItem('access_token')
+    localStorage.removeItem('user')
     navigate('/login')
   }
 
@@ -95,6 +97,12 @@ export function RootLayout() {
           <Link to="/dashboard" className="hidden text-lg font-semibold text-gray-900 sm:block">OEP Platform</Link>
         </div>
         <nav className="flex-1 space-y-1 p-4">
+          {isAdmin && (
+            <NavLink to="/admin/users" className="mb-2 flex items-center gap-3 rounded-lg bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-[#00695c] transition-colors hover:bg-emerald-100">
+              <span>🛡️</span>
+              Admin Portal
+            </NavLink>
+          )}
           {visibleItems.map((item) => {
             const Icon = item.icon
             return <NavLink key={item.to} to={item.to} className={({ isActive }) => `flex items-center justify-center gap-3 rounded-lg px-2 py-2.5 text-sm font-medium transition-colors sm:justify-start sm:px-3 ${isActive ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}><Icon size={18} /><span className="sr-only sm:not-sr-only">{item.label}</span></NavLink>

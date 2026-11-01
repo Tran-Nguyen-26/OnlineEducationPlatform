@@ -45,6 +45,13 @@ services:
       - rustfsdata:/data
       - rustfslogs:/var/log/rustfs
 
+  localstack:
+    image: localstack/localstack:3.4
+    ports: ["4566:4566"]
+    environment:
+      - SERVICES=sqs
+      - AWS_DEFAULT_REGION=ap-southeast-1
+
   rabbitmq:
     image: rabbitmq:3-management
     environment:

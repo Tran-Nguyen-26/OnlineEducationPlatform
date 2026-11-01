@@ -2,24 +2,28 @@ package com.oep.coremodel.entity.system;
 
 import com.oep.coremodel.entity.BaseEntity;
 import com.oep.coremodel.entity.identity.User;
+import com.oep.coremodel.enums.AuditAction;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.type.SqlTypes;
-import com.oep.coremodel.enums.*;
 
-import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.UUID;
 
 @Getter
 @Setter
 @Entity
-@Table(name = "audit_logs", indexes = {@Index(name = "idx_audit_logs_target_type_target_id", columnList = "target_type, target_id"), @Index(name = "idx_audit_logs_actor_id", columnList = "actor_id")})
+@Table(
+    name = "audit_logs",
+    indexes = {
+        @Index(name = "idx_audit_logs_actor_id", columnList = "actor_id"),
+        @Index(name = "idx_audit_logs_target_type_target_id", columnList = "target_type, target_id"),
+        @Index(name = "idx_audit_logs_action_created_at", columnList = "action, created_at")
+    }
+)
 public class AuditLog extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -44,3 +48,4 @@ public class AuditLog extends BaseEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 }
+

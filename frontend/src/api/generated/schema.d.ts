@@ -93,6 +93,181 @@ export interface paths {
       }
     }
   }
+  '/auth/forgot-password': {
+    post: {
+      requestBody: {
+        content: {
+          'application/json': {
+            email: string
+          }
+        }
+      }
+      responses: {
+        200: {
+          content: {
+            'application/json': {
+              message: string
+              emailMasked: string
+              cooldownSeconds: number
+              expiresInSeconds: number
+            }
+          }
+        }
+        400: {
+          content: {
+            'application/json': {
+              timestamp?: string
+              status: number
+              error: string
+              message: string
+              details?: Record<string, string>
+            }
+          }
+        }
+        429: {
+          content: {
+            'application/json': {
+              timestamp?: string
+              status: number
+              error: string
+              message: string
+            }
+          }
+        }
+      }
+    }
+  }
+  '/auth/forgot-password/verify-otp': {
+    post: {
+      requestBody: {
+        content: {
+          'application/json': {
+            email: string
+            otpCode: string
+          }
+        }
+      }
+      responses: {
+        200: {
+          content: {
+            'application/json': {
+              resetToken: string
+              expiresInSeconds: number
+              message: string
+            }
+          }
+        }
+        400: {
+          content: {
+            'application/json': {
+              timestamp?: string
+              status: number
+              error: string
+              message: string
+              details?: Record<string, string>
+            }
+          }
+        }
+      }
+    }
+  }
+  '/auth/reset-password': {
+    post: {
+      requestBody: {
+        content: {
+          'application/json': {
+            resetToken: string
+            newPassword: string
+            confirmPassword: string
+          }
+        }
+      }
+      responses: {
+        200: {
+          content: {
+            'application/json': {
+              message: string
+            }
+          }
+        }
+        400: {
+          content: {
+            'application/json': {
+              timestamp?: string
+              status: number
+              error: string
+              message: string
+              details?: Record<string, string>
+            }
+          }
+        }
+      }
+    }
+  }
+  '/auth/register-instructor': {
+    post: {
+      requestBody: {
+        content: {
+          'application/json': {
+            email: string
+            fullName: string
+            phone?: string | null
+            organization?: string | null
+            jobTitle?: string | null
+            expertise?: string | null
+            yearsOfExperience?: number | null
+            professionalBio?: string | null
+            motivation?: string | null
+          }
+        }
+      }
+      responses: {
+        201: {
+          content: {
+            'application/json': {
+              success: boolean
+              message: string
+              data?: {
+                id: string
+                email: string
+                fullName: string
+                phone?: string | null
+                organization?: string | null
+                jobTitle?: string | null
+                expertise?: string | null
+                yearsOfExperience?: number | null
+                professionalBio?: string | null
+                motivation?: string | null
+                status: string
+                submittedAt: string
+              }
+            }
+          }
+        }
+        400: {
+          content: {
+            'application/json': {
+              timestamp?: string
+              status: number
+              error: string
+              message: string
+              details?: Record<string, string>
+            }
+          }
+        }
+        409: {
+          content: {
+            'application/json': {
+              timestamp?: string
+              status: number
+              error: string
+              message: string
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 export type components = { schemas: Record<string, unknown> }
