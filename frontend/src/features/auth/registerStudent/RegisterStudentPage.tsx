@@ -159,6 +159,7 @@ export default function RegisterStudentPage() {
             <input
               id="regPassword"
               type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
               required
               minLength={6}
               maxLength={100}
@@ -233,6 +234,7 @@ export default function RegisterStudentPage() {
             <input
               id="regConfirmPassword"
               type={showConfirm ? 'text' : 'password'}
+              autoComplete="new-password"
               required
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
