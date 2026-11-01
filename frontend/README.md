@@ -79,4 +79,4 @@ npm run api:gen
 
 ## Proxy API
 
-Dev server proxy `/api/*` → `http://localhost:8080` (xem `vite.config.ts`).
+Dev server proxy `/api/*` → `http://localhost:8081` (Core LMS; xem `vite.config.ts`).

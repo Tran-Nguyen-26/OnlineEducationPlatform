@@ -27,3 +27,16 @@ unique-index creation fails and the transaction rolls back. Resolve those
 records explicitly before retrying. It does not
 reconcile arbitrary legacy column definitions or serve as a full database
 baseline.
+
+## V3 — Multipart content uploads
+
+Apply V3 to the primary database after the application has created the M2
+tables. It adds the active multipart upload ID to `lesson_contents` and a
+partial index used by the 24-hour pending-upload cleanup job:
+
+```sh
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/core-model/src/main/resources/db/migration/V3__multipart_course_content_uploads.sql
+```
+
+Hibernate `ddl-auto: update` also adds the nullable column in local development.
+V3 remains a manual production migration; Flyway is not enabled.

@@ -62,5 +62,36 @@ INSTRUCTOR role and create an ACTIVE enrollment. It removes the test content thr
 the test course and accounts from PostgreSQL. It does not delete Docker volumes. Set `BaseUrl`,
 `PostgresContainer`, `DbName`, or `DbUser` parameters when using different local values.
 
+### S3 upload development with LocalStack
+
+The storage adapter uses the S3 API and works with LocalStack. Start LocalStack on port `4566`, then launch
+Core LMS with these process-scoped settings (the service creates the configured bucket and applies browser
+CORS rules on startup):
+
+```powershell
+$env:OEP_STORAGE_ENDPOINT = 'http://localhost:4566'
+$env:OEP_STORAGE_ACCESS_KEY = 'test'
+$env:OEP_STORAGE_SECRET_KEY = 'test'
+$env:OEP_STORAGE_BUCKET = 'oep-course-content'
+$env:OEP_STORAGE_UPLOAD_URL_TTL_SECONDS = '900'
+$env:OEP_STORAGE_BROWSER_ALLOWED_ORIGINS = 'http://localhost:5173,http://127.0.0.1:5173'
+mvn -pl core-lms-service spring-boot:run
+```
+
+The development bucket allows browser PUT requests from `http://localhost:5173` and
+`http://127.0.0.1:5173`, and exposes `ETag` for multipart completion. Keep the configured endpoint reachable
+from the browser because presigned URLs are returned directly to the frontend. Configure
+`OEP_STORAGE_BROWSER_ALLOWED_ORIGINS` for other frontend origins before running the browser upload flow.
+
+From the repository root, with Core LMS and PostgreSQL running, run the repeatable API smoke against Core LMS directly:
+
+```powershell
+./backend/scripts/m2-integration-smoke.ps1 -BaseUrl 'http://localhost:8081'
+```
+
+The flow covers file metadata creation, upload failure and retry, signed PUT, a six-part 56 MiB multipart transfer,
+server-side completion checks, signed GET byte comparison, and temporary-data cleanup. It uses the storage endpoint
+configured on Core LMS, so keep the LocalStack settings above in that service's environment.
+
 This is a local development verification flow, not a production deployment recipe. Production migration,
 secret management, and storage-provider configuration remain deployment work.
