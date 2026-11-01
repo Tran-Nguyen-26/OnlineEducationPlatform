@@ -567,6 +567,7 @@ public class CourseManagementService {
         content.setFileName(request.fileName());
         content.setMimeType(request.mimeType());
         content.setFileSize(request.fileSize());
+        content.setDurationSeconds(request.durationSeconds());
         content.setUploadStatus(isFileContent(request.contentType()) ? UploadStatus.PENDING : UploadStatus.AVAILABLE);
         content.setPosition(position);
         content.setCreatedBy(actor);
@@ -615,13 +616,37 @@ public class CourseManagementService {
         if (contentReferences.isReferenced(contentId)) {
             throw new BusinessException(ErrorCode.CONTENT_IN_USE, "Content is referenced by progress, AI data or change history");
         }
-        if (isFileContent(content.getContentType()) && content.getObjectKey() != null) {
-            objectStorage.delete(content.getObjectKey());
+        if (isFileContent(content.getContentType())) {
+            if (content.getObjectKey() != null) {
+                if (content.getMultipartUploadId() != null) {
+                    objectStorage.abortMultipartUpload(content.getObjectKey(), content.getMultipartUploadId());
+                }
+                objectStorage.delete(content.getObjectKey());
+            }
         } else {
             requireTextOrLink(content);
         }
         contents.delete(content);
         return new LessonContentDtos.DeleteResponse(true, contentId);
+    }
+
+    @Transactional
+    public LessonContentDtos.ReorderResponse reorderLessonContents(UUID actorId, UUID courseId, UUID moduleId,
+                                                                    UUID lessonId,
+                                                                    LessonContentDtos.ReorderRequest request) {
+        Lesson lesson = requireEditableLesson(actorId, courseId, moduleId, lessonId);
+        List<LessonContent> current = contents.findByLessonIdOrderByPositionAsc(lesson.getId());
+        List<UUID> orderedIds = request.orderedIds();
+        validatePermutation(orderedIds, current.stream().map(LessonContent::getId).toList(),
+                ErrorCode.INVALID_CONTENT_ORDER);
+        List<LessonContent> ordered = orderedIds.stream()
+                .map(id -> current.stream().filter(content -> content.getId().equals(id)).findFirst().orElseThrow())
+                .toList();
+        for (int i = 0; i < ordered.size(); i++) ordered.get(i).setPosition(-(i + 1));
+        contents.saveAllAndFlush(ordered);
+        for (int i = 0; i < ordered.size(); i++) ordered.get(i).setPosition(i);
+        contents.saveAllAndFlush(ordered);
+        return new LessonContentDtos.ReorderResponse(true, List.copyOf(orderedIds));
     }
 
     @Transactional
@@ -703,8 +728,15 @@ public class CourseManagementService {
                 throw new BusinessException(ErrorCode.UNSUPPORTED_MEDIA_TYPE,
                         "mime_type is not supported for this file content type");
             }
-            if (request.fileSize() > FileUploadPolicy.MAX_FILE_SIZE_BYTES) {
-                throw new BusinessException(ErrorCode.UPLOAD_TOO_LARGE, "Maximum file size is 100 MiB");
+            if (request.fileSize() > FileUploadPolicy.maxFileSizeBytes(request.contentType())) {
+                throw new BusinessException(ErrorCode.UPLOAD_TOO_LARGE,
+                        "Maximum file size is " + FileUploadPolicy.maxFileSizeBytes(request.contentType()) + " bytes for this content type");
+            }
+            if (request.contentType() == ContentType.VIDEO && request.durationSeconds() == null) {
+                throw new BusinessException(ErrorCode.INVALID_CONTENT_METADATA, "VIDEO requires duration_seconds");
+            }
+            if (request.contentType() != ContentType.VIDEO && request.durationSeconds() != null) {
+                throw new BusinessException(ErrorCode.INVALID_CONTENT_METADATA, "duration_seconds is only accepted for VIDEO content");
             }
             return;
         }
@@ -833,6 +865,6 @@ public class CourseManagementService {
     private LessonContentDtos.Response toContent(LessonContent c) {
         return new LessonContentDtos.Response(c.getId(), c.getLesson().getId(), c.getContentType(), c.getTitle(),
                 TextContentSanitizer.sanitize(c.getTextContent()), c.getExternalUrl(), c.getFileName(), c.getMimeType(), c.getFileSize(),
-                c.getUploadStatus(), c.getPosition(), c.getVersionNumber(), c.getCreatedAt(), c.getUpdatedAt());
+                c.getUploadStatus(), c.getPosition(), c.getVersionNumber(), c.getCreatedAt(), c.getUpdatedAt(), c.getDurationSeconds());
     }
 }

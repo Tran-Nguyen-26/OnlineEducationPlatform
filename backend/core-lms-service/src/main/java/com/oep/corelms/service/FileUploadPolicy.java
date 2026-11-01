@@ -7,7 +7,8 @@ import java.util.Map;
 import java.util.Set;
 
 final class FileUploadPolicy {
-    static final long MAX_FILE_SIZE_BYTES = 100L * 1024 * 1024;
+    static final long VIDEO_MAX_FILE_SIZE_BYTES = 2L * 1024 * 1024 * 1024;
+    static final long DOCUMENT_MAX_FILE_SIZE_BYTES = 50L * 1024 * 1024;
 
     private static final Map<ContentType, Set<String>> ALLOWED_TYPES = Map.of(
             ContentType.VIDEO, Set.of("video/mp4", "video/webm", "video/quicktime"),
@@ -33,5 +34,13 @@ final class FileUploadPolicy {
 
     static boolean isFileContent(ContentType type) {
         return ALLOWED_TYPES.containsKey(type);
+    }
+
+    static long maxFileSizeBytes(ContentType type) {
+        return type == ContentType.VIDEO ? VIDEO_MAX_FILE_SIZE_BYTES : DOCUMENT_MAX_FILE_SIZE_BYTES;
+    }
+
+    static boolean requiresMultipart(ContentType type, long fileSize) {
+        return type == ContentType.VIDEO && fileSize > DOCUMENT_MAX_FILE_SIZE_BYTES;
     }
 }

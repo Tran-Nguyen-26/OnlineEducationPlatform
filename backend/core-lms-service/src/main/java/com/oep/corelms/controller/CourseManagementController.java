@@ -246,6 +246,15 @@ public class CourseManagementController {
         return service.deleteLessonContent(userId(jwt), courseId, moduleId, lessonId, contentId);
     }
 
+    @PatchMapping("/courses/{courseId}/modules/{moduleId}/lessons/{lessonId}/content-order")
+    public LessonContentDtos.ReorderResponse reorderLessonContents(@AuthenticationPrincipal Jwt jwt,
+                                                                    @PathVariable UUID courseId,
+                                                                    @PathVariable UUID moduleId,
+                                                                    @PathVariable UUID lessonId,
+                                                                    @Valid @RequestBody LessonContentDtos.ReorderRequest request) {
+        return service.reorderLessonContents(userId(jwt), courseId, moduleId, lessonId, request);
+    }
+
     private UUID userId(Jwt jwt) {
         if (jwt == null) throw new org.springframework.security.access.AccessDeniedException("Authentication required");
         return UUID.fromString(jwt.getSubject());

@@ -13,6 +13,8 @@ import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.Instant;
+import org.springframework.data.domain.Pageable;
 
 public interface LessonContentRepository extends JpaRepository<LessonContent, UUID> {
     Page<LessonContent> findByLessonIdOrderByPositionAsc(UUID lessonId, Pageable pageable);
@@ -26,6 +28,12 @@ public interface LessonContentRepository extends JpaRepository<LessonContent, UU
     @Query("select c from LessonContent c where c.id = :id and c.lesson.id = :lessonId")
     Optional<LessonContent> findByIdAndLessonIdForUpdate(@Param("id") UUID id, @Param("lessonId") UUID lessonId);
     boolean existsByLessonIdAndPosition(UUID lessonId, int position);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select c from LessonContent c where c.uploadStatus = :status and c.updatedAt < :cutoff order by c.updatedAt asc")
+    List<LessonContent> findExpiredUploadsForUpdate(@Param("status") UploadStatus status,
+                                                     @Param("cutoff") Instant cutoff,
+                                                     Pageable pageable);
 
     @Query("select (count(c) > 0) from LessonContent c where c.lesson.module.course.id = :courseId and c.uploadStatus = :status")
     boolean existsAvailableInCourse(@Param("courseId") UUID courseId, @Param("status") UploadStatus status);

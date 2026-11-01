@@ -44,6 +44,9 @@ public class LessonContent extends BaseEntity {
     @Column(name = "object_key", nullable = true, length = 500)
     private String objectKey;
 
+    @Column(name = "multipart_upload_id", nullable = true, length = 1024)
+    private String multipartUploadId;
+
     @Column(name = "file_name", nullable = true, length = 255)
     private String fileName;
 

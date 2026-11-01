@@ -6,16 +6,24 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
+import software.amazon.awssdk.services.s3.model.CompletedPart;
+import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.UploadPartPresignRequest;
 
 import java.time.Duration;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -52,6 +60,67 @@ public class S3ObjectStorageService implements ObjectStorageService {
                     .signatureDuration(expiry)
                     .getObjectRequest(request)
                     .build()).url().toString();
+        } catch (RuntimeException ex) {
+            throw unavailable();
+        }
+    }
+
+    @Override
+    public String createMultipartUpload(String objectKey, String contentType) {
+        try {
+            return client.createMultipartUpload(CreateMultipartUploadRequest.builder()
+                    .bucket(properties.getBucket())
+                    .key(objectKey)
+                    .contentType(contentType)
+                    .build()).uploadId();
+        } catch (RuntimeException ex) {
+            throw unavailable();
+        }
+    }
+
+    @Override
+    public String presignUploadPart(String objectKey, String uploadId, int partNumber, Duration expiry) {
+        try {
+            UploadPartRequest request = UploadPartRequest.builder()
+                    .bucket(properties.getBucket())
+                    .key(objectKey)
+                    .uploadId(uploadId)
+                    .partNumber(partNumber)
+                    .build();
+            return presigner.presignUploadPart(UploadPartPresignRequest.builder()
+                    .signatureDuration(expiry)
+                    .uploadPartRequest(request)
+                    .build()).url().toString();
+        } catch (RuntimeException ex) {
+            throw unavailable();
+        }
+    }
+
+    @Override
+    public void completeMultipartUpload(String objectKey, String uploadId, List<CompletedPartData> parts) {
+        try {
+            List<CompletedPart> completedParts = parts.stream()
+                    .map(part -> CompletedPart.builder().partNumber(part.partNumber()).eTag(part.eTag()).build())
+                    .toList();
+            client.completeMultipartUpload(CompleteMultipartUploadRequest.builder()
+                    .bucket(properties.getBucket())
+                    .key(objectKey)
+                    .uploadId(uploadId)
+                    .multipartUpload(CompletedMultipartUpload.builder().parts(completedParts).build())
+                    .build());
+        } catch (RuntimeException ex) {
+            throw unavailable();
+        }
+    }
+
+    @Override
+    public void abortMultipartUpload(String objectKey, String uploadId) {
+        try {
+            client.abortMultipartUpload(AbortMultipartUploadRequest.builder()
+                    .bucket(properties.getBucket())
+                    .key(objectKey)
+                    .uploadId(uploadId)
+                    .build());
         } catch (RuntimeException ex) {
             throw unavailable();
         }

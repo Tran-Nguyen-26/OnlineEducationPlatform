@@ -25,8 +25,9 @@ oep:
     secret-key: ${OEP_STORAGE_SECRET_KEY:oep-minio-secret}
     bucket: ${OEP_STORAGE_BUCKET:oep-course-content}
     region: ${OEP_STORAGE_REGION:us-east-1}
-    upload-url-ttl-seconds: ${OEP_STORAGE_UPLOAD_URL_TTL_SECONDS:600}
+    upload-url-ttl-seconds: ${OEP_STORAGE_UPLOAD_URL_TTL_SECONDS:900}
     access-url-ttl-seconds: ${OEP_STORAGE_ACCESS_URL_TTL_SECONDS:300}
+    browser-allowed-origins: ${OEP_STORAGE_BROWSER_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
   datasource:
     routing-enabled: true
     primary:
