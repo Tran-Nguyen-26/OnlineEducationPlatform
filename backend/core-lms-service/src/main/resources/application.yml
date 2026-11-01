@@ -14,23 +14,28 @@ spring:
         format_sql: true
   rabbitmq:
     host: ${RABBIT_HOST:localhost}
-    port: ${RABBIT_PORT:5672}
-    username: ${RABBIT_USER:guest}
-    password: ${RABBIT_PASSWORD:guest}
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
+    port: ${RABBIT_PORT:5673}
+    username: ${RABBIT_USER:oep}
+    password: ${RABBIT_PASSWORD:oep}
 
 oep:
+  storage:
+    endpoint: ${OEP_STORAGE_ENDPOINT:http://localhost:9000}
+    access-key: ${OEP_STORAGE_ACCESS_KEY:oep}
+    secret-key: ${OEP_STORAGE_SECRET_KEY:oep-minio-secret}
+    bucket: ${OEP_STORAGE_BUCKET:oep-course-content}
+    region: ${OEP_STORAGE_REGION:us-east-1}
+    upload-url-ttl-seconds: ${OEP_STORAGE_UPLOAD_URL_TTL_SECONDS:900}
+    access-url-ttl-seconds: ${OEP_STORAGE_ACCESS_URL_TTL_SECONDS:300}
+    browser-allowed-origins: ${OEP_STORAGE_BROWSER_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
   datasource:
     routing-enabled: true
     primary:
-      url: ${DB_URL:jdbc:postgresql://localhost:5432/oep}
+      url: ${DB_URL:jdbc:postgresql://localhost:5434/oep}
       username: ${DB_USER:oep}
       password: ${DB_PASSWORD:oep}
     replica:
-      url: ${DB_REPLICA_URL:jdbc:postgresql://localhost:5433/oep}
+      url: ${DB_REPLICA_URL:jdbc:postgresql://localhost:5435/oep}
       username: ${DB_REPLICA_USER:oep}
       password: ${DB_REPLICA_PASSWORD:oep}
 jwt:

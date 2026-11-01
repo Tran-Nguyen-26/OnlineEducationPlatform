@@ -16,6 +16,11 @@ const ForgotPasswordPage = lazy(
 )
 const CoursesPage = lazy(() => import('@/features/courses/CoursesPage'))
 const CourseDetailPage = lazy(() => import('@/features/courses/CourseDetailPage'))
+const InstructorCoursesPage = lazy(() => import('@/features/courses/instructor/InstructorCoursesPage'))
+const CourseBuilderPage = lazy(() => import('@/features/courses/instructor/CourseBuilderPage'))
+const LessonContentPage = lazy(() => import('@/features/courses/instructor/LessonContentPage'))
+const UploadManagerPage = lazy(() => import('@/features/courses/instructor/UploadManagerPage'))
+const PublishCoursePage = lazy(() => import('@/features/courses/instructor/PublishCoursePage'))
 const EnrollmentPage = lazy(() => import('@/features/enrollment/EnrollmentPage'))
 const AssessmentPage = lazy(() => import('@/features/assessment/AssessmentPage'))
 const DashboardPage = lazy(() => import('@/features/dashboard/DashboardPage'))
@@ -49,6 +54,11 @@ export const router = createBrowserRouter([
       { path: 'dashboard', element: withSuspense(DashboardPage) },
       { path: 'courses', element: withSuspense(CoursesPage) },
       { path: 'courses/:id', element: withSuspense(CourseDetailPage) },
+      { path: 'instructor/courses', element: withSuspense(InstructorCoursesPage) },
+      { path: 'instructor/courses/:courseId/builder', element: withSuspense(CourseBuilderPage) },
+      { path: 'instructor/courses/:courseId/lessons/:lessonId/content', element: withSuspense(LessonContentPage) },
+      { path: 'instructor/courses/:courseId/lessons/:lessonId/upload', element: withSuspense(UploadManagerPage) },
+      { path: 'instructor/courses/:courseId/publish', element: withSuspense(PublishCoursePage) },
       { path: 'enrollment', element: withSuspense(EnrollmentPage) },
       { path: 'assessment', element: withSuspense(AssessmentPage) },
     ],

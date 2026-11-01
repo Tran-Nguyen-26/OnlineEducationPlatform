@@ -39,18 +39,31 @@ stateDiagram-v2
   test; the team must decide whether to keep it. Requiring at least one
   usable lesson/content before publishing is also a proposal.
 
-| Action                                                 | OWNER | CO_INSTRUCTOR |   STUDENT   | ADMIN |
-| ------------------------------------------------------ | :---: | :-----------: | :---------: | :---: |
-| Edit course metadata; manage module/lesson/content     |  Yes  |      Yes      |     No      |  No   |
-| Publish/unpublish; archive/restore; manage instructors |  Yes  |      No       |     No      |  No   |
-| Disable/enable course                                  |  No   |      No       |     No      |  Yes  |
-| Read public published metadata and preview outline     |  Yes  |      Yes      |     Yes     |  Yes  |
-| Read protected content / obtain file access URL        |  Yes  |      Yes      | Conditional |  No   |
+### Module 2 role matrix (draft for team approval)
 
-The `STUDENT` condition is a published course plus valid L3 enrollment
-entitlement; a `PRIVATE` course additionally requires successful invite-code
-enrollment. Administrative inspection of non-public metadata/outline is a
-separate restricted policy, not permission to download protected files.
+| Operation | OWNER | CO_INSTRUCTOR | STUDENT |
+| --- | :---: | :---: | :---: |
+| Create a course (eligible system-level INSTRUCTOR; creator becomes OWNER) | Eligible INSTRUCTOR | Eligible INSTRUCTOR | No |
+| Read public catalog and PUBLIC + PUBLISHED metadata/preview outline | Yes | Yes | Yes |
+| Read managed course metadata or outline in any lifecycle state | Yes | Yes | No |
+| Read private course metadata, learning outline, modules, lessons and AVAILABLE content | Yes | Yes | ACTIVE enrollment in PUBLISHED course |
+| Update course metadata | Yes | Yes | No |
+| Create/read/update modules, lessons and lesson contents | Yes | Yes | Read only under student access rule |
+| Delete lesson | Yes, only when no contents or dependent records exist | Yes, same rule | No |
+| Reorder modules and lessons | Yes | Yes | No |
+| Delete an empty module | Yes | Yes | No |
+| Archive a DRAFT course through deprecated `DELETE /courses/{courseId}` alias | Yes | No; receives 403 | No |
+| Transfer course ownership | Not supported in current M2 contract | Not supported in current M2 contract | No |
+| Publish, unpublish, archive, restore; manage co-instructors | Yes | No | No |
+| Request upload URL and confirm upload | Yes | Yes | No |
+| Request signed file access URL | Yes | Yes | ACTIVE enrollment in PUBLISHED course; content must be AVAILABLE |
+
+`OWNER` and `CO_INSTRUCTOR` refer to course-scoped assignments. `STUDENT`
+access to private resources requires successful L3 enrollment; archived or
+disabled courses do not grant new student reads or access URLs. ADMIN lifecycle
+operations (disable / enable) are outside this three-role matrix. This matrix
+describes the current M2 contract and implementation draft; team approval is
+still pending.
 
 ## Student access and enrollment integration
 
@@ -65,10 +78,11 @@ separate restricted policy, not permission to download protected files.
   **OPEN:** whether `COMPLETED` retains M2 content access. The M2 draft uses
   provisional `ACTIVE`-only authorization (fail closed); this is **not** a
   final product decision. `WITHDRAWN`/`REMOVED` cannot obtain new content URLs.
-- The proposed synchronous `EnrollmentChecker` offers
-  `get_active_enrollment(student_id, course_id)` for access checks and
-  `count_occupied_seats(course_id)` for capacity reductions. M2 derives the
-  student ID from authenticated identity, not from a client-supplied query.
+- The L3/M3 draft proposes the synchronous
+  `EnrollmentChecker.requireActive(studentId, courseId)` interface, returning
+  the enrollment ID or throwing 403. M2 derives the student ID from
+  authenticated identity, not from a client-supplied query. The method
+  signature and cross-service failure mapping still need L3 confirmation.
   If the checker is unavailable, protected requests fail closed with 503.
 - Updating `courses.capacity` or switching visibility `PUBLIC` ↔ `PRIVATE`
   requires coordination with L3. Counting occupied seats and then updating in
@@ -99,9 +113,9 @@ have been implemented.
 | -------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `courses`            | UUID PK; `created_by` references user; visibility, lifecycle, capacity, learning mode | Keep metadata and archive-only behavior. Coordinate capacity changes with L3.                                                                                        |
 | `course_instructors` | `(course_id, instructor_id)` relationship with `OWNER`/`CO_INSTRUCTOR`                | Create the owner association atomically. Composite uniqueness alone does not guarantee **at most one** owner per course; add a suitable owner uniqueness constraint. |
-| `course_modules`     | FK `course_id`; `position`, `is_default`                                              | Enforce unique positions per course and at most one default module; decide whether exactly one default is required.                                                  |
-| `lessons`            | FK `module_id`; `position`, `is_required`                                             | Enforce positions per module; avoid deletion while progress, quizzes or assignments reference the lesson.                                                            |
-| `lesson_contents`    | FK `lesson_id`; `position`, file metadata and `upload_status`                         | Enforce positions per lesson, validate file ownership/storage, and reject deletion with downstream references (409).                                                 |
+| `course_modules`     | FK `course_id`; `position`, `is_default`                                              | Course creation inserts a default module at position 0. Inserting at an occupied position shifts later modules while preserving order; keep positions unique and at most one default. |
+| `lessons`            | FK `module_id`; `position`, `is_required`                                             | Inserting at an occupied position shifts later lessons while preserving order. Delete only when the lesson has no contents, completion rule, progress, quiz, assignment, or AI reference; otherwise return 409 without cascading. |
+| `lesson_contents`    | FK `lesson_id`; `position`, file metadata and `upload_status`                         | Inserting at an occupied position shifts later content while preserving order. Validate file ownership/storage and reject deletion with downstream references (409).  |
 
 Reordering needs atomic position updates to avoid uniqueness collisions.
 There is no confirmed generic soft-delete scheme for child tables; do not
@@ -128,36 +142,31 @@ should not expose another course's data.
   URL and 5-minute download URL, plus MIME/type validation. Invalid file size
   or type may return 413/415 from M2; the storage provider's direct response
   need not use the API's error envelope.
-- **Contract review gap:** the current `CompleteUploadRequest` schema requires
-  `object_key` from the caller, while the upload-url response intentionally
-  omits a raw key and the design says keys remain server-side. Resolve how a
-  client obtains a safe confirmation handle (or change the confirmation
-  contract) **before implementation**; this document does not modify the API.
+- Upload completion is bodyless: the server uses the content ID to find the
+  server-managed object key, checks storage metadata, then marks content
+  `AVAILABLE`. The public contract does not expose `object_key`.
 
 ## Integration and implementation gaps
 
-| Owner / dependency                | Intended interface or event                                                                                       | Decision needed                                                                                                                                   |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **L3 → M2**                       | `EnrollmentChecker.get_active_enrollment(...)`; `count_occupied_seats(...)`                                       | Final `COMPLETED` access policy, occupied-seat statuses, timeout/auth, and race-safe capacity coordination.                                       |
-| **L3 → M2 (PRIVATE)**             | Invite-code enrollment before protected M2 reads                                                                  | Define code persistence, issuance, expiry/reuse, join API and visibility-change behavior. Minimal invite-code support **is confirmed for MVP**.   |
-| **M2 ↔ M3/L4/M5**                 | `lesson_completion_rules` with `require_quiz` / `require_assignment`; M5 assignments may reference a lesson       | Confirm completion-rule ownership, phase and whether one or all associated quizzes/assignments are required. Prevent deleting referenced lessons. |
-| **M2 → event/notification owner** | Transactional outbox; proposed `course.updated`, `course.published`, `course.archived`, `content.available`, etc. | Confirm event naming, envelope, consumer ownership, deduplication and notification behavior. Never emit `course.deleted` for an archive.          |
-| **Common / gateway**              | JWT authorization, errors, pagination, storage limits and routes                                                  | Approve error envelope and 403/404 behavior; align pagination and deployment routes across M2/M3/M5.                                              |
+| Owner / dependency | Draft interface or event | Decision needed |
+| --- | --- | --- |
+| **L3 / M2** | `EnrollmentChecker.requireActive(studentId, courseId)` returns enrollment ID or throws 403, matching `docs/m3-enrollment-progress.md`. | L3 confirmation of signature, `COMPLETED` access policy, timeout/auth behavior, and cross-service error mapping. M2 currently checks its local enrollment table; this interface is not implemented. |
+| **L3 / M2 (PRIVATE)** | L3 handles invite-code enrollment before protected M2 reads. | Define code persistence, issuance, expiry/reuse, join API and visibility-change behavior. Minimal invite-code support is confirmed for MVP. |
+| **M2 / M3/L4/M5** | `lesson_completion_rules` with `require_quiz` / `require_assignment`; M5 assignments may reference a lesson. | Completion-rule ownership and scope remain open. Lesson deletion is implemented conservatively: return 409 while contents, completion rules, progress, quizzes, assignments, or AI references exist; no dependent rows are cascaded. |
+| **M2 / L5 notifications** | L5's current notification catalog includes `COURSE_CONTENT_UPDATED` and `COURSE_DISABLED`; it also lists `COURSE_ANNOUNCEMENT`, `COURSE_APPROVED`, and `COURSE_REJECTED`. | Confirm which M2 content/lifecycle changes emit notifications, recipients, payload/envelope, and whether domain events share the notification catalog. `COURSE_PUBLISHED`, `COURSE_ARCHIVED`, and `CONTENT_AVAILABLE` are not in the current catalog. |
+| **Common / gateway** | M2 proposes 1-based `page`, `page_size` default 20 / maximum 100, and `{"error":{"code":"...","message":"...","request_id":"...","details":{}}}`. | Approve a common pagination/error contract and align differences with M3/M5. The common standard is not present in this repository. |
 
-The M2 integration draft proposes storing an event in `outbox_events` within
-the same transaction as a resource change; an asynchronous worker publishes it
-with retry, and consumers deduplicate notifications by
-`(event_id, recipient_user_id)`. These are **proposed integration contracts**,
-not proof of an implemented outbox or delivery guarantee. The M2 notes call
-its events/notifications collaborator "L5", whereas the supplied M5 document
-is **Assignments/Submissions/Grading**; the team should clarify the actual
-owner instead of assuming these labels are interchangeable.
+The L5 notification catalog is in `docs/m6-notification.md`, section 5. Its
+`event_type` values describe notifications and may differ from domain-event
+names carried by an outbox. The M2/L5 mapping, payload, recipients and delivery
+guarantees still need agreement. The catalog is not evidence that M2 currently
+emits those notifications. Confirm that the team's "L5" owner refers to the
+notification module (the supplied M5 document covers
+Assignments/Submissions/Grading).
 
-The M2 contract currently proposes pagination `page=1`, `page_size=20`, max
-`100`, and errors shaped as
-`{"error":{"code":"...","message":"...","request_id":"...","details":{}}}`.
-These formats differ from M3/M5 and still require common approval. They are
-**not changed by this document**.
+The M2 contract already defines the proposed pagination and error envelope in
+`openapi/m2-course.yaml`. These formats differ from M3/M5 and still require
+common approval; no approved common API standard is present in the repository.
 
 ## Pending approvals and acceptance checks
 

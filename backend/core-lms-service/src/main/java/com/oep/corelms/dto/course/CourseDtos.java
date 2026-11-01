@@ -59,4 +59,10 @@ public final class CourseDtos {
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record DeleteInstructorResponse(boolean success, UUID deletedId) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record CourseOutline(UUID courseId, java.util.List<ModuleOutline> modules) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record ModuleOutline(ModuleDtos.Response module, java.util.List<LessonDtos.Response> lessons) {}
 }

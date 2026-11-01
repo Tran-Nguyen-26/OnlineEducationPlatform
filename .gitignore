@@ -1,4 +1,6 @@
 .agents
+frontend/test-results/
+frontend/playwright-report/
 graphify-out
 openspec
 
@@ -8,5 +10,3 @@ openspec
 *.tfstate.*
 *.tfplan
 crash.log
-
-

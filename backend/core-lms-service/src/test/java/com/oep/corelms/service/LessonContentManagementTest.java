@@ -2,12 +2,15 @@ package com.oep.corelms.service;
 
 import com.oep.corelms.dto.course.LessonContentDtos;
 import com.oep.corelms.repository.CourseInstructorRepository;
+import com.oep.corelms.repository.AuditLogRepository;
 import com.oep.corelms.repository.CourseModuleRepository;
 import com.oep.corelms.repository.CourseRepository;
+import com.oep.corelms.repository.EnrollmentRepository;
 import com.oep.corelms.repository.LessonContentReferenceRepository;
 import com.oep.corelms.repository.LessonContentRepository;
 import com.oep.corelms.repository.LessonRepository;
 import com.oep.corelms.repository.UserRepository;
+import com.oep.corelms.storage.ObjectStorageService;
 import com.oep.coremodel.entity.course.Course;
 import com.oep.coremodel.entity.course.CourseInstructor;
 import com.oep.coremodel.entity.course.CourseModule;
@@ -31,11 +34,16 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyIterable;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -47,7 +55,10 @@ class LessonContentManagementTest {
     @Mock private LessonContentRepository contents;
     @Mock private LessonContentReferenceRepository contentReferences;
     @Mock private CourseInstructorRepository courseInstructors;
+    @Mock private AuditLogRepository auditLogs;
     @Mock private UserRepository users;
+    @Mock private EnrollmentRepository enrollments;
+    @Mock private ObjectStorageService objectStorage;
 
     private final UUID actorId = UUID.randomUUID();
     private final UUID courseId = UUID.randomUUID();
@@ -61,7 +72,7 @@ class LessonContentManagementTest {
 
     @BeforeEach
     void setUp() {
-        service = new CourseManagementService(courses, modules, lessons, contents, contentReferences, courseInstructors, users);
+        service = new CourseManagementService(courses, modules, lessons, contents, contentReferences, courseInstructors, auditLogs, users, enrollments, objectStorage);
         course.setId(courseId);
         course.setLifecycleStatus(CourseLifecycleStatus.DRAFT);
         module.setId(moduleId);
@@ -84,7 +95,6 @@ class LessonContentManagementTest {
     void createsTextAsAvailableAndAppendsAfterLastPosition() {
         LessonContent existing = content(ContentType.TEXT, 4);
         when(contents.findByLessonIdOrderByPositionAsc(lessonId)).thenReturn(List.of(existing));
-        when(contents.existsByLessonIdAndPosition(lessonId, 5)).thenReturn(false);
         when(contents.saveAndFlush(any(LessonContent.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var response = service.createLessonContent(actorId, courseId, moduleId, lessonId,
@@ -98,9 +108,120 @@ class LessonContentManagementTest {
     }
 
     @Test
+    void sanitizesTextBeforePersistingAndReturningIt() {
+        when(contents.findByLessonIdOrderByPositionAsc(lessonId)).thenReturn(List.of());
+        when(contents.saveAndFlush(any(LessonContent.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = service.createLessonContent(actorId, courseId, moduleId, lessonId,
+                new LessonContentDtos.CreateRequest(ContentType.TEXT, "Intro",
+                        "<p>Safe</p><script>alert(1)</script>", null, null, null, null, null));
+
+        assertTrue(response.textContent().contains("<p>Safe</p>"));
+        assertFalse(response.textContent().contains("<script"));
+        assertFalse(response.textContent().contains("alert(1)"));
+        verify(contents).saveAndFlush(argThat(saved -> saved.getTextContent().contains("<p>Safe</p>")
+                && !saved.getTextContent().contains("<script") && !saved.getTextContent().contains("alert(1)")));
+    }
+
+    @Test
+    void sanitizesLegacyTextWhenReturningIt() {
+        LessonContent legacy = content(ContentType.TEXT, 0);
+        legacy.setTextContent("<p>Safe</p><img src=x onerror=alert(1)>");
+        when(contents.findByIdAndLessonId(legacy.getId(), lessonId)).thenReturn(Optional.of(legacy));
+
+        var response = service.getLessonContent(actorId, courseId, moduleId, lessonId, legacy.getId());
+
+        assertTrue(response.textContent().contains("<p>Safe</p>"));
+        assertFalse(response.textContent().contains("<img"));
+        assertFalse(response.textContent().contains("onerror"));
+        assertFalse(response.textContent().contains("alert(1)"));
+    }
+
+    @Test
+    void insertingContentAtUsedPositionShiftsExistingContentWithoutChangingTheirOrder() {
+        LessonContent first = content(ContentType.TEXT, 0);
+        LessonContent second = content(ContentType.TEXT, 1);
+        when(contents.findByLessonIdOrderByPositionAsc(lessonId)).thenReturn(List.of(first, second));
+        when(contents.saveAndFlush(any(LessonContent.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var inserted = service.createLessonContent(actorId, courseId, moduleId, lessonId,
+                new LessonContentDtos.CreateRequest(ContentType.TEXT, "Inserted", "Body", null, null, null, null, 0));
+
+        assertEquals(0, inserted.position());
+        assertEquals(1, first.getPosition());
+        assertEquals(2, second.getPosition());
+        verify(contents, times(2)).saveAllAndFlush(anyIterable());
+    }
+
+    @Test
+    void reordersAllLessonContentsAndPersistsContiguousPositions() {
+        LessonContent first = content(ContentType.TEXT, 0);
+        LessonContent second = content(ContentType.LINK, 1);
+        LessonContent third = content(ContentType.PDF, 2);
+        List<LessonContent> current = List.of(first, second, third);
+        when(contents.findByLessonIdOrderByPositionAsc(lessonId)).thenReturn(current);
+
+        var result = service.reorderLessonContents(actorId, courseId, moduleId, lessonId,
+                new LessonContentDtos.ReorderRequest(List.of(third.getId(), first.getId(), second.getId())));
+
+        assertTrue(result.success());
+        assertEquals(List.of(third.getId(), first.getId(), second.getId()), result.orderedIds());
+        assertEquals(0, third.getPosition());
+        assertEquals(1, first.getPosition());
+        assertEquals(2, second.getPosition());
+        verify(contents, times(2)).saveAllAndFlush(anyIterable());
+    }
+
+    @Test
+    void rejectsContentOrderWithOmittedIdBeforeWriting() {
+        LessonContent first = content(ContentType.TEXT, 0);
+        LessonContent second = content(ContentType.LINK, 1);
+        when(contents.findByLessonIdOrderByPositionAsc(lessonId)).thenReturn(List.of(first, second));
+
+        BusinessException error = assertThrows(BusinessException.class, () -> service.reorderLessonContents(
+                actorId, courseId, moduleId, lessonId,
+                new LessonContentDtos.ReorderRequest(List.of(first.getId()))));
+
+        assertEquals(ErrorCode.INVALID_CONTENT_ORDER, error.getCode());
+        verify(contents, never()).saveAllAndFlush(anyIterable());
+    }
+
+    @Test
+    void rejectsDuplicateContentIdsBeforeWriting() {
+        LessonContent first = content(ContentType.TEXT, 0);
+        LessonContent second = content(ContentType.LINK, 1);
+        when(contents.findByLessonIdOrderByPositionAsc(lessonId)).thenReturn(List.of(first, second));
+
+        BusinessException error = assertThrows(BusinessException.class, () -> service.reorderLessonContents(
+                actorId, courseId, moduleId, lessonId,
+                new LessonContentDtos.ReorderRequest(List.of(first.getId(), first.getId()))));
+
+        assertEquals(ErrorCode.INVALID_CONTENT_ORDER, error.getCode());
+        verify(contents, never()).saveAllAndFlush(anyIterable());
+    }
+
+    @Test
+    void rejectsContentIdOutsideLessonBeforeWriting() {
+        LessonContent first = content(ContentType.TEXT, 0);
+        LessonContent second = content(ContentType.LINK, 1);
+        Lesson anotherLesson = new Lesson();
+        anotherLesson.setId(UUID.randomUUID());
+        anotherLesson.setModule(module);
+        LessonContent foreign = content(ContentType.TEXT, 0);
+        foreign.setLesson(anotherLesson);
+        when(contents.findByLessonIdOrderByPositionAsc(lessonId)).thenReturn(List.of(first, second));
+
+        BusinessException error = assertThrows(BusinessException.class, () -> service.reorderLessonContents(
+                actorId, courseId, moduleId, lessonId,
+                new LessonContentDtos.ReorderRequest(List.of(first.getId(), foreign.getId()))));
+
+        assertEquals(ErrorCode.INVALID_CONTENT_ORDER, error.getCode());
+        verify(contents, never()).saveAllAndFlush(anyIterable());
+    }
+
+    @Test
     void createsHttpLinkAndRejectsNonHttpSchemes() {
         when(contents.findByLessonIdOrderByPositionAsc(lessonId)).thenReturn(List.of());
-        when(contents.existsByLessonIdAndPosition(lessonId, 0)).thenReturn(false);
         when(contents.saveAndFlush(any(LessonContent.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var response = service.createLessonContent(actorId, courseId, moduleId, lessonId,
@@ -115,11 +236,30 @@ class LessonContentManagementTest {
     }
 
     @Test
-    void rejectsFileCreationInThisSlice() {
-        BusinessException error = assertThrows(BusinessException.class, () -> service.createLessonContent(actorId, courseId, moduleId,
-                lessonId, new LessonContentDtos.CreateRequest(ContentType.PDF, "PDF", null, null, "a.pdf", "application/pdf", 50L, null)));
+    void createsFileContentAsPendingAndRejectsUnsupportedMetadata() {
+        when(contents.findByLessonIdOrderByPositionAsc(lessonId)).thenReturn(List.of());
+        when(contents.saveAndFlush(any(LessonContent.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertEquals(ErrorCode.CONTENT_TYPE_NOT_SUPPORTED, error.getCode());
+        var response = service.createLessonContent(actorId, courseId, moduleId, lessonId,
+                new LessonContentDtos.CreateRequest(ContentType.PDF, "PDF", null, null, "a.pdf", "application/pdf", 50L, null));
+
+        assertEquals(ContentType.PDF, response.contentType());
+        assertEquals(UploadStatus.PENDING, response.uploadStatus());
+        assertEquals("a.pdf", response.fileName());
+        verify(contents).saveAndFlush(argThat(content -> content.getObjectKey() == null));
+
+        BusinessException error = assertThrows(BusinessException.class, () -> service.createLessonContent(actorId, courseId, moduleId,
+                lessonId, new LessonContentDtos.CreateRequest(ContentType.PDF, "Bad", null, null, "a.pdf", "text/plain", 50L, 1)));
+        assertEquals(ErrorCode.UNSUPPORTED_MEDIA_TYPE, error.getCode());
+    }
+
+    @Test
+    void rejectsFileMetadataAboveTheLimit() {
+        BusinessException error = assertThrows(BusinessException.class, () -> service.createLessonContent(actorId, courseId, moduleId,
+                lessonId, new LessonContentDtos.CreateRequest(ContentType.PDF, "Too large", null, null,
+                        "large.pdf", "application/pdf", FileUploadPolicy.maxFileSizeBytes(ContentType.PDF) + 1, null)));
+
+        assertEquals(ErrorCode.UPLOAD_TOO_LARGE, error.getCode());
         verify(contents, never()).saveAndFlush(any(LessonContent.class));
     }
 
@@ -163,6 +303,51 @@ class LessonContentManagementTest {
         assertEquals(true, response.success());
         assertEquals(text.getId(), response.deletedId());
         verify(contents).delete(text);
+    }
+
+    @Test
+    void deletesUnreferencedFileAndItsStoredObject() {
+        LessonContent file = content(ContentType.PDF, 0);
+        file.setObjectKey("opaque/object-key");
+        when(contents.findByIdAndLessonIdForUpdate(file.getId(), lessonId)).thenReturn(Optional.of(file));
+        when(contentReferences.isReferenced(file.getId())).thenReturn(false);
+
+        var response = service.deleteLessonContent(actorId, courseId, moduleId, lessonId, file.getId());
+
+        assertEquals(true, response.success());
+        verify(objectStorage).delete("opaque/object-key");
+        verify(contents).delete(file);
+    }
+
+    @Test
+    void deletesFailedFileWithoutAnObjectKey() {
+        LessonContent file = content(ContentType.PDF, 0);
+        file.setUploadStatus(UploadStatus.FAILED);
+        file.setObjectKey(null);
+        when(contents.findByIdAndLessonIdForUpdate(file.getId(), lessonId)).thenReturn(Optional.of(file));
+        when(contentReferences.isReferenced(file.getId())).thenReturn(false);
+
+        var response = service.deleteLessonContent(actorId, courseId, moduleId, lessonId, file.getId());
+
+        assertTrue(response.success());
+        verify(objectStorage, never()).delete(any());
+        verify(contents).delete(file);
+    }
+
+    @Test
+    void abortsIncompleteMultipartUploadWhenDeletingItsContent() {
+        LessonContent file = content(ContentType.VIDEO, 0);
+        file.setUploadStatus(UploadStatus.PENDING);
+        file.setObjectKey("opaque/video-key");
+        file.setMultipartUploadId("multipart-upload-id");
+        when(contents.findByIdAndLessonIdForUpdate(file.getId(), lessonId)).thenReturn(Optional.of(file));
+        when(contentReferences.isReferenced(file.getId())).thenReturn(false);
+
+        service.deleteLessonContent(actorId, courseId, moduleId, lessonId, file.getId());
+
+        verify(objectStorage).abortMultipartUpload("opaque/video-key", "multipart-upload-id");
+        verify(objectStorage).delete("opaque/video-key");
+        verify(contents).delete(file);
     }
 
     private LessonContent content(ContentType type, int position) {

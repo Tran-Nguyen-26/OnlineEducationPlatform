@@ -10,6 +10,11 @@ public enum AuditAction {
 
     // Module 2: Course & Media
     DISABLE_COURSE,
+    ENABLE_COURSE,
+    PUBLISH_COURSE,
+    UNPUBLISH_COURSE,
+    ARCHIVE_COURSE,
+    RESTORE_COURSE,
     APPROVE_COURSE,
     REJECT_COURSE,
     TRANSFER_COURSE_OWNERSHIP,
