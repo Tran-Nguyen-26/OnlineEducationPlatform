@@ -32,12 +32,6 @@ spring:
         debug: false
     default-encoding: UTF-8
 
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
-
 logging:
   level:
     com.oep.worker: INFO
@@ -56,13 +50,13 @@ aws:
 oep:
   outbox:
     worker:
-      enabled: ${OUTBOX_WORKER_ENABLED:true}
+      enabled: ${OUTBOX_WORKER_ENABLED:false}
       batch-size: 100
       base-poll-delay-ms: 200
       max-poll-delay-ms: 30000
       max-retries: 5
     consumer:
-      enabled: ${NOTIFICATION_CONSUMER_ENABLED:true}
+      enabled: ${NOTIFICATION_CONSUMER_ENABLED:false}
       poll-wait-seconds: 2
       max-messages: 10
       max-retries: 5
@@ -75,5 +69,3 @@ management:
   endpoint:
     health:
       show-details: when-authorized
-
-
