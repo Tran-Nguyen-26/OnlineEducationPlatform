@@ -51,6 +51,7 @@ export const router = createBrowserRouter([
       { path: 'courses/:id', element: withSuspense(CourseDetailPage) },
       { path: 'enrollment', element: withSuspense(EnrollmentPage) },
       { path: 'assessment', element: withSuspense(AssessmentPage) },
+      { path: 'assessment/grading', element: withSuspense(lazy(() => import('@/features/assessment/BlindGradingPage'))) },
     ],
   },
   {

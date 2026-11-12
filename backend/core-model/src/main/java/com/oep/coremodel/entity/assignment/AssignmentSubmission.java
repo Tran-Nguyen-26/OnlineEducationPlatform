@@ -45,4 +45,23 @@ public class AssignmentSubmission extends BaseEntity {
 
     @Column(name = "is_late", nullable = false)
     private boolean late = false;
+
+    @Version
+    private long version;
+
+    @Column(name = "claimed_by")
+    private UUID claimedBy;
+
+    @Column(name = "lock_token")
+    private UUID lockToken;
+
+    @Column(name = "lock_expires_at")
+    private Instant lockExpiresAt;
+
+    @Column(name = "appeal_criterion")
+    private String appealCriterion;
+
+    @Column(name = "appeal_reason", columnDefinition = "text")
+    private String appealReason;
+
 }

@@ -51,4 +51,12 @@ public class AssignmentGrade extends BaseEntity {
 
     @Column(name = "regrade_reason", nullable = true, columnDefinition = "text")
     private String regradeReason;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "rubric_scores", columnDefinition = "jsonb")
+    private java.util.Map<String, BigDecimal> rubricScores;
+
+    @Column(name = "regrade_reviewer_id")
+    private UUID regradeReviewerId;
+
 }

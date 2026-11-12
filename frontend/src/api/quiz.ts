@@ -173,7 +173,7 @@ function getAuthHeader(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
+export async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
   const headers = {
     'Content-Type': 'application/json',
     ...getAuthHeader(),

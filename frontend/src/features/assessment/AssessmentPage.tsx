@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import {
   FileQuestion,
   Layers,
@@ -115,6 +115,10 @@ export default function AssessmentPage() {
               : 'Theo dõi và hoàn thành các bài kiểm tra được giao để nâng cao điểm số.'}
           </p>
         </div>
+
+        {userRole === 'INSTRUCTOR' && (
+          <a className="underline" href="/assessment/grading">Hàng đợi chấm ẩn danh</a>
+        )}
 
         {/* Role Switcher Tabs */}
         {isInstructorOrAdmin && (

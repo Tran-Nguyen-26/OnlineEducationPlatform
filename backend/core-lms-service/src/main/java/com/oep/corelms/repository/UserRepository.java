@@ -15,6 +15,8 @@ import java.util.UUID;
 public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByEmail(String email);
 
+    java.util.List<User> findByRoleAndAccountStatus(UserRole role, AccountStatus status);
+
     long countByAccountStatus(AccountStatus accountStatus);
 
     @Query(value = """

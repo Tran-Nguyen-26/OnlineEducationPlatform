@@ -67,4 +67,11 @@ public class Assignment extends BaseEntity {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "rubric", columnDefinition = "jsonb")
+    private java.util.List<RubricCriterion> rubric;
+
+    public record RubricCriterion(String code, String learningOutcome, String description, BigDecimal maxScore) {}
+
 }

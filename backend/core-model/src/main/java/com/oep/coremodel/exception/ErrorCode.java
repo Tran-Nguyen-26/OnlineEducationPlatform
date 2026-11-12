@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 public enum ErrorCode {
     // --- General ---
     NOT_FOUND(HttpStatus.NOT_FOUND),
+    GRADING_STATE_CONFLICT(HttpStatus.CONFLICT),
     FORBIDDEN(HttpStatus.FORBIDDEN),
     VALIDATION_FAILED(HttpStatus.BAD_REQUEST),
     // --- Course / Enrollment ---
