@@ -117,7 +117,10 @@ export default function AssessmentPage() {
         </div>
 
         {userRole === 'INSTRUCTOR' && (
-          <a className="underline" href="/assessment/grading">Hàng đợi chấm ẩn danh</a>
+          <div className="flex flex-wrap gap-3">
+            <a className="underline" href="/assessment/grading">Hàng đợi chấm ẩn danh</a>
+            <a className="underline" href="/dashboard/analytics">Tiến độ khóa học</a>
+          </div>
         )}
 
         {/* Role Switcher Tabs */}
