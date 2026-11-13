@@ -233,6 +233,7 @@ class M05HeartbeatPostgresTest {
         Course course = new Course();
         course.setCreatedBy(users.save(instructor));
         course.setTitle("Heartbeat benchmark course");
+        course.setLifecycleStatus(com.oep.coremodel.enums.CourseLifecycleStatus.PUBLISHED);
         UUID courseId = courses.save(course).getId();
         UUID module = UUID.randomUUID();
         UUID lesson = UUID.randomUUID();

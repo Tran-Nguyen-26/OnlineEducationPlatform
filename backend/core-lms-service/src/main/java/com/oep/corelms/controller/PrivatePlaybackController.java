@@ -30,7 +30,14 @@ public class PrivatePlaybackController {
     @GetMapping("/lessons")
     public List<com.oep.corelms.service.LessonMasteryService.Lesson> lessons(
             @AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
-        return mastery.lessons(UUID.fromString(jwt.getSubject()), courseId);
+        return mastery.readableLessons(UUID.fromString(jwt.getSubject()), courseId);
+    }
+
+    @GetMapping("/archive-quota")
+    public ResponseEntity<com.oep.corelms.service.ArchivedVideoQuota.Status> archiveQuota(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
+        var quota = playback.archivedQuota(UUID.fromString(jwt.getSubject()), courseId);
+        return quota == null ? ResponseEntity.noContent().build() : ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(quota);
     }
 
     @GetMapping("/lessons/{lessonId}/documents")

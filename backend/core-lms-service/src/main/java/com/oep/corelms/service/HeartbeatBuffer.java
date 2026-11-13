@@ -26,6 +26,7 @@ public class HeartbeatBuffer {
     private static final DefaultRedisScript<Long> ACCEPT = script("accept", Long.class);
     private static final DefaultRedisScript<List> SNAPSHOT = script("snapshot", List.class);
     private static final DefaultRedisScript<Long> ACK = script("ack", Long.class);
+    private static final DefaultRedisScript<Long> RENEW_ARCHIVED = script("renew_archived", Long.class);
 
     private final StringRedisTemplate redis;
     private final HeartbeatProgressRepository repository;
@@ -41,6 +42,12 @@ public class HeartbeatBuffer {
 
     public void heartbeat(UUID actor, UUID enrollment, UUID lesson, UUID token, int sequence, int position, int delta) {
         if (!repository.canWrite(actor, enrollment)) {
+            if (repository.archivedAccess(actor, enrollment)) {
+                Long renewed = redis.execute(RENEW_ARCHIVED, List.of(stream(actor)), token.toString(),
+                        enrollment.toString(), lesson.toString());
+                if (Long.valueOf(1).equals(renewed)) return;
+                throw new BusinessException(ErrorCode.STREAM_SUPERSEDED, "Playback stream expired or was replaced");
+            }
             throw new BusinessException(ErrorCode.FORBIDDEN, "Active enrollment required");
         }
         var keys = new java.util.ArrayList<>(List.of(stream(actor), PENDING, URGENT, PREFIX + "watched:" + enrollment));

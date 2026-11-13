@@ -5,7 +5,7 @@ import LessonDiscussion from './LessonDiscussion'
 import { useSearchParams } from 'react-router-dom'
 
 type Video = { enrollmentId: string; lessonId: string; title: string; videoId: string }
-type Session = { streamToken: string; watermark: string }
+type Session = { streamToken: string; watermark: string; archived: boolean }
 type Cue = { start: number; label: string; text: string }
 type Lesson = { id: string; title: string; unlocked: boolean; video: boolean; documents: boolean; miniQuiz: boolean; fastTrack: boolean }
 type DocumentItem = { id: string; filename: string }
@@ -95,6 +95,16 @@ export default function LessonPlayer({ courseId }: { courseId: string }) {
     queryKey: ['course-playback', courseId],
     queryFn: ({ signal }) => readList<Video>(base, signal),
   })
+  const quota = useQuery({
+    queryKey: ['archive-video-quota', courseId],
+    queryFn: async ({ signal }) => {
+      const response = await fetch(`${base}/archive-quota`, { headers: headers(), signal })
+      if (response.status === 204 || response.status === 404) return null
+      if (!response.ok) throw new Error('Không tải được hạn mức video.')
+      return await response.json() as { remainingSeconds: number; resetsOn: string }
+    },
+    refetchInterval: session?.archived ? 30000 : false,
+  })
   const lessons = useQuery({
     queryKey: ['course-mastery', courseId],
     queryFn: ({ signal }) => readList<Lesson>(`${base}/lessons`, signal),
@@ -116,9 +126,13 @@ export default function LessonPlayer({ courseId }: { courseId: string }) {
       if (!HlsEngine.isSupported()) throw new Error('Trình duyệt này chưa hỗ trợ trình phát riêng tư.')
       engine.current = HlsEngine
       const response = await fetch(`${base}/${video.videoId}`, { method: 'POST', headers: headers() })
-      if (!response.ok) throw new Error('Không mở được phiên phát video.')
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
+        throw new Error(error.message ?? 'Không mở được phiên phát video.')
+      }
       setSession(await response.json() as Session)
     } catch (error) {
+      void cache.invalidateQueries({ queryKey: ['archive-video-quota', courseId] })
       setMessage(error instanceof Error ? error.message : 'Không mở được phiên phát video.')
     } finally {
       setOpening(false)
@@ -156,6 +170,10 @@ export default function LessonPlayer({ courseId }: { courseId: string }) {
     }
     hls.on(HlsEngine.Events.ERROR, (_event, error) => {
       if (error.response?.code === 409) stop('Phiên phát đã hết hạn hoặc được mở trên thiết bị khác.')
+      else if (error.response?.code === 403 && session.archived) {
+        void cache.invalidateQueries({ queryKey: ['archive-video-quota', courseId] })
+        stop('Không thể tải thêm video lưu trữ. Kiểm tra hạn mức còn lại.')
+      }
       else if (error.fatal) stop('Không phát được video. Hãy mở lại phiên phát.')
     })
     hls.loadSource(`${base}/${selected.videoId}/master.m3u8`)
@@ -207,6 +225,10 @@ export default function LessonPlayer({ courseId }: { courseId: string }) {
   return (
     <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-5">
       <h2 className="font-semibold">Lộ trình bài học</h2>
+      {quota.data && <p role="status" className="rounded bg-slate-50 p-3 text-sm text-slate-700">
+        Xem lưu trữ · Còn {Math.floor(quota.data.remainingSeconds / 60)} phút {quota.data.remainingSeconds % 60} giây video.
+        Hạn mức được đặt lại ngày {quota.data.resetsOn.split('-').reverse().join('/')}.
+      </p>}
       {(videos.isError || lessons.isError) && <p role="alert">Không tải được lộ trình bài học.</p>}
       {lessons.isSuccess && !lessons.data.length && <p className="text-sm text-slate-600">Chưa có bài học mở.</p>}
       <ol className="space-y-2">
@@ -240,7 +262,7 @@ export default function LessonPlayer({ courseId }: { courseId: string }) {
         ))}
       </ol>
       {videos.data?.map((video) => (
-        <button key={video.videoId} disabled={opening} onClick={() => void open(video)}
+        <button key={video.videoId} disabled={opening || quota.data?.remainingSeconds === 0} onClick={() => void open(video)}
           className="mr-2 rounded-lg border px-3 py-2 text-sm text-teal-800 disabled:opacity-50">
           Mở video · {video.title}
         </button>
@@ -258,7 +280,7 @@ export default function LessonPlayer({ courseId }: { courseId: string }) {
           }`}>{session.watermark}</div>
         </div>
       )}
-      {session && selected && (
+      {session && selected && !session.archived && (
         <button type="button" className="rounded border px-3 py-2 text-sm text-teal-800" onClick={() => {
           setDiscussion(selected.lessonId)
           setQuestionContext({ videoId: selected.videoId, timestampSec: Math.floor(element.current?.currentTime ?? 0) })

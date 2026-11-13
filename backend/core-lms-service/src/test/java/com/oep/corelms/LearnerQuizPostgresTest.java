@@ -37,6 +37,7 @@ class LearnerQuizPostgresTest {
     @Autowired LearnerQuizService quizzes;
     @Autowired LessonMasteryService mastery;
     @Autowired com.oep.corelms.service.GraduationService graduation;
+    @Autowired com.oep.corelms.service.ArchivedVideoQuota archiveQuota;
     @Autowired com.oep.corelms.service.OutcomeMasteryService outcomeMastery;
     @Autowired com.oep.corelms.service.CourseAnalyticsService courseAnalytics;
     @Autowired com.oep.corelms.service.LessonDiscussionService discussion;
@@ -132,6 +133,37 @@ class LearnerQuizPostgresTest {
 
     private List<Boolean> states(User learner, UUID course) {
         return mastery.lessons(learner.getId(), course).stream().map(LessonMasteryService.Lesson::unlocked).toList();
+    }
+
+    @Test
+    void archiveQuotaCapsMonthlyUsageAndPreservesReadOnlyLessonAccess() {
+        new org.springframework.jdbc.datasource.init.ResourceDatabasePopulator(
+                new org.springframework.core.io.ClassPathResource("db/migration/V17__archived_video_usage.sql")).execute(datasource);
+        User learner = user(UserRole.STUDENT);
+        Course entity = new Course();
+        entity.setTitle("Archived");
+        entity.setCreatedBy(user(UserRole.ADMIN));
+        entity.setLifecycleStatus(CourseLifecycleStatus.PUBLISHED);
+        UUID course = courses.save(entity).getId(), module = UUID.randomUUID();
+        UUID enrollment = UUID.randomUUID();
+        jdbc.update("""
+                insert into enrollments(id,course_id,student_id,status,enrolled_at,access_expires_at)
+                values (?,?,?,'ACTIVE',now(),now()-interval '1 day')
+                """, enrollment, course, learner.getId());
+        jdbc.update("insert into course_modules(id,course_id,title,position,is_default,created_at,updated_at) values (?,?,?,0,false,now(),now())",
+                module, course, "Module");
+        UUID first = lesson(module, 0);
+        assertThat(mastery.lessons(learner.getId(), course)).isEmpty();
+        assertThat(mastery.readableLessons(learner.getId(), course).getFirst().id()).isEqualTo(first);
+        var repository = new com.oep.corelms.repository.HeartbeatProgressRepository(jdbc);
+        assertThat(repository.archivedAccess(learner.getId(), enrollment)).isTrue();
+        assertThat(repository.canWrite(learner.getId(), enrollment)).isFalse();
+        archiveQuota.reserveSegment(learner.getId(), 53999);
+        assertThatThrownBy(() -> archiveQuota.reserveSegment(learner.getId(), 2)).isInstanceOf(BusinessException.class);
+        assertThat(archiveQuota.status(learner.getId()).remainingSeconds()).isEqualTo(1);
+        archiveQuota.reserveSegment(learner.getId(), 1);
+        assertThatThrownBy(() -> archiveQuota.requireAvailable(learner.getId())).isInstanceOf(BusinessException.class);
+        assertThat(archiveQuota.status(user(UserRole.STUDENT).getId()).remainingSeconds()).isEqualTo(54000);
     }
 
     @Test

@@ -6,6 +6,7 @@ public enum ErrorCode {
     // --- General ---
     NOT_FOUND(HttpStatus.NOT_FOUND),
     STREAM_SUPERSEDED(HttpStatus.CONFLICT),
+    ARCHIVED_VIDEO_LIMIT(HttpStatus.FORBIDDEN),
     HEARTBEAT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE),
     GRADING_STATE_CONFLICT(HttpStatus.CONFLICT),
     FORBIDDEN(HttpStatus.FORBIDDEN),

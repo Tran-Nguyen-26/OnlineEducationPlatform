@@ -97,3 +97,10 @@ learners who have both grades. The score distribution includes learners with
 a graded Post-test. Lesson completion uses recorded progress. The unfinished
 rate is the share of learners who started a lesson and have no recorded
 completion at the time of the report.
+
+Apply V17 for archived video usage. The monthly 54,000-second allowance is
+shared across a learner's archived courses and resets on the first day of
+each month in Asia/Ho_Chi_Minh. Playback charges the rounded-up duration of
+each HLS segment delivered, including replay and buffering, to keep the
+server-side limit enforceable. Archived heartbeats renew the stream lease
+without adding mastery progress. Unlocked documents remain readable.

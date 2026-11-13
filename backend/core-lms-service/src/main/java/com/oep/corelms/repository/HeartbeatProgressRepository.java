@@ -12,6 +12,16 @@ import java.util.UUID;
 public class HeartbeatProgressRepository {
     private final JdbcTemplate jdbc;
 
+    public boolean archivedAccess(UUID actor, UUID enrollment) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("""
+                select exists(select 1 from enrollments e join users u on u.id = e.student_id
+                    join courses c on c.id = e.course_id
+                    where e.id = ? and e.student_id = ? and e.status in ('ACTIVE','COMPLETED')
+                      and e.access_expires_at < now() and u.role = 'STUDENT' and u.account_status = 'ACTIVE'
+                      and c.lifecycle_status in ('PUBLISHED','ARCHIVED'))
+                """, Boolean.class, enrollment, actor));
+    }
+
     public java.util.List<UUID> remedialAttempts(UUID enrollment, UUID video) {
         return jdbc.queryForList("""
                 select a.id from lesson_contents v join lessons target on target.id = v.lesson_id
@@ -39,8 +49,12 @@ public class HeartbeatProgressRepository {
                 join course_modules m on m.course_id = e.course_id
                 join lessons l on l.module_id = m.id
                 join lesson_contents c on c.lesson_id = l.id
-                where e.id = ? and e.student_id = ? and e.status = 'ACTIVE'
-                  and (e.access_expires_at is null or e.access_expires_at >= now())
+                join courses course on course.id = e.course_id
+                where e.id = ? and e.student_id = ?
+                  and ((e.status = 'ACTIVE' and (e.access_expires_at is null or e.access_expires_at >= now())
+                        and course.lifecycle_status = 'PUBLISHED')
+                    or (e.status in ('ACTIVE','COMPLETED') and e.access_expires_at < now()
+                        and course.lifecycle_status in ('PUBLISHED','ARCHIVED')))
                   and u.role = 'STUDENT' and u.account_status = 'ACTIVE'
                   and l.id = ? and c.id = ? and c.content_type = 'VIDEO'
                   and c.upload_status = 'AVAILABLE' and c.duration_seconds > 0
@@ -52,6 +66,7 @@ public class HeartbeatProgressRepository {
         return Boolean.TRUE.equals(jdbc.queryForObject("""
                 select exists (
                     select 1 from enrollments e join users u on u.id = e.student_id
+                    join courses c on c.id = e.course_id and c.lifecycle_status = 'PUBLISHED'
                     where e.id = ? and e.student_id = ? and e.status = 'ACTIVE'
                       and (e.access_expires_at is null or e.access_expires_at >= now())
                       and u.role = 'STUDENT' and u.account_status = 'ACTIVE'

@@ -17,11 +17,19 @@ import static org.mockito.Mockito.*;
 
 class PrivatePlaybackServiceTest {
     @Test
+    void usesActualPlaylistSegmentDuration() {
+        String playlist = "#EXTM3U\n#EXTINF:6.0,\nsegment-00000.ts\n#EXTINF:2.3,\nsegment-00001.ts\n";
+        org.assertj.core.api.Assertions.assertThat(PrivatePlaybackService.segmentSeconds(playlist, "segment-00001.ts"))
+                .isEqualTo(3);
+        assertThatThrownBy(() -> PrivatePlaybackService.segmentSeconds(playlist, "segment-00002.ts"))
+                .isInstanceOf(BusinessException.class);
+    }
+    @Test
     void rejectsPathsOutsideTheGeneratedMediaFilesBeforeStorageAccess() {
         var database = mock(JdbcTemplate.class);
         var heartbeat = mock(HeartbeatBuffer.class);
         var storage = mock(S3Client.class);
-        var playback = new PrivatePlaybackService(database, heartbeat, storage, null, null, null);
+        var playback = new PrivatePlaybackService(database, heartbeat, storage, null, null, null, null);
         UUID id = UUID.randomUUID();
         for (String path : List.of("../master.m3u8", "480p/../../master.m3u8", "1080p/index.m3u8", "source.mp4")) {
             assertThatThrownBy(() -> playback.read(id, id, id, id, path)).isInstanceOf(BusinessException.class);

@@ -21,13 +21,24 @@ public class LessonMasteryService {
                          boolean miniQuiz, boolean fastTrack) {}
 
     public List<Lesson> lessons(UUID actor, UUID course) {
+        return lessons(actor, course, false);
+    }
+
+    public List<Lesson> readableLessons(UUID actor, UUID course) {
+        return lessons(actor, course, true);
+    }
+
+    private List<Lesson> lessons(UUID actor, UUID course, boolean includeArchived) {
         List<Snapshot> snapshots = jdbc.query("""
                 with access as (
                     select e.id from enrollments e join users u on u.id = e.student_id
                     join courses c on c.id = e.course_id
-                    where e.student_id = ? and e.course_id = ? and e.status = 'ACTIVE'
-                      and u.account_status = 'ACTIVE' and u.role = 'STUDENT' and c.lifecycle_status = 'PUBLISHED'
-                      and (e.access_expires_at is null or e.access_expires_at >= now())
+                    where e.student_id = ? and e.course_id = ?
+                      and u.account_status = 'ACTIVE' and u.role = 'STUDENT'
+                      and ((e.status = 'ACTIVE' and c.lifecycle_status = 'PUBLISHED'
+                            and (e.access_expires_at is null or e.access_expires_at >= now()))
+                        or (? and e.status in ('ACTIVE','COMPLETED') and c.lifecycle_status in ('PUBLISHED','ARCHIVED')
+                            and e.access_expires_at < now()))
                 ), pretest_mastery as (
                     select cast(item.value ->> 'outcomeId' as uuid) as lo_id
                     from access e join quiz_attempts a on a.enrollment_id = e.id
@@ -71,7 +82,7 @@ public class LessonMasteryService {
                 """, (row, index) -> new Snapshot(row.getObject(1, UUID.class), row.getString(2), row.getObject(3, UUID.class),
                 row.getBoolean(4), row.getBoolean(5), row.getBoolean(6),
                 (UUID[]) row.getArray(7).getArray(), (Integer[]) row.getArray(8).getArray()),
-                actor, course, course, course, course);
+                actor, course, includeArchived, course, course, course);
         return evaluate(snapshots.stream().map(item -> new Evidence(item.id(), item.title(), videosComplete(item),
                 item.documents(), item.miniQuiz(), item.fastTrack())).toList());
     }
@@ -100,6 +111,12 @@ public class LessonMasteryService {
 
     public void requireUnlocked(UUID actor, UUID course, UUID lesson) {
         if (lessons(actor, course).stream().noneMatch(item -> item.id().equals(lesson) && item.unlocked())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "Bài học chưa mở hoặc quyền học đã hết hạn");
+        }
+    }
+
+    public void requireReadable(UUID actor, UUID course, UUID lesson) {
+        if (readableLessons(actor, course).stream().noneMatch(item -> item.id().equals(lesson) && item.unlocked())) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Bài học chưa mở hoặc quyền học đã hết hạn");
         }
     }
