@@ -47,10 +47,12 @@ export const router = createBrowserRouter([
     element: <RootLayout />,
     children: [
       { path: 'dashboard', element: withSuspense(DashboardPage) },
+      { path: 'dashboard/analytics', element: withSuspense(lazy(() => import('@/features/dashboard/CourseAnalyticsPage'))) },
       { path: 'courses', element: withSuspense(CoursesPage) },
       { path: 'courses/:id', element: withSuspense(CourseDetailPage) },
       { path: 'enrollment', element: withSuspense(EnrollmentPage) },
       { path: 'assessment', element: withSuspense(AssessmentPage) },
+      { path: 'assessment/grading', element: withSuspense(lazy(() => import('@/features/assessment/BlindGradingPage'))) },
     ],
   },
   {

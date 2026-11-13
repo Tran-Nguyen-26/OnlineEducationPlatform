@@ -42,6 +42,9 @@ public class LessonProgress extends BaseEntity {
     @JoinColumn(name = "last_content_id", nullable = true)
     private LessonContent lastContent;
 
+    @Column(name = "video_position_seconds", nullable = false, columnDefinition = "integer default 0")
+    private int videoPositionSeconds;
+
     @Column(name = "started_at", nullable = true)
     private Instant startedAt;
 
