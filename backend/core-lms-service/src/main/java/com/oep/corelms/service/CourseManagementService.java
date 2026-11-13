@@ -52,6 +52,7 @@ public class CourseManagementService {
     private final LessonContentReferenceRepository contentReferences;
     private final CourseInstructorRepository courseInstructors;
     private final UserRepository users;
+    private final CoursePublishValidator publishValidator;
 
     @Transactional
     public CourseDtos.CourseResponse createCourse(UUID actorId, CourseDtos.CreateCourseRequest request) {
@@ -157,6 +158,7 @@ public class CourseManagementService {
             throw new BusinessException(ErrorCode.COURSE_NOT_READY,
                     "A course needs at least one lesson and one available content item before publishing");
         }
+        publishValidator.validate(course);
         course.setLifecycleStatus(CourseLifecycleStatus.PUBLISHED);
         return toCourse(courses.saveAndFlush(course));
     }

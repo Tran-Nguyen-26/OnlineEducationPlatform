@@ -39,6 +39,13 @@ public class Course extends BaseEntity {
     @Column(name = "capacity", nullable = true)
     private Integer capacity;
 
+    @Column(name = "weight_posttest")
+    private Integer weightPosttest;
+    @Column(name = "weight_massexam")
+    private Integer weightMassExam;
+    @Column(name = "weight_assignment")
+    private Integer weightAssignment;
+
     @Column(name = "start_at", nullable = true)
     private Instant startAt;
 

@@ -21,6 +21,12 @@ import java.util.UUID;
 @Entity
 @Table(name = "questions")
 public class Question extends BaseEntity {
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "lo_id")
+    private com.oep.coremodel.entity.course.LearningOutcome learningOutcome;
+
+    @Column(name = "approval_state", length = 16)
+    private String approvalState;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = true)
     @JoinColumn(name = "question_bank_id", nullable = true)
