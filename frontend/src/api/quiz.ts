@@ -10,6 +10,10 @@ export type QuizGradingPolicy = 'HIGHEST' | 'LATEST' | 'AVERAGE'
 
 export interface QuizItem {
   id: string
+  assessment_kind?: 'PRE_TEST' | 'MINI_QUIZ' | 'POST_TEST' | 'MASS_EXAM'
+  attempt_state?: 'AVAILABLE' | 'IN_PROGRESS' | 'REMEDIATION_REQUIRED' | 'REMEDIATION_AVAILABLE' | 'EXHAUSTED'
+  retry_after?: string | null
+  effective_percent?: number | null
   course_id: string
   lesson_id?: string | null
   title: string

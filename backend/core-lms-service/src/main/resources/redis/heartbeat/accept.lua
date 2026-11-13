@@ -14,7 +14,8 @@ local elapsed = math.max(0, math.floor((now - tonumber(stream[7])) / 1000))
 local duration = tonumber(stream[5])
 local content = stream[4]
 local watched = tonumber(redis.call('HGET', KEYS[4], content) or '0')
-local credit = math.min(30, elapsed, tonumber(ARGV[6]), math.max(0, duration - watched))
+local observed = math.min(30, elapsed, tonumber(ARGV[6]))
+local credit = math.min(observed, math.max(0, duration - watched))
 local position = math.min(duration, tonumber(ARGV[5]))
 local field = ARGV[2] .. ':' .. ARGV[3]
 local previous = redis.call('HGET', KEYS[2], field)
@@ -30,6 +31,13 @@ row.events = row.events + 1
 redis.call('HSET', KEYS[2], field, cjson.encode(row))
 if credit > 0 then
     redis.call('HINCRBY', KEYS[4], content, credit)
+end
+for i = 5, #KEYS do
+    local reviewed = tonumber(redis.call('HGET', KEYS[i], content) or '0')
+    local review_credit = math.min(observed, math.max(0, duration - reviewed))
+    if review_credit > 0 then
+        redis.call('HINCRBY', KEYS[i], content, review_credit)
+    end
 end
 redis.call('HSET', KEYS[1], 'sequence', sequence, 'at', now)
 redis.call('PEXPIRE', KEYS[1], 45000)

@@ -33,6 +33,9 @@ public class QuizAttempt extends BaseEntity {
     @Column(name = "attempt_number", nullable = false)
     private int attemptNumber;
 
+    @Column(name = "is_remediation", nullable = false, columnDefinition = "boolean default false")
+    private boolean remediation;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 40)
     private QuizAttemptStatus status = QuizAttemptStatus.IN_PROGRESS;

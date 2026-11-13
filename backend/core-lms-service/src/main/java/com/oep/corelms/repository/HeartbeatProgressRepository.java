@@ -12,6 +12,26 @@ import java.util.UUID;
 public class HeartbeatProgressRepository {
     private final JdbcTemplate jdbc;
 
+    public java.util.List<UUID> remedialAttempts(UUID enrollment, UUID video) {
+        return jdbc.queryForList("""
+                select a.id from lesson_contents v join lessons target on target.id = v.lesson_id
+                join lessons anchor on anchor.module_id = target.module_id
+                join quizzes z on z.lesson_id = anchor.id and z.assessment_kind = 'POST_TEST'
+                join quiz_attempts a on a.quiz_id = z.id and a.enrollment_id = ?
+                join enrollments e on e.id = a.enrollment_id and e.course_id = z.course_id
+                left join quiz_results r on r.attempt_id = a.id
+                cross join lateral (select sum(cast(item.value -> 'prompt' ->> 'points' as numeric)) as total
+                    from jsonb_array_elements(a.snapshot_payload -> 'items') item(value)) points
+                where v.id = ? and a.attempt_number = greatest(z.max_attempts, 1)
+                  and not a.is_remediation
+                  and ((a.status = 'GRADED' and r.final_score < points.total * 0.7)
+                    or (a.status = 'IN_PROGRESS' and a.snapshot_payload ->> 'expiresAt' is not null
+                        and cast(a.snapshot_payload ->> 'expiresAt' as timestamptz) <= now()))
+                  and not exists (select 1 from quiz_attempts later where later.enrollment_id = e.id
+                      and later.quiz_id = z.id and later.attempt_number > a.attempt_number)
+                """, UUID.class, enrollment, video);
+    }
+
     public Optional<Integer> videoDuration(UUID student, UUID enrollment, UUID lesson, UUID video) {
         return jdbc.query("""
                 select c.duration_seconds from enrollments e

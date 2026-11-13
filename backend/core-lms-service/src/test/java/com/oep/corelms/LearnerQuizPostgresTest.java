@@ -19,6 +19,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 import java.sql.DriverManager;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -37,6 +38,7 @@ class LearnerQuizPostgresTest {
     @Autowired LessonMasteryService mastery;
     @Autowired com.fasterxml.jackson.databind.ObjectMapper json;
     @Autowired javax.sql.DataSource datasource;
+    @org.springframework.boot.test.mock.mockito.MockBean com.oep.corelms.service.HeartbeatBuffer heartbeat;
 
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry properties) throws Exception {
@@ -102,12 +104,59 @@ class LearnerQuizPostgresTest {
         assertThat(mastery.lessons(learner.getId(), course).stream().filter(item -> item.id().equals(third)).findFirst().orElseThrow().fastTrack()).isTrue();
         assertThatThrownBy(() -> quizzes.start(learner.getId(), course, pretest.quiz()))
                 .isInstanceOf(BusinessException.class).hasMessageContaining("một lần");
-        assertThat(jdbc.queryForObject("select count(*) from quiz_results", Integer.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("""
+                select count(*) from quiz_results r join quiz_attempts a on a.id = r.attempt_id
+                where a.enrollment_id = ?
+                """, Integer.class, enrollment)).isEqualTo(2);
         assertThat(second).isNotEqualTo(third);
     }
 
     private List<Boolean> states(User learner, UUID course) {
         return mastery.lessons(learner.getId(), course).stream().map(LessonMasteryService.Lesson::unlocked).toList();
+    }
+
+    @Test
+    void postTestRequiresFreshReviewAndCooldownThenGrantsOnlyOneExtraAttempt() {
+        new org.springframework.jdbc.datasource.init.ResourceDatabasePopulator(
+                new org.springframework.core.io.ClassPathResource("db/migration/V12__posttest_remediation.sql")).execute(datasource);
+        User learner = user(UserRole.STUDENT);
+        Course entity = new Course();
+        entity.setTitle("Post-test review");
+        entity.setCreatedBy(user(UserRole.ADMIN));
+        entity.setLifecycleStatus(CourseLifecycleStatus.PUBLISHED);
+        UUID course = courses.save(entity).getId();
+        UUID enrollment = UUID.randomUUID(), module = UUID.randomUUID();
+        jdbc.update("insert into enrollments(id, course_id, student_id, status, enrolled_at) values (?,?,?,'ACTIVE',now())",
+                enrollment, course, learner.getId());
+        jdbc.update("insert into course_modules(id, course_id, title, position, is_default, created_at, updated_at) values (?,?,?,0,false,now(),now())",
+                module, course, "Module");
+        UUID lesson = lesson(module, 0), video = UUID.randomUUID();
+        jdbc.update("""
+                insert into lesson_contents(id, lesson_id, content_type, upload_status, position, duration_seconds, version_number, created_at, updated_at)
+                values (?,?,'VIDEO','AVAILABLE',0,100,1,now(),now())
+                """, video, lesson);
+        var fixture = quiz(course, lesson, "POST_TEST", null);
+        var original = quizzes.start(learner.getId(), course, fixture.quiz());
+        quizzes.submit(learner.getId(), course, original.attemptId(), Map.of());
+        var repository = new com.oep.corelms.repository.HeartbeatProgressRepository(jdbc);
+        assertThat(repository.remedialAttempts(enrollment, video)).containsExactly(original.attemptId());
+
+        org.mockito.Mockito.when(heartbeat.watchedSeconds(enrollment, video)).thenReturn(100L);
+        org.mockito.Mockito.when(heartbeat.remedialSeconds(original.attemptId(), video)).thenReturn(100L);
+        assertThat(quizzes.list(learner.getId(), course).getFirst().attemptState()).isEqualTo("REMEDIATION_REQUIRED");
+        jdbc.update("update quiz_attempts set submitted_at = ? where id = ?",
+                java.sql.Timestamp.from(Instant.now().minusSeconds(25 * 3600)), original.attemptId());
+        org.mockito.Mockito.when(heartbeat.remedialSeconds(original.attemptId(), video)).thenReturn(99L);
+        assertThatThrownBy(() -> quizzes.start(learner.getId(), course, fixture.quiz()))
+                .isInstanceOf(BusinessException.class).hasMessageContaining("học bù");
+        org.mockito.Mockito.when(heartbeat.remedialSeconds(original.attemptId(), video)).thenReturn(100L);
+        assertThat(quizzes.list(learner.getId(), course).getFirst().attemptState()).isEqualTo("REMEDIATION_AVAILABLE");
+        var retry = quizzes.start(learner.getId(), course, fixture.quiz());
+        assertThat(quizzes.start(learner.getId(), course, fixture.quiz()).attemptId()).isEqualTo(retry.attemptId());
+        quizzes.submit(learner.getId(), course, retry.attemptId(), fixture.correct());
+        assertThat(quizzes.list(learner.getId(), course).getFirst().effectivePercent()).isEqualByComparingTo("100");
+        assertThatThrownBy(() -> quizzes.start(learner.getId(), course, fixture.quiz()))
+                .isInstanceOf(BusinessException.class).hasMessageContaining("hết lượt");
     }
 
     private UUID lesson(UUID module, int position) {

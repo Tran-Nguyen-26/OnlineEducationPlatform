@@ -39,4 +39,10 @@ unlock checks the per-video Redis watch counters, all attached PDF/DOCX opens,
 and a graded Mini-quiz score of at least 70 percent. Fast-track uses graded
 first Pre-test results at 85 percent per LO. The learner assessment API serves
 the question snapshot without the answer key and stores the grade in PostgreSQL
-when the learner submits a Mini-quiz or Pre-test.
+when the learner submits a Mini-quiz, Pre-test or Post-test.
+
+Apply V12 for existing schemas to enforce one supplemental Post-test attempt
+per enrollment and quiz. Associate each Post-test with a lesson in the target
+module. A learner who exhausts regular attempts without a passing grade can
+start the supplemental attempt after 24 hours and sufficient new heartbeat
+watch time for every video in the module. Review counters use Redis.

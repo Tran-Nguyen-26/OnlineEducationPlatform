@@ -43,8 +43,13 @@ public class HeartbeatBuffer {
         if (!repository.canWrite(actor, enrollment)) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Active enrollment required");
         }
-        Long outcome = redis.execute(ACCEPT, List.of(stream(actor), PENDING, URGENT,
-                        PREFIX + "watched:" + enrollment), token.toString(), enrollment.toString(), lesson.toString(),
+        var keys = new java.util.ArrayList<>(List.of(stream(actor), PENDING, URGENT, PREFIX + "watched:" + enrollment));
+        if (delta > 0) {
+            Object content = redis.opsForHash().get(stream(actor), "content");
+            if (content != null) repository.remedialAttempts(enrollment, UUID.fromString(content.toString()))
+                    .forEach(attempt -> keys.add(PREFIX + "remediation:" + attempt));
+        }
+        Long outcome = redis.execute(ACCEPT, keys, token.toString(), enrollment.toString(), lesson.toString(),
                 Integer.toString(sequence), Integer.toString(position), Integer.toString(delta));
         if (Long.valueOf(-1).equals(outcome)) {
             throw new BusinessException(ErrorCode.STREAM_SUPERSEDED, "Playback stream expired or was replaced");
@@ -63,6 +68,11 @@ public class HeartbeatBuffer {
 
     public long watchedSeconds(UUID enrollment, UUID video) {
         Object value = redis.opsForHash().get(PREFIX + "watched:" + enrollment, video.toString());
+        return value == null ? 0 : Long.parseLong(value.toString());
+    }
+
+    public long remedialSeconds(UUID attempt, UUID video) {
+        Object value = redis.opsForHash().get(PREFIX + "remediation:" + attempt, video.toString());
         return value == null ? 0 : Long.parseLong(value.toString());
     }
 
