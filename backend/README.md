@@ -58,3 +58,9 @@ When the learner confirms a device transfer, the server changes the device
 binding and appends an audit entry in the same transaction. The new device
 resumes from the last acknowledged server draft. The audit IP is the remote
 address supplied by the servlet container and depends on trusted proxy setup.
+
+Apply V14 to store CSAT and NPS responses and the course graduation threshold.
+The course results screen uses official Post-test, Mass Exam and assignment
+scores with the configured weights. Within each quiz category, the configured
+retake policy selects the score for each quiz and those scores are averaged.
+A pending grade in a weighted category leaves the final score pending.

@@ -46,6 +46,9 @@ public class Course extends BaseEntity {
     @Column(name = "weight_assignment")
     private Integer weightAssignment;
 
+    @Column(name = "graduation_threshold")
+    private Integer graduationThreshold;
+
     @Column(name = "start_at", nullable = true)
     private Instant startAt;
 

@@ -36,6 +36,7 @@ class LearnerQuizPostgresTest {
     @Autowired UserRepository users;
     @Autowired LearnerQuizService quizzes;
     @Autowired LessonMasteryService mastery;
+    @Autowired com.oep.corelms.service.GraduationService graduation;
     @Autowired com.fasterxml.jackson.databind.ObjectMapper json;
     @Autowired javax.sql.DataSource datasource;
     @org.springframework.boot.test.mock.mockito.MockBean com.oep.corelms.service.HeartbeatBuffer heartbeat;
@@ -113,6 +114,52 @@ class LearnerQuizPostgresTest {
 
     private List<Boolean> states(User learner, UUID course) {
         return mastery.lessons(learner.getId(), course).stream().map(LessonMasteryService.Lesson::unlocked).toList();
+    }
+
+    @Test
+    void graduationUsesOfficialGradesAndRequiresSurvey() {
+        new org.springframework.jdbc.datasource.init.ResourceDatabasePopulator(
+                new org.springframework.core.io.ClassPathResource("db/migration/V14__graduation_survey.sql")).execute(datasource);
+        User learner = user(UserRole.STUDENT);
+        Course entity = new Course();
+        entity.setTitle("Graduation");
+        entity.setCreatedBy(user(UserRole.ADMIN));
+        entity.setLifecycleStatus(CourseLifecycleStatus.PUBLISHED);
+        entity.setWeightPosttest(60);
+        entity.setWeightMassExam(40);
+        entity.setWeightAssignment(0);
+        UUID course = courses.save(entity).getId();
+        UUID enrollment = UUID.randomUUID(), module = UUID.randomUUID();
+        jdbc.update("insert into enrollments(id,course_id,student_id,status,enrolled_at) values (?,?,?,'ACTIVE',now())",
+                enrollment, course, learner.getId());
+        jdbc.update("insert into course_modules(id,course_id,title,position,is_default,created_at,updated_at) values (?,?,?,0,false,now(),now())",
+                module, course, "Module");
+        UUID lesson = lesson(module, 0);
+        var mini = quiz(course, lesson, "MINI_QUIZ", null);
+        quizzes.submit(learner.getId(), course, quizzes.start(learner.getId(), course, mini.quiz()).attemptId(), mini.correct());
+        var pre = quiz(course, null, "PRE_TEST", null);
+        quizzes.submit(learner.getId(), course, quizzes.start(learner.getId(), course, pre.quiz()).attemptId(), pre.correct());
+        assertThat(graduation.get(learner.getId(), course).courseComplete()).isTrue();
+        assertThat(graduation.get(learner.getId(), course).finalPercent()).isNull();
+
+        var post = quiz(course, lesson, "POST_TEST", null);
+        quizzes.submit(learner.getId(), course, quizzes.start(learner.getId(), course, post.quiz()).attemptId(), post.correct());
+        var exam = quiz(course, null, "MASS_EXAM", null);
+        jdbc.update("update quizzes set exam_starts_at = now() - interval '5 minutes', exam_ends_at = now() + interval '10 minutes' where id = ?",
+                exam.quiz());
+        UUID device = UUID.randomUUID();
+        var started = quizzes.start(learner.getId(), course, exam.quiz(), device);
+        quizzes.submit(learner.getId(), course, started.attemptId(), exam.correct(), device);
+        var beforeSurvey = graduation.get(learner.getId(), course);
+        assertThat(beforeSurvey.finalPercent()).isEqualByComparingTo("100");
+        assertThat(beforeSurvey.eligible()).isFalse();
+        var survey = new com.oep.corelms.service.GraduationService.Survey(5, 9);
+        assertThat(graduation.submitSurvey(learner.getId(), course, survey).eligible()).isTrue();
+        graduation.submitSurvey(learner.getId(), course, new com.oep.corelms.service.GraduationService.Survey(1, 0));
+        assertThat(jdbc.queryForObject("select csat from course_surveys where enrollment_id = ?", Integer.class, enrollment))
+                .isEqualTo(5);
+        jdbc.update("update enrollments set access_expires_at = now() - interval '1 second' where id = ?", enrollment);
+        assertThatThrownBy(() -> graduation.get(learner.getId(), course)).isInstanceOf(BusinessException.class);
     }
 
     @Test
