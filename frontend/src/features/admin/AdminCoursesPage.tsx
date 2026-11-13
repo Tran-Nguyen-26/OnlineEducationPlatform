@@ -128,7 +128,8 @@ export default function AdminCoursesPage() {
         {update.isSuccess && <p role="status" className="text-sm text-teal-800">Đã lưu thay đổi.</p>}
         {update.isError && <p role="alert" className="text-sm text-red-700">{errorMessage ?? 'Không lưu được thay đổi.'}</p>}
       </form>
-      {selectedCourse && <CurriculumSettings key={courseId} courseId={courseId} editable={selectedCourse.lifecycle_status === 'DRAFT'} />}
+      {selectedCourse && <CurriculumSettings key={courseId} courseId={courseId} editable={selectedCourse.lifecycle_status === 'DRAFT'}
+        moduleId={moduleId} lessonId={level === 'lesson' ? editing?.id : undefined} />}
     </section>
   )
 }

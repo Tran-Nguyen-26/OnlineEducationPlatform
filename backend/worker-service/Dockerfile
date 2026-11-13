@@ -34,6 +34,8 @@ RUN mvn clean package -pl worker-service -am -DskipTests -B && \
 # Stage 2: Lightweight, secure runtime
 FROM eclipse-temurin:21-jre-alpine AS runner
 
+RUN apk add --no-cache ffmpeg
+
 # Create non-root system user and group
 RUN addgroup -S -g 10001 appgroup && \
     adduser -S -u 10001 -G appgroup -s /sbin/nologin appuser

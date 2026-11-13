@@ -17,3 +17,16 @@ Run
 
 Schema: no Flyway for now. core-lms-service runs with ddl-auto=update (dev only) and creates the tables;
 assessment/worker use ddl-auto=none, so start core-lms-service first.
+### Lesson media upload
+
+Set `OEP_MEDIA_ENDPOINT`, `OEP_MEDIA_BUCKET`, `OEP_MEDIA_ACCESS_KEY` and
+`OEP_MEDIA_SECRET_KEY` in Core LMS and the worker. Keep the bucket private.
+Allow browser PUT requests from the Admin Portal origin in the bucket CORS policy.
+Run the worker with FFmpeg and FFprobe available on PATH.
+
+In Admin Courses, open a draft course, add a learning outcome and select a lesson
+to upload an MP4, PDF, DOCX, VTT or SRT file. Core LMS issues a short-lived signed
+PUT URL and validates the stored size and content type on confirmation. The worker
+processes confirmed uploads, generates 480p/720p HLS for MP4 and updates the content
+status. Private playback sessions and delivery of subtitles to the player are
+separate integration work.

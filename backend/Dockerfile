@@ -40,8 +40,11 @@ RUN --mount=type=cache,target=/root/.m2 \
 # Stage 2: Lightweight, secure runtime
 FROM eclipse-temurin:21-jre-alpine AS runner
 
+ARG SERVICE=core-lms-service
 ARG PORT=8081
 ENV PORT=${PORT}
+
+RUN if [ "${SERVICE}" = "worker-service" ]; then apk add --no-cache ffmpeg; fi
 
 # Create non-root system user and group
 RUN addgroup -S -g 10001 appgroup && \
