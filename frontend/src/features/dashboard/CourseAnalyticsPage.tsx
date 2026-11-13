@@ -6,6 +6,11 @@ interface Analytics {
   learners: number
   completed: number
   lessons: { id: string; title: string; started: number; completed: number }[]
+  assessments: {
+    pairedLearners: number
+    learningGain: number | null
+    postTestScores: { from: number; to: number; learners: number }[]
+  }
 }
 
 const percent = new Intl.NumberFormat('vi-VN', { style: 'percent', maximumFractionDigits: 1 })
@@ -14,7 +19,7 @@ function rate(completed: number, learners: number) {
   return learners ? percent.format(completed / learners) : '—'
 }
 
-export default function CourseAnalyticsPage() {
+export default function CourseAnalyticsPage({ admin = false }: { admin?: boolean }) {
   const [selection, setSelection] = useState('')
   const [category, setCategory] = useState('CONTENT')
   const [detail, setDetail] = useState('')
@@ -57,7 +62,7 @@ export default function CourseAnalyticsPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-semibold">Tiến độ khóa học</h1>
+      <h1 className="text-2xl font-semibold">{admin ? 'Phân tích học tập' : 'Tiến độ khóa học'}</h1>
       {courses.isPending && <p role="status">Đang tải khóa học…</p>}
       {courses.error && <p role="alert">{courses.error.message}</p>}
       {courses.data?.length === 0 && <p>Bạn chưa có khóa học phụ trách.</p>}
@@ -99,6 +104,26 @@ export default function CourseAnalyticsPage() {
               {rate(metrics.data.completed, metrics.data.learners)})
             </strong>
           </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg bg-slate-50 p-3">
+              <h2 className="font-semibold">Mức tăng điểm Pre-test → Post-test</h2>
+              <p className="mt-1 text-sm">
+                {metrics.data.assessments.learningGain == null ? 'Chưa có cặp kết quả'
+                  : `${metrics.data.assessments.learningGain.toLocaleString('vi-VN')} điểm phần trăm`}
+                {' · '}{metrics.data.assessments.pairedLearners} học viên có cả hai kết quả
+              </p>
+            </div>
+            <div className="rounded-lg bg-slate-50 p-3">
+              <h2 className="font-semibold">Phân bố điểm Post-test</h2>
+              <dl className="mt-1 grid grid-cols-2 gap-1 text-sm">
+                {metrics.data.assessments.postTestScores.map((band) => (
+                  <div key={band.from} className="flex justify-between gap-2">
+                    <dt>{band.from}–{band.to === 100 ? '100' : `dưới ${band.to}`}%</dt><dd>{band.learners}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
@@ -115,6 +140,7 @@ export default function CourseAnalyticsPage() {
                   <th className="p-2" scope="col">
                     Tỷ lệ hoàn thành
                   </th>
+                  <th className="p-2" scope="col">Đã bắt đầu, chưa hoàn thành</th>
                 </tr>
               </thead>
               <tbody>
@@ -126,6 +152,7 @@ export default function CourseAnalyticsPage() {
                     <td className="p-2">{lesson.started}</td>
                     <td className="p-2">{lesson.completed}</td>
                     <td className="p-2">{rate(lesson.completed, metrics.data.learners)}</td>
+                    <td className="p-2">{rate(lesson.started - lesson.completed, lesson.started)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -133,7 +160,7 @@ export default function CourseAnalyticsPage() {
           </div>
         </section>
       )}
-      {metrics.data && (
+      {metrics.data && !admin && (
         <form className="space-y-3 rounded-xl bg-white p-5 shadow-sm" onSubmit={reportIssue}>
           <h2 className="font-semibold">Báo lỗi nội dung hoặc rubric</h2>
           <label>

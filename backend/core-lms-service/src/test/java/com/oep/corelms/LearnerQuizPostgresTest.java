@@ -38,6 +38,7 @@ class LearnerQuizPostgresTest {
     @Autowired LessonMasteryService mastery;
     @Autowired com.oep.corelms.service.GraduationService graduation;
     @Autowired com.oep.corelms.service.OutcomeMasteryService outcomeMastery;
+    @Autowired com.oep.corelms.service.CourseAnalyticsService courseAnalytics;
     @Autowired com.oep.corelms.service.LessonDiscussionService discussion;
     @Autowired com.oep.corelms.service.LearnerAssignmentService assignments;
     @Autowired com.oep.corelms.service.BlindGradingService grading;
@@ -244,12 +245,16 @@ class LearnerQuizPostgresTest {
         var mini = quiz(course, lesson, "MINI_QUIZ", null);
         quizzes.submit(learner.getId(), course, quizzes.start(learner.getId(), course, mini.quiz()).attemptId(), mini.correct());
         var pre = quiz(course, null, "PRE_TEST", null);
-        quizzes.submit(learner.getId(), course, quizzes.start(learner.getId(), course, pre.quiz()).attemptId(), pre.correct());
+        quizzes.submit(learner.getId(), course, quizzes.start(learner.getId(), course, pre.quiz()).attemptId(), Map.of());
         assertThat(graduation.get(learner.getId(), course).courseComplete()).isTrue();
         assertThat(graduation.get(learner.getId(), course).finalPercent()).isNull();
 
         var post = quiz(course, lesson, "POST_TEST", null);
         quizzes.submit(learner.getId(), course, quizzes.start(learner.getId(), course, post.quiz()).attemptId(), post.correct());
+        var report = courseAnalytics.analytics(entity.getCreatedBy().getId(), course).assessments();
+        assertThat(report.pairedLearners()).isEqualTo(1);
+        assertThat(report.learningGain()).isEqualByComparingTo("100");
+        assertThat(report.postTestScores().getLast().learners()).isEqualTo(1);
         var exam = quiz(course, null, "MASS_EXAM", null);
         jdbc.update("update quizzes set exam_starts_at = now() - interval '5 minutes', exam_ends_at = now() + interval '10 minutes' where id = ?",
                 exam.quiz());

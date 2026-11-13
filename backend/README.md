@@ -90,3 +90,10 @@ for each outcome. It uses the latest graded attempt of each visible-score
 Mini-quiz, Post-test and Mass Exam, plus the latest published rubric grades.
 Pre-test remains diagnostic. An outcome without graded evidence displays
 no score, and an archived learner can still read their own outcome map.
+
+Course analytics is available to assigned instructors and active admins.
+Learning Gain averages the difference between Post-test and Pre-test across
+learners who have both grades. The score distribution includes learners with
+a graded Post-test. Lesson completion uses recorded progress. The unfinished
+rate is the share of learners who started a lesson and have no recorded
+completion at the time of the report.
