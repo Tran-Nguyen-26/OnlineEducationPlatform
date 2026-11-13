@@ -28,8 +28,14 @@ In Admin Courses, open a draft course, add a learning outcome and select a lesso
 to upload an MP4, PDF, DOCX, VTT or SRT file. Core LMS issues a short-lived signed
 PUT URL and validates the stored size and content type on confirmation. The worker
 processes confirmed uploads, generates 480p/720p HLS for MP4 and updates the content
-status. The learner's course detail can play the first lesson's available HLS
-assets when the course is published and the learner has active access. The API
+status. The learner's course detail can play unlocked HLS assets when the
+course is published and the learner has active access. The API
 checks the learner and the Redis stream token on each media request. Upload a
 VTT or SRT file in the same lesson with the same LO to provide a clickable
 transcript. This delivery path uses the application gateway and Core LMS.
+
+Apply V11 for existing schemas to track individual document opens. Sequential
+unlock checks the per-video Redis watch counters, all attached PDF/DOCX opens,
+and a graded Mini-quiz score of at least 70 percent. Fast-track uses graded
+first Pre-test results at 85 percent per LO. The legacy quiz UI still needs
+server-side submission before it can produce these results.

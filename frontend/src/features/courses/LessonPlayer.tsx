@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type Hls from 'hls.js'
 
 type Video = { enrollmentId: string; lessonId: string; title: string; videoId: string }
 type Session = { streamToken: string; watermark: string }
 type Cue = { start: number; label: string; text: string }
+type Lesson = { id: string; title: string; unlocked: boolean; video: boolean; documents: boolean; miniQuiz: boolean; fastTrack: boolean }
+type DocumentItem = { id: string; filename: string }
 
 export function parseTranscript(text: string): Cue[] {
   return text.replace(/\r/g, '').split(/\n\s*\n/).flatMap((block) => {
@@ -23,8 +25,58 @@ function headers() {
   return { Authorization: `Bearer ${localStorage.getItem('access_token') ?? ''}` }
 }
 
+async function readList<T>(path: string, signal: AbortSignal): Promise<T[]> {
+  const response = await fetch(path, { headers: headers(), signal })
+  if (response.status === 404) return []
+  if (!response.ok) throw new Error('Không tải được dữ liệu bài học.')
+  return await response.json() as T[]
+}
+
+function LessonDocuments({ base, lessonId, onOpened }: { base: string; lessonId: string; onOpened: () => void }) {
+  const path = `${base}/lessons/${lessonId}/documents`
+  const [error, setError] = useState('')
+  const [opening, setOpening] = useState(false)
+  const documents = useQuery({
+    queryKey: ['lesson-documents', base, lessonId],
+    queryFn: ({ signal }) => readList<DocumentItem>(path, signal),
+  })
+  async function openDocument(id: string) {
+    const tab = window.open('about:blank', '_blank')
+    if (!tab) {
+      setError('Hãy cho phép mở cửa sổ mới để xem tài liệu.')
+      return
+    }
+    tab.opener = null
+    setOpening(true)
+    setError('')
+    try {
+      const response = await fetch(`${path}/${id}`, { method: 'POST', headers: headers() })
+      if (!response.ok) throw new Error()
+      const { url } = await response.json() as { url: string }
+      tab.location.replace(url)
+      onOpened()
+    } catch {
+      tab.close()
+      setError('Không thể mở tài liệu.')
+    } finally {
+      setOpening(false)
+    }
+  }
+  return (
+    <>
+      {documents.data?.map((document) => (
+        <button key={document.id} type="button" disabled={opening} onClick={() => void openDocument(document.id)}
+          className="mr-2 rounded border px-2 py-1 text-sm text-teal-800">{document.filename}</button>
+      ))}
+      {(error || documents.isError) && <p role="alert" className="text-sm text-red-700">{error || 'Không tải được tài liệu.'}</p>}
+    </>
+  )
+}
+
 export default function LessonPlayer({ courseId }: { courseId: string }) {
   const base = `/api/v1/courses/${courseId}/playback`
+  const cache = useQueryClient()
+  const [documentsFor, setDocumentsFor] = useState<string>()
   const [selected, setSelected] = useState<Video>()
   const [session, setSession] = useState<Session>()
   const [message, setMessage] = useState('')
@@ -35,12 +87,11 @@ export default function LessonPlayer({ courseId }: { courseId: string }) {
   const engine = useRef<typeof Hls>(null)
   const videos = useQuery({
     queryKey: ['course-playback', courseId],
-    queryFn: async ({ signal }) => {
-      const response = await fetch(base, { headers: headers(), signal })
-      if (response.status === 404) return []
-      if (!response.ok) throw new Error('Không tải được video của khóa học.')
-      return await response.json() as Video[]
-    },
+    queryFn: ({ signal }) => readList<Video>(base, signal),
+  })
+  const lessons = useQuery({
+    queryKey: ['course-mastery', courseId],
+    queryFn: ({ signal }) => readList<Lesson>(`${base}/lessons`, signal),
   })
 
   async function open(video: Video) {
@@ -122,6 +173,10 @@ export default function LessonPlayer({ courseId }: { courseId: string }) {
         })
         if ([401, 403, 409].includes(response.status)) stop('Phiên phát đã hết hạn hoặc được mở trên thiết bị khác.')
         else if (!response.ok) stop('Không đồng bộ được tiến độ. Hãy mở lại phiên phát.')
+        else if (delta > 0) {
+          void cache.invalidateQueries({ queryKey: ['course-mastery', courseId] })
+          void cache.invalidateQueries({ queryKey: ['course-playback', courseId] })
+        }
       } catch {
         if (!abort.signal.aborted) stop('Mất kết nối với phiên phát. Hãy thử lại.')
       } finally {
@@ -136,13 +191,38 @@ export default function LessonPlayer({ courseId }: { courseId: string }) {
       window.clearInterval(watermark)
       hls.destroy()
     }
-  }, [base, selected, session])
+  }, [base, cache, courseId, selected, session])
 
   return (
     <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-5">
-      <h2 className="font-semibold">Video bài học</h2>
-      {videos.isError && <p role="alert">Không tải được video của khóa học.</p>}
-      {videos.isSuccess && !videos.data.length && <p className="text-sm text-slate-600">Chưa có video mở để học.</p>}
+      <h2 className="font-semibold">Lộ trình bài học</h2>
+      {(videos.isError || lessons.isError) && <p role="alert">Không tải được lộ trình bài học.</p>}
+      {lessons.isSuccess && !lessons.data.length && <p className="text-sm text-slate-600">Chưa có bài học mở.</p>}
+      <ol className="space-y-2">
+        {lessons.data?.map((lesson) => (
+          <li key={lesson.id} className="space-y-2 rounded-lg border p-3 text-sm">
+            <div className="flex flex-wrap justify-between gap-2">
+              <strong>{lesson.title}</strong>
+              <span>{lesson.fastTrack ? 'Fast-track' : lesson.unlocked ? 'Đã mở' : 'Đang khóa'}</span>
+            </div>
+            <p className="text-slate-600">
+              {lesson.video ? '✓' : '○'} Video · {lesson.documents ? '✓' : '○'} Tài liệu · {lesson.miniQuiz ? '✓' : '○'} Mini-quiz
+            </p>
+            {lesson.unlocked && (
+              <button type="button" aria-expanded={documentsFor === lesson.id}
+                className="text-teal-800 underline" onClick={() => setDocumentsFor(documentsFor === lesson.id ? undefined : lesson.id)}>
+                Tài liệu đính kèm
+              </button>
+            )}
+            {documentsFor === lesson.id && lesson.unlocked && (
+              <LessonDocuments key={lesson.id} base={base} lessonId={lesson.id} onOpened={() => {
+                void cache.invalidateQueries({ queryKey: ['course-mastery', courseId] })
+                void cache.invalidateQueries({ queryKey: ['course-playback', courseId] })
+              }} />
+            )}
+          </li>
+        ))}
+      </ol>
       {videos.data?.map((video) => (
         <button key={video.videoId} disabled={opening} onClick={() => void open(video)}
           className="mr-2 rounded-lg border px-3 py-2 text-sm text-teal-800 disabled:opacity-50">

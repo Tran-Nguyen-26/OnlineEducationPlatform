@@ -25,6 +25,26 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PrivatePlaybackController {
     private final PrivatePlaybackService playback;
+    private final com.oep.corelms.service.LessonMasteryService mastery;
+
+    @GetMapping("/lessons")
+    public List<com.oep.corelms.service.LessonMasteryService.Lesson> lessons(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
+        return mastery.lessons(UUID.fromString(jwt.getSubject()), courseId);
+    }
+
+    @GetMapping("/lessons/{lessonId}/documents")
+    public List<PrivatePlaybackService.Document> documents(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
+            @PathVariable UUID lessonId) {
+        return playback.documents(UUID.fromString(jwt.getSubject()), courseId, lessonId);
+    }
+
+    @PostMapping("/lessons/{lessonId}/documents/{documentId}")
+    public ResponseEntity<java.util.Map<String, String>> openDocument(@AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID courseId, @PathVariable UUID lessonId, @PathVariable UUID documentId) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(java.util.Map.of("url", playback.openDocument(UUID.fromString(jwt.getSubject()), courseId, lessonId, documentId)));
+    }
 
     @GetMapping
     public List<PrivatePlaybackService.Video> list(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {

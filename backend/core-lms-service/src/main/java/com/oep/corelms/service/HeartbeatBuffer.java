@@ -61,6 +61,11 @@ public class HeartbeatBuffer {
         }
     }
 
+    public long watchedSeconds(UUID enrollment, UUID video) {
+        Object value = redis.opsForHash().get(PREFIX + "watched:" + enrollment, video.toString());
+        return value == null ? 0 : Long.parseLong(value.toString());
+    }
+
     @Scheduled(fixedDelayString = "${oep.progress.flush-ms:120000}")
     public void flush() {
         List<?> batch = redis.execute(SNAPSHOT, List.of(PENDING, INFLIGHT, BATCH, URGENT),

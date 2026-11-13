@@ -21,7 +21,7 @@ class PrivatePlaybackServiceTest {
         var database = mock(JdbcTemplate.class);
         var heartbeat = mock(HeartbeatBuffer.class);
         var storage = mock(S3Client.class);
-        var playback = new PrivatePlaybackService(database, heartbeat, storage, null);
+        var playback = new PrivatePlaybackService(database, heartbeat, storage, null, null, null);
         UUID id = UUID.randomUUID();
         for (String path : List.of("../master.m3u8", "480p/../../master.m3u8", "1080p/index.m3u8", "source.mp4")) {
             assertThatThrownBy(() -> playback.read(id, id, id, id, path)).isInstanceOf(BusinessException.class);

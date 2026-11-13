@@ -34,26 +34,24 @@ public class PrivatePlaybackService {
               and c.lifecycle_status = 'PUBLISHED'
               and v.content_type = 'VIDEO' and v.upload_status = 'AVAILABLE' and v.duration_seconds > 0
               and v.object_key = concat('media/', cast(v.id as text), '/master.m3u8')
-              and not exists (
-                  select 1 from course_modules previous_module
-                  join lessons previous_lesson on previous_lesson.module_id = previous_module.id
-                  where previous_module.course_id = c.id
-                    and (previous_module.position, previous_module.id, previous_lesson.position, previous_lesson.id)
-                      < (m.position, m.id, l.position, l.id)
-              )
             """;
 
     private final JdbcTemplate jdbc;
     private final HeartbeatBuffer heartbeat;
     private final S3Client storage;
     private final MediaStorageConfig.Properties properties;
+    private final LessonMasteryService mastery;
+    private final software.amazon.awssdk.services.s3.presigner.S3Presigner signer;
 
     public record Video(UUID enrollmentId, UUID lessonId, String title, UUID videoId) {}
     public record Session(UUID streamToken, String watermark) {}
     private record AuthorizedVideo(Video video, String email, String key) {}
 
     public List<Video> list(UUID actor, UUID course) {
-        return find(actor, course, null).stream().map(AuthorizedVideo::video).toList();
+        var unlocked = mastery.lessons(actor, course).stream().filter(LessonMasteryService.Lesson::unlocked)
+                .map(LessonMasteryService.Lesson::id).collect(java.util.stream.Collectors.toSet());
+        return find(actor, course, null).stream().map(AuthorizedVideo::video)
+                .filter(video -> unlocked.contains(video.lessonId())).toList();
     }
 
     public Session open(UUID actor, UUID course, UUID videoId) {
@@ -91,8 +89,41 @@ public class PrivatePlaybackService {
     }
 
     private AuthorizedVideo requireVideo(UUID actor, UUID course, UUID video) {
-        return find(actor, course, video).stream().findFirst()
+        AuthorizedVideo item = find(actor, course, video).stream().findFirst()
                 .orElseThrow(() -> new BusinessException(ErrorCode.FORBIDDEN, "Video chưa mở hoặc quyền học đã hết hạn"));
+        mastery.requireUnlocked(actor, course, item.video().lessonId());
+        return item;
+    }
+
+    public record Document(UUID id, String filename) {}
+
+    public List<Document> documents(UUID actor, UUID course, UUID lesson) {
+        mastery.requireUnlocked(actor, course, lesson);
+        return jdbc.query("""
+                select id, file_name from lesson_contents where lesson_id = ?
+                  and content_type in ('PDF', 'DOCUMENT') and upload_status = 'AVAILABLE'
+                  and object_key like 'media/%'
+                order by position, id
+                """, (row, index) -> new Document(row.getObject(1, UUID.class), row.getString(2)), lesson);
+    }
+
+    public String openDocument(UUID actor, UUID course, UUID lesson, UUID document) {
+        mastery.requireUnlocked(actor, course, lesson);
+        String key = jdbc.queryForList("""
+                select object_key from lesson_contents where lesson_id = ? and id = ?
+                  and content_type in ('PDF', 'DOCUMENT') and upload_status = 'AVAILABLE'
+                  and object_key like 'media/%'
+                """, String.class, lesson, document).stream().findFirst()
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Không tìm thấy tài liệu"));
+        var signed = signer.presignGetObject(request -> request.signatureDuration(java.time.Duration.ofMinutes(2))
+                .getObjectRequest(get -> get.bucket(properties.bucket()).key(key)));
+        jdbc.update("""
+                insert into lesson_document_reads (enrollment_id, content_id, read_at)
+                select e.id, ?, now() from enrollments e where e.student_id = ? and e.course_id = ? and e.status = 'ACTIVE'
+                  and (e.access_expires_at is null or e.access_expires_at >= now())
+                on conflict do nothing
+                """, document, actor, course);
+        return signed.url().toExternalForm();
     }
 
     private List<AuthorizedVideo> find(UUID actor, UUID course, UUID video) {
