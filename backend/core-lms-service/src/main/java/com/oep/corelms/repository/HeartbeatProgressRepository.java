@@ -20,6 +20,7 @@ public class HeartbeatProgressRepository {
                 join lessons l on l.module_id = m.id
                 join lesson_contents c on c.lesson_id = l.id
                 where e.id = ? and e.student_id = ? and e.status = 'ACTIVE'
+                  and (e.access_expires_at is null or e.access_expires_at >= now())
                   and u.role = 'STUDENT' and u.account_status = 'ACTIVE'
                   and l.id = ? and c.id = ? and c.content_type = 'VIDEO'
                   and c.upload_status = 'AVAILABLE' and c.duration_seconds > 0
@@ -32,6 +33,7 @@ public class HeartbeatProgressRepository {
                 select exists (
                     select 1 from enrollments e join users u on u.id = e.student_id
                     where e.id = ? and e.student_id = ? and e.status = 'ACTIVE'
+                      and (e.access_expires_at is null or e.access_expires_at >= now())
                       and u.role = 'STUDENT' and u.account_status = 'ACTIVE'
                 )
                 """, Boolean.class, enrollment, student));

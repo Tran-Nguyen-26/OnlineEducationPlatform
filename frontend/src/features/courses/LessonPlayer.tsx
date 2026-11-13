@@ -1,0 +1,180 @@
+import { useEffect, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import type Hls from 'hls.js'
+
+type Video = { enrollmentId: string; lessonId: string; title: string; videoId: string }
+type Session = { streamToken: string; watermark: string }
+type Cue = { start: number; label: string; text: string }
+
+export function parseTranscript(text: string): Cue[] {
+  return text.replace(/\r/g, '').split(/\n\s*\n/).flatMap((block) => {
+    const lines = block.split('\n')
+    const index = lines.findIndex((line) => line.includes('-->'))
+    if (index < 0 || /^NOTE(?:\s|$)/.test(lines[0])) return []
+    const label = lines[index].split('-->')[0].trim()
+    if (!/^(?:\d{2,}:)?[0-5]\d:[0-5]\d[.,]\d{3}$/.test(label)) return []
+    const start = label.replace(',', '.').split(':').reduce((seconds, part) => seconds * 60 + Number(part), 0)
+    const content = lines.slice(index + 1).join(' ').replace(/<[^>]+>/g, '').trim()
+    return content ? [{ start, label: label.split(/[.,]/)[0], text: content }] : []
+  })
+}
+
+function headers() {
+  return { Authorization: `Bearer ${localStorage.getItem('access_token') ?? ''}` }
+}
+
+export default function LessonPlayer({ courseId }: { courseId: string }) {
+  const base = `/api/v1/courses/${courseId}/playback`
+  const [selected, setSelected] = useState<Video>()
+  const [session, setSession] = useState<Session>()
+  const [message, setMessage] = useState('')
+  const [opening, setOpening] = useState(false)
+  const [corner, setCorner] = useState(0)
+  const [cues, setCues] = useState<Cue[]>([])
+  const element = useRef<HTMLVideoElement>(null)
+  const engine = useRef<typeof Hls>(null)
+  const videos = useQuery({
+    queryKey: ['course-playback', courseId],
+    queryFn: async ({ signal }) => {
+      const response = await fetch(base, { headers: headers(), signal })
+      if (response.status === 404) return []
+      if (!response.ok) throw new Error('Không tải được video của khóa học.')
+      return await response.json() as Video[]
+    },
+  })
+
+  async function open(video: Video) {
+    setOpening(true)
+    setMessage('')
+    setCues([])
+    setSession(undefined)
+    setSelected(video)
+    try {
+      const { default: HlsEngine } = await import('hls.js')
+      if (!HlsEngine.isSupported()) throw new Error('Trình duyệt này chưa hỗ trợ trình phát riêng tư.')
+      engine.current = HlsEngine
+      const response = await fetch(`${base}/${video.videoId}`, { method: 'POST', headers: headers() })
+      if (!response.ok) throw new Error('Không mở được phiên phát video.')
+      setSession(await response.json() as Session)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Không mở được phiên phát video.')
+    } finally {
+      setOpening(false)
+    }
+  }
+
+  useEffect(() => {
+    const player = element.current
+    const HlsEngine = engine.current
+    if (!player || !selected || !session || !HlsEngine) return
+    const abort = new AbortController()
+    let sequence = 0
+    let lastTick = performance.now()
+    let watched = 0
+    let sending = false
+    const sessionHeaders = { ...headers(), 'X-Playback-Session': session.streamToken }
+    void fetch(`${base}/${selected.videoId}/transcript`, { headers: sessionHeaders, signal: abort.signal })
+      .then((response) => response.ok ? response.text() : '')
+      .then((text) => { if (!abort.signal.aborted) setCues(parseTranscript(text)) })
+      .catch(() => {})
+    const hls = new HlsEngine({
+      xhrSetup: (request, url) => {
+        if (new URL(url, window.location.href).origin !== window.location.origin) {
+          throw new Error('Invalid playback origin')
+        }
+        for (const [key, value] of Object.entries(sessionHeaders)) request.setRequestHeader(key, value)
+      },
+    })
+    function stop(reason: string) {
+      if (abort.signal.aborted) return
+      abort.abort()
+      player?.pause()
+      setMessage(reason)
+      setSession(undefined)
+    }
+    hls.on(HlsEngine.Events.ERROR, (_event, error) => {
+      if (error.response?.code === 409) stop('Phiên phát đã hết hạn hoặc được mở trên thiết bị khác.')
+      else if (error.fatal) stop('Không phát được video. Hãy mở lại phiên phát.')
+    })
+    hls.loadSource(`${base}/${selected.videoId}/master.m3u8`)
+    hls.attachMedia(player)
+    const sample = window.setInterval(() => {
+      const now = performance.now()
+      if (!player.paused && !player.seeking && player.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+        watched += Math.min(1000, now - lastTick) / 1000
+      }
+      lastTick = now
+    }, 500)
+    const heartbeat = window.setInterval(async () => {
+      if (sending || abort.signal.aborted) return
+      sending = true
+      const delta = Math.min(30, Math.floor(watched))
+      watched -= delta
+      try {
+        const response = await fetch('/api/progress/heartbeat', {
+          method: 'POST', signal: abort.signal,
+          headers: { ...headers(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            enrollment_id: selected.enrollmentId, lesson_id: selected.lessonId,
+            stream_token: session.streamToken, sequence: ++sequence,
+            current_playback_sec: Math.floor(player.currentTime || 0), watched_delta_sec: delta,
+          }),
+        })
+        if ([401, 403, 409].includes(response.status)) stop('Phiên phát đã hết hạn hoặc được mở trên thiết bị khác.')
+        else if (!response.ok) stop('Không đồng bộ được tiến độ. Hãy mở lại phiên phát.')
+      } catch {
+        if (!abort.signal.aborted) stop('Mất kết nối với phiên phát. Hãy thử lại.')
+      } finally {
+        sending = false
+      }
+    }, 30000)
+    const watermark = window.setInterval(() => setCorner((position) => (position + 1) % 4), 12000)
+    return () => {
+      abort.abort()
+      window.clearInterval(sample)
+      window.clearInterval(heartbeat)
+      window.clearInterval(watermark)
+      hls.destroy()
+    }
+  }, [base, selected, session])
+
+  return (
+    <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-5">
+      <h2 className="font-semibold">Video bài học</h2>
+      {videos.isError && <p role="alert">Không tải được video của khóa học.</p>}
+      {videos.isSuccess && !videos.data.length && <p className="text-sm text-slate-600">Chưa có video mở để học.</p>}
+      {videos.data?.map((video) => (
+        <button key={video.videoId} disabled={opening} onClick={() => void open(video)}
+          className="mr-2 rounded-lg border px-3 py-2 text-sm text-teal-800 disabled:opacity-50">
+          Mở video · {video.title}
+        </button>
+      ))}
+      {message && <p role="alert" className="text-sm text-red-700">{message}</p>}
+      {session && (
+        <div className="relative overflow-hidden rounded-lg bg-slate-950">
+          <video ref={element} className="aspect-video w-full" aria-label={selected?.title}
+            controls playsInline disablePictureInPicture />
+          <div aria-hidden="true" className={`pointer-events-none absolute max-w-[85%] break-all rounded bg-black/40 px-2 py-1 text-xs text-white ${
+            ['left-4 top-4', 'right-4 top-4', 'right-4 bottom-14', 'left-4 bottom-14'][corner]
+          }`}>{session.watermark}</div>
+        </div>
+      )}
+      {session && cues.length > 0 && (
+        <details className="rounded-lg border p-3">
+          <summary className="cursor-pointer font-medium">Phụ đề và mốc thời gian</summary>
+          <ol className="mt-2 max-h-64 space-y-1 overflow-auto">
+            {cues.map((cue, index) => (
+              <li key={index}>
+                <button type="button" className="flex w-full gap-3 rounded p-2 text-left text-sm hover:bg-teal-50"
+                  onClick={() => { if (element.current) element.current.currentTime = cue.start }}>
+                  <span className="font-mono text-teal-800">{cue.label}</span>
+                  <span>{cue.text}</span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
+    </section>
+  )
+}

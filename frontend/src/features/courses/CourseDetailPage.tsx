@@ -1,6 +1,7 @@
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { accessCodeError, fetchAccessibleCourse } from '@/api/accessCodes'
+import LessonPlayer from './LessonPlayer'
 
 export default function CourseDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -23,6 +24,7 @@ export default function CourseDetailPage() {
           {course.data.description && <p className="whitespace-pre-wrap text-slate-600">{course.data.description}</p>}
         </div>
       )}
+      {course.data && id && <LessonPlayer key={id} courseId={id} />}
     </section>
   )
 }

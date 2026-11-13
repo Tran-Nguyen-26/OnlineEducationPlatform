@@ -54,6 +54,13 @@ public class HeartbeatBuffer {
         }
     }
 
+    public void requirePlaybackStream(UUID actor, UUID enrollment, UUID lesson, UUID video, UUID token) {
+        var fields = redis.opsForHash().multiGet(stream(actor), List.of("token", "enrollment", "lesson", "content"));
+        if (!List.of(token.toString(), enrollment.toString(), lesson.toString(), video.toString()).equals(fields)) {
+            throw new BusinessException(ErrorCode.STREAM_SUPERSEDED, "Playback stream expired or was replaced");
+        }
+    }
+
     @Scheduled(fixedDelayString = "${oep.progress.flush-ms:120000}")
     public void flush() {
         List<?> batch = redis.execute(SNAPSHOT, List.of(PENDING, INFLIGHT, BATCH, URGENT),
