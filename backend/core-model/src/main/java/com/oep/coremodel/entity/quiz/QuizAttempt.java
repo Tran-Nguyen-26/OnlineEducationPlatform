@@ -36,6 +36,19 @@ public class QuizAttempt extends BaseEntity {
     @Column(name = "is_remediation", nullable = false, columnDefinition = "boolean default false")
     private boolean remediation;
 
+    @Column(name = "exam_cutoff_at")
+    private Instant examCutoffAt;
+
+    @Column(name = "exam_device_id")
+    private UUID examDeviceId;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "exam_draft", columnDefinition = "jsonb")
+    private String examDraft;
+
+    @Column(name = "exam_draft_sequence")
+    private Long examDraftSequence;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 40)
     private QuizAttemptStatus status = QuizAttemptStatus.IN_PROGRESS;

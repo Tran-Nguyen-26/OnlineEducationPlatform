@@ -116,6 +116,48 @@ class LearnerQuizPostgresTest {
     }
 
     @Test
+    void scheduledExamKeepsServerDraftAtCutoffAndAutomaticallyCollectsAfterGrace() {
+        new org.springframework.jdbc.datasource.init.ResourceDatabasePopulator(
+                new org.springframework.core.io.ClassPathResource("db/migration/V13__scheduled_exam.sql")).execute(datasource);
+        User learner = user(UserRole.STUDENT);
+        Course entity = new Course();
+        entity.setTitle("Mass exam");
+        entity.setCreatedBy(user(UserRole.ADMIN));
+        entity.setLifecycleStatus(CourseLifecycleStatus.PUBLISHED);
+        UUID course = courses.save(entity).getId();
+        jdbc.update("insert into enrollments(id,course_id,student_id,status,enrolled_at) values (?,?,?,'ACTIVE',now())",
+                UUID.randomUUID(), course, learner.getId());
+        var scheduled = quiz(course, null, "MASS_EXAM", null);
+        UUID device = UUID.randomUUID();
+        jdbc.update("update quizzes set exam_starts_at = now() - interval '16 minutes', exam_ends_at = now() + interval '10 minutes' where id = ?",
+                scheduled.quiz());
+        assertThatThrownBy(() -> quizzes.start(learner.getId(), course, scheduled.quiz(), device)).isInstanceOf(BusinessException.class);
+        jdbc.update("update quizzes set exam_starts_at = now() - interval '5 minutes' where id = ?", scheduled.quiz());
+        var attempt = quizzes.start(learner.getId(), course, scheduled.quiz(), device);
+        assertThatThrownBy(() -> quizzes.start(learner.getId(), course, scheduled.quiz(), UUID.randomUUID()))
+                .isInstanceOf(BusinessException.class);
+        assertThat(quizzes.sync(learner.getId(), course, attempt.attemptId(), device, 2, scheduled.correct())).isEqualTo(2);
+        assertThat(quizzes.sync(learner.getId(), course, attempt.attemptId(), device, 1, Map.of())).isEqualTo(2);
+        assertThat(quizzes.start(learner.getId(), course, scheduled.quiz(), device).draft()).isEqualTo(scheduled.correct());
+        jdbc.update("update quiz_attempts set exam_cutoff_at = now() - interval '31 seconds' where id = ?", attempt.attemptId());
+        assertThatThrownBy(() -> quizzes.sync(learner.getId(), course, attempt.attemptId(), device, 3, Map.of()))
+                .isInstanceOf(BusinessException.class);
+        quizzes.finalizeExam(attempt.attemptId(), course, learner.getId(), Instant.now());
+        assertThat(quizzes.submit(learner.getId(), course, attempt.attemptId(), Map.of(), device).achieved())
+                .isEqualByComparingTo("10");
+
+        var graceExam = quiz(course, null, "MASS_EXAM", null);
+        jdbc.update("update quizzes set exam_starts_at = now() - interval '5 minutes', exam_ends_at = now() + interval '10 minutes' where id = ?",
+                graceExam.quiz());
+        var graceAttempt = quizzes.start(learner.getId(), course, graceExam.quiz(), device);
+        quizzes.sync(learner.getId(), course, graceAttempt.attemptId(), device, 1, graceExam.correct());
+        jdbc.update("update quiz_attempts set exam_cutoff_at = now() - interval '1 second' where id = ?", graceAttempt.attemptId());
+        var changesAfterCutoff = Map.of(graceExam.correct().keySet().iterator().next(), List.<String>of());
+        assertThat(quizzes.submit(learner.getId(), course, graceAttempt.attemptId(), changesAfterCutoff, device).achieved())
+                .isEqualByComparingTo("10");
+    }
+
+    @Test
     void postTestRequiresFreshReviewAndCooldownThenGrantsOnlyOneExtraAttempt() {
         new org.springframework.jdbc.datasource.init.ResourceDatabasePopulator(
                 new org.springframework.core.io.ClassPathResource("db/migration/V12__posttest_remediation.sql")).execute(datasource);

@@ -29,6 +29,15 @@ public class Quiz extends BaseEntity {
     @Column(name = "assessment_kind", length = 16)
     private Kind assessmentKind;
 
+    @Column(name = "exam_starts_at")
+    private Instant examStartsAt;
+
+    @Column(name = "exam_ends_at")
+    private Instant examEndsAt;
+
+    @Column(name = "late_entry_minutes")
+    private Integer lateEntryMinutes;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "course_id", nullable = false)
     private Course course;

@@ -9,7 +9,8 @@ import {
   X,
   Trophy,
 } from 'lucide-react'
-import { submitLearnerQuiz, type QuizItem, type LearnerAttempt, type QuestionItem } from '@/api/quiz'
+import { submitLearnerQuiz, syncExamDraft, type QuizItem, type LearnerAttempt, type QuestionItem } from '@/api/quiz'
+import { readExamDraft, writeExamDraft } from '../examDraft'
 
 interface StudentQuizPlayerProps {
   quiz: QuizItem
@@ -27,9 +28,18 @@ export function StudentQuizPlayer({
   onCompleted,
 }: StudentQuizPlayerProps) {
   const questions = attempt?.questions ?? previewQuestions ?? []
+  const massExam = quiz.assessment_kind === 'MASS_EXAM' && !!attempt
+  const serverClock = useRef({ server: Date.parse(attempt?.serverTime ?? ''), client: performance.now() })
+  const remaining = useCallback(() => Math.max(0, Math.ceil((Date.parse(attempt?.expiresAt ?? '')
+    - serverClock.current.server - (performance.now() - serverClock.current.client)) / 1000)), [attempt])
   const [currentIndex, setCurrentIndex] = useState(0)
   // answers map: questionId -> array of selected optionIds (or string for text)
-  const [answers, setAnswers] = useState<Record<string, string[]>>({})
+  const [answers, setAnswers] = useState<Record<string, string[]>>(attempt?.draft ?? {})
+  const [restored, setRestored] = useState(!massExam)
+  const [syncState, setSyncState] = useState('')
+  const sent = useRef(attempt?.draft ?? {})
+  const sequence = useRef(attempt?.draftSequence ?? 0)
+  const syncInFlight = useRef(false)
   const [flagged, setFlagged] = useState<Record<string, boolean>>({})
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
@@ -40,12 +50,17 @@ export function StudentQuizPlayer({
   } | null>(null)
 
   const [secondsLeft, setSecondsLeft] = useState(() => attempt
-    ? Math.max(0, Math.ceil((Date.parse(attempt.expiresAt) - Date.now()) / 1000))
+    ? remaining()
     : quiz.time_limit_seconds ?? 1800)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const inFlight = useRef(false)
   const autoSubmitted = useRef(false)
+  const mounted = useRef(false)
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
 
   const handleSubmitQuiz = useCallback(async () => {
     if (inFlight.current || isSubmitted) return
@@ -68,6 +83,7 @@ export function StudentQuizPlayer({
           }, { achieved: 0, total: 0, correctCount: 0 })
       setScoreResult(result)
       setIsSubmitted(true)
+      if (massExam && attempt) void writeExamDraft(attempt.attemptId).catch(() => {})
       onCompleted?.(result.achieved, result.total)
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Không nộp được bài. Hãy thử lại.')
@@ -75,23 +91,63 @@ export function StudentQuizPlayer({
       inFlight.current = false
       setSubmitting(false)
     }
-  }, [answers, attempt, isSubmitted, onCompleted, previewQuestions, quiz.course_id])
+  }, [answers, attempt, isSubmitted, massExam, onCompleted, previewQuestions, quiz.course_id])
+
+  useEffect(() => {
+    if (!massExam || !attempt) return
+    let active = true
+    void readExamDraft(attempt.attemptId).then((saved) => {
+      if (active && saved && remaining() > 0) setAnswers({ ...attempt.draft, ...saved })
+    }).catch(() => { if (active) setSyncState('Không đọc được bản nháp trên thiết bị.') })
+      .finally(() => { if (active) setRestored(true) })
+    return () => { active = false }
+  }, [attempt, massExam, remaining])
+
+  useEffect(() => {
+    if (!massExam || !attempt || !restored || isSubmitted || remaining() === 0) return
+    void writeExamDraft(attempt.attemptId, answers).catch(() => setSyncState('Không lưu được bản nháp trên thiết bị.'))
+  }, [answers, attempt, isSubmitted, massExam, remaining, restored])
+
+  const currentAnswers = useRef(answers)
+  useEffect(() => { currentAnswers.current = answers }, [answers])
+  const nearEnd = secondsLeft <= 60
+  useEffect(() => {
+    if (!massExam || !attempt || !restored || isSubmitted) return
+    async function sync() {
+      if (!attempt || remaining() === 0 || syncInFlight.current || inFlight.current) return
+      const delta = Object.fromEntries(Object.entries(currentAnswers.current)
+        .filter(([id, value]) => JSON.stringify(value) !== JSON.stringify(sent.current[id])))
+      if (!Object.keys(delta).length) return
+      syncInFlight.current = true
+      try {
+        const result = await syncExamDraft(quiz.course_id, attempt.attemptId, ++sequence.current, delta)
+        sequence.current = result.sequence
+        sent.current = { ...sent.current, ...delta }
+        setSyncState('Đã đồng bộ bản nháp.')
+      } catch {
+        setSyncState('Chưa đồng bộ. Bản nháp được giữ trên thiết bị.')
+      } finally { syncInFlight.current = false }
+    }
+    const timer = window.setInterval(() => void sync(), nearEnd ? 5000 : 20000)
+    return () => window.clearInterval(timer)
+  }, [attempt, isSubmitted, massExam, nearEnd, quiz.course_id, remaining, restored])
 
   useEffect(() => {
     if (isSubmitted) return
     const update = () => setSecondsLeft((previous) => attempt
-      ? Math.max(0, Math.ceil((Date.parse(attempt.expiresAt) - Date.now()) / 1000))
+      ? remaining()
       : Math.max(0, previous - 1))
     const timer = window.setInterval(update, 1000)
     return () => window.clearInterval(timer)
-  }, [attempt, isSubmitted])
+  }, [attempt, isSubmitted, remaining])
 
   useEffect(() => {
     if (secondsLeft === 0 && !autoSubmitted.current) {
       autoSubmitted.current = true
-      void handleSubmitQuiz()
+      const delay = massExam ? Math.floor(Math.random() * 10001) : 0
+      window.setTimeout(() => { if (mounted.current) void handleSubmitQuiz() }, delay)
     }
-  }, [handleSubmitQuiz, secondsLeft])
+  }, [handleSubmitQuiz, massExam, secondsLeft])
 
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60)
@@ -103,7 +159,7 @@ export function StudentQuizPlayer({
   const totalQuestions = questions.length
 
   const handleSelectOption = (optionId: string, isSingleChoice: boolean) => {
-    if (!currentQ) return
+    if (!currentQ || (massExam && (!restored || remaining() === 0))) return
     const qId = currentQ.id
     setAnswers((prev) => {
       const existing = prev[qId] || []
@@ -230,6 +286,7 @@ export function StudentQuizPlayer({
               <div className="space-y-3">
                 {currentQ.question_type === 'KEYWORD_FILL' && (
                   <input aria-label="Câu trả lời" maxLength={500} value={answers[currentQ.id]?.[0] ?? ''}
+                    disabled={massExam && (!restored || secondsLeft === 0)}
                     onChange={(event) => {
                       const value = event.target.value
                       setAnswers((previous) => ({ ...previous, [currentQ.id]: value ? [value] : [] }))
@@ -246,6 +303,7 @@ export function StudentQuizPlayer({
                   return (
                     <button
                       key={opt.id}
+                      disabled={massExam && (!restored || secondsLeft === 0)}
                       onClick={() => handleSelectOption(opt.id, isSingle)}
                       className={`w-full flex items-center gap-4 rounded-xl border p-4 text-left transition-all ${
                         isSelected
@@ -410,6 +468,7 @@ export function StudentQuizPlayer({
         </main>
       )}
 
+      {massExam && syncState && !isSubmitted && <p role="status" className="bg-slate-950 px-6 py-2 text-sm">{syncState}</p>}
       {submitError && !isSubmitted && (
         <div role="alert" className="flex items-center gap-3 bg-red-950 px-6 py-3 text-sm text-white">
           {submitError}

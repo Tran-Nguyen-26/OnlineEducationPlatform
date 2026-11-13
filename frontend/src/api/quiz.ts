@@ -103,6 +103,9 @@ export interface QuestionPageResponse {
 export interface LearnerAttempt {
   attemptId: string
   expiresAt: string
+  serverTime: string
+  draft: Record<string, string[]>
+  draftSequence: number
   questions: {
     id: string
     question_type: QuestionType | 'KEYWORD_FILL'
@@ -112,19 +115,41 @@ export interface LearnerAttempt {
   }[]
 }
 
+function examHeaders() {
+  const key = 'oep-exam-device'
+  let device = localStorage.getItem(key)
+  if (!device) {
+    device = globalThis.crypto.randomUUID()
+    localStorage.setItem(key, device)
+  }
+  return { 'X-Exam-Device': device }
+}
+
 export function fetchLearnerQuizzes(courseId: string) {
   return request<QuizItem[]>(`/api/v1/courses/${courseId}/learner-assessments/quizzes`)
 }
 
 export function startLearnerQuiz(courseId: string, quizId: string) {
-  return request<LearnerAttempt>(`/api/v1/courses/${courseId}/learner-assessments/quizzes/${quizId}/attempts`, { method: 'POST' })
+  return request<LearnerAttempt>(`/api/v1/courses/${courseId}/learner-assessments/quizzes/${quizId}/attempts`, {
+    method: 'POST', headers: examHeaders(),
+  })
 }
 
 export function submitLearnerQuiz(courseId: string, attemptId: string, answers: Record<string, string[]>) {
   return request<{ achieved: number; total: number; correctCount: number }>(
     `/api/v1/courses/${courseId}/learner-assessments/attempts/${attemptId}/submit`,
-    { method: 'POST', body: JSON.stringify({ answers }) },
+    { method: 'POST', headers: examHeaders(), body: JSON.stringify({ answers }) },
   )
+}
+
+export function syncExamDraft(courseId: string, attemptId: string, sequence: number, answers: Record<string, string[]>) {
+  return request<{ sequence: number }>(`/api/v1/courses/${courseId}/learner-assessments/attempts/${attemptId}/draft`,
+    { method: 'PUT', headers: examHeaders(), body: JSON.stringify({ sequence, answers }) })
+}
+
+export function saveExamSchedule(courseId: string, quizId: string, schedule: { startsAt: string; endsAt: string; lateEntryMinutes: number }) {
+  return request(`/api/v1/courses/${courseId}/quizzes/${quizId}/exam-schedule`,
+    { method: 'PUT', body: JSON.stringify(schedule) })
 }
 
 export interface CreateQuestionPayload {

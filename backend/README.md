@@ -46,3 +46,10 @@ per enrollment and quiz. Associate each Post-test with a lesson in the target
 module. A learner who exhausts regular attempts without a passing grade can
 start the supplemental attempt after 24 hours and sufficient new heartbeat
 watch time for every video in the module. Review counters use Redis.
+
+Apply V13 for scheduled exams. Admins can set the exam window and late entry
+in Course Builder. The learner's browser keeps a draft in IndexedDB and sends
+versioned answer changes to PostgreSQL. The server refuses changes at cutoff,
+accepts final submission of the saved draft during the 30-second grace window,
+and collects unfinished attempts after grace. This initial path grades in Core
+LMS, with a scheduled collector for abandoned attempts.

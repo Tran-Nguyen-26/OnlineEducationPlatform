@@ -34,7 +34,8 @@ public class LearnerQuizService {
 
     public record Option(UUID id, String option_text, int position) {}
     public record Prompt(UUID id, String question_type, String question_text, BigDecimal points, List<Option> options) {}
-    public record Start(UUID attemptId, Instant expiresAt, List<Prompt> questions) {}
+    public record Start(UUID attemptId, Instant expiresAt, List<Prompt> questions, Instant serverTime,
+                        Map<UUID, List<String>> draft, long draftSequence) {}
     public record Score(BigDecimal achieved, BigDecimal total, int correctCount) {}
     @com.fasterxml.jackson.databind.annotation.JsonNaming(com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record AvailableQuiz(UUID id, UUID courseId, UUID lessonId, String title, String description,
@@ -54,21 +55,28 @@ public class LearnerQuizService {
         var unlocked = mastery.lessons(actor, course).stream().filter(LessonMasteryService.Lesson::unlocked)
                 .map(LessonMasteryService.Lesson::id).collect(java.util.stream.Collectors.toSet());
         Instant now = Instant.now();
-        return quizzes.findByCourseIdAndAssessmentKindInOrderByTitle(course, List.of(Quiz.Kind.PRE_TEST, Quiz.Kind.MINI_QUIZ, Quiz.Kind.POST_TEST))
+        return quizzes.findByCourseIdAndAssessmentKindInOrderByTitle(course, List.of(Quiz.Kind.PRE_TEST, Quiz.Kind.MINI_QUIZ, Quiz.Kind.POST_TEST, Quiz.Kind.MASS_EXAM))
                 .stream().map(quiz -> {
                     UUID lesson = quiz.getLesson() == null ? null : quiz.getLesson().getId();
                     boolean pretest = quiz.getAssessmentKind() == Quiz.Kind.PRE_TEST;
                     boolean posttest = quiz.getAssessmentKind() == Quiz.Kind.POST_TEST;
-                    var history = pretest ? attempts.findByQuizIdAndEnrollmentIdOrderByAttemptNumberDesc(quiz.getId(), enrollment.getId())
+                    boolean exam = quiz.getAssessmentKind() == Quiz.Kind.MASS_EXAM;
+                    var history = pretest || exam ? attempts.findByQuizIdAndEnrollmentIdOrderByAttemptNumberDesc(quiz.getId(), enrollment.getId())
                             : List.<QuizAttempt>of();
                     boolean exhausted = !history.isEmpty() && (history.getFirst().getStatus() != QuizAttemptStatus.IN_PROGRESS
                             || history.getFirst().getSnapshotPayload() == null || !now.isBefore(read(history.getFirst()).expiresAt()));
                     PostTestAccess post = posttest ? postTestAccess(quiz, enrollment, now) : null;
                     boolean locked = quiz.isLocked() || exhausted || (quiz.getDeadline() != null && !now.isBefore(quiz.getDeadline()))
-                            || (!pretest && (lesson == null || !unlocked.contains(lesson)));
+                            || (!pretest && !exam && (lesson == null || !unlocked.contains(lesson)));
+                    if (exam) {
+                        locked = quiz.isLocked() || (history.isEmpty() ? !mayEnter(quiz, now)
+                                : history.getFirst().getStatus() != QuizAttemptStatus.IN_PROGRESS
+                                    || history.getFirst().getExamCutoffAt() == null
+                                    || ExamWindow.shouldFinalize(history.getFirst().getExamCutoffAt(), now));
+                    }
                     if (post != null && !post.canStart()) locked = true;
                     return new AvailableQuiz(quiz.getId(), course, lesson, quiz.getTitle(), quiz.getDescription(),
-                            quiz.getTimeLimitSeconds(), quiz.getDeadline(), pretest ? 1 : posttest ? Math.max(1, quiz.getMaxAttempts()) : 0,
+                            quiz.getTimeLimitSeconds(), exam ? quiz.getExamEndsAt() : quiz.getDeadline(), pretest || exam ? 1 : posttest ? Math.max(1, quiz.getMaxAttempts()) : 0,
                             quiz.getGradingPolicy().name(), locked, quiz.getShowScore(), quiz.getAssessmentKind(),
                             post == null ? null : post.state(), post == null ? null : post.retryAfter(),
                             post == null || Boolean.FALSE.equals(quiz.getShowScore()) ? null : post.effectivePercent());
@@ -77,18 +85,32 @@ public class LearnerQuizService {
 
     @Transactional
     public Start start(UUID actor, UUID course, UUID quizId) {
+        return start(actor, course, quizId, null);
+    }
+
+    @Transactional
+    public Start start(UUID actor, UUID course, UUID quizId, UUID device) {
         Enrollment enrollment = access(actor, course);
         Quiz quiz = quizzes.findByIdAndCourseIdForUpdate(quizId, course).orElseThrow(this::unavailable);
         if (!supported(quiz)) throw unavailable();
         if (quiz.isLocked()) throw unavailable();
-        if (quiz.getAssessmentKind() != Quiz.Kind.PRE_TEST) {
+        boolean exam = quiz.getAssessmentKind() == Quiz.Kind.MASS_EXAM;
+        if (exam && device == null) throw unavailable();
+        if (quiz.getAssessmentKind() != Quiz.Kind.PRE_TEST && !exam) {
             if (quiz.getLesson() == null) throw unavailable();
             mastery.requireUnlocked(actor, course, quiz.getLesson().getId());
         }
         Instant now = Instant.now();
-        if (quiz.getDeadline() != null && !now.isBefore(quiz.getDeadline())) throw unavailable();
+        if (!exam && quiz.getDeadline() != null && !now.isBefore(quiz.getDeadline())) throw unavailable();
         var history = attempts.findByQuizIdAndEnrollmentIdOrderByAttemptNumberDesc(quizId, enrollment.getId());
         QuizAttempt latest = history.isEmpty() ? null : history.getFirst();
+        if (exam && latest != null) {
+            requireDevice(latest, device);
+            if (latest.getStatus() == QuizAttemptStatus.IN_PROGRESS && latest.getExamCutoffAt() != null
+                    && !ExamWindow.shouldFinalize(latest.getExamCutoffAt(), now)) return response(latest, read(latest));
+            throw new BusinessException(ErrorCode.ATTEMPT_LIMIT_REACHED, "Ca thi chỉ có một lượt");
+        }
+        if (exam && !mayEnter(quiz, now)) throw unavailable();
         if (latest != null && latest.getStatus() == QuizAttemptStatus.IN_PROGRESS) {
             Snapshot previous = read(latest);
             if (now.isBefore(previous.expiresAt())) return response(latest, previous);
@@ -113,8 +135,8 @@ public class LearnerQuizService {
             Collections.shuffle(items);
         int timeLimit = quiz.getTimeLimitSeconds() == null ? 1800 : quiz.getTimeLimitSeconds();
         if (timeLimit <= 0) throw unavailable();
-        Instant expires = now.plusSeconds(timeLimit);
-        if (quiz.getDeadline() != null && quiz.getDeadline().isBefore(expires)) expires = quiz.getDeadline();
+        Instant expires = exam ? quiz.getExamEndsAt() : now.plusSeconds(timeLimit);
+        if (!exam && quiz.getDeadline() != null && quiz.getDeadline().isBefore(expires)) expires = quiz.getDeadline();
         Snapshot snapshot = new Snapshot(expires, items);
         QuizAttempt attempt = new QuizAttempt();
         attempt.setQuiz(quiz);
@@ -122,25 +144,96 @@ public class LearnerQuizService {
         attempt.setAttemptNumber(number);
         attempt.setRemediation(post != null && "REMEDIATION_AVAILABLE".equals(post.state()));
         attempt.setStartedAt(now);
+        if (exam) {
+            attempt.setExamCutoffAt(expires);
+            attempt.setExamDeviceId(device);
+        }
         attempt.setSnapshotPayload(write(snapshot));
         return response(attempts.save(attempt), snapshot);
     }
 
     @Transactional
     public Score submit(UUID actor, UUID course, UUID attemptId, Map<UUID, List<String>> submitted) {
+        return submit(actor, course, attemptId, submitted, null);
+    }
+
+    @Transactional
+    public Score submit(UUID actor, UUID course, UUID attemptId, Map<UUID, List<String>> submitted, UUID device) {
         Enrollment enrollment = access(actor, course);
         QuizAttempt attempt = attempts.findById(attemptId)
                 .filter(item -> item.getEnrollment().getId().equals(enrollment.getId()))
                 .filter(item -> supported(item.getQuiz())).orElseThrow(this::unavailable);
         Snapshot snapshot = read(attempt);
         Instant now = Instant.now();
+        if (attempt.getExamCutoffAt() != null) {
+            requireDevice(attempt, device);
+            // Grace acknowledges only answers received before the server cutoff.
+            return finish(attempt, snapshot, ExamWindow.mayEdit(attempt.getExamCutoffAt(), now)
+                    ? mergeDraft(attempt, snapshot, submitted) : draft(attempt), now);
+        }
         return now.isBefore(snapshot.expiresAt()) ? finish(attempt, snapshot, submitted, now)
                 : finish(attempt, snapshot, Map.of(), snapshot.expiresAt());
     }
 
+    @Transactional
+    public long sync(UUID actor, UUID course, UUID id, UUID device, long sequence, Map<UUID, List<String>> delta) {
+        Enrollment enrollment = access(actor, course);
+        QuizAttempt attempt = attempts.findById(id).filter(item -> item.getEnrollment().getId().equals(enrollment.getId())
+                && item.getExamCutoffAt() != null).orElseThrow(this::unavailable);
+        requireDevice(attempt, device);
+        if (attempt.getStatus() != QuizAttemptStatus.IN_PROGRESS || !ExamWindow.mayEdit(attempt.getExamCutoffAt(), Instant.now()))
+            throw new BusinessException(ErrorCode.DEADLINE_PASSED, "Đã khóa đáp án");
+        if (sequence > sequence(attempt)) {
+            attempt.setExamDraft(write(mergeDraft(attempt, read(attempt), delta)));
+            attempt.setExamDraftSequence(sequence);
+        }
+        return sequence(attempt);
+    }
+
+    @Transactional
+    public void finalizeExam(UUID attemptId, UUID courseId, UUID learnerId, Instant now) {
+        var enrollment = enrollments.lockForAssessment(courseId, learnerId).orElseThrow(this::unavailable);
+        attempts.findById(attemptId).filter(item -> item.getEnrollment().getId().equals(enrollment.getId()))
+                .filter(item -> item.getStatus() == QuizAttemptStatus.IN_PROGRESS && item.getExamCutoffAt() != null
+                        && ExamWindow.shouldFinalize(item.getExamCutoffAt(), now))
+                .ifPresent(item -> finish(item, read(item), draft(item), now));
+    }
+
+    private boolean mayEnter(Quiz quiz, Instant now) {
+        return quiz.getExamStartsAt() != null && quiz.getExamEndsAt() != null && ExamWindow.mayEnter(
+                quiz.getExamStartsAt(), quiz.getExamEndsAt(), quiz.getLateEntryMinutes() == null ? 15 : quiz.getLateEntryMinutes(), now);
+    }
+
+    private void requireDevice(QuizAttempt attempt, UUID device) {
+        if (device == null || !device.equals(attempt.getExamDeviceId()))
+            throw new BusinessException(ErrorCode.EXAM_DEVICE_LOCKED, "Ca thi đang được giữ trên thiết bị khác");
+    }
+
+    private long sequence(QuizAttempt attempt) {
+        return attempt.getExamDraftSequence() == null ? 0 : attempt.getExamDraftSequence();
+    }
+
+    private Map<UUID, List<String>> mergeDraft(QuizAttempt attempt, Snapshot snapshot, Map<UUID, List<String>> delta) {
+        var merged = new HashMap<>(draft(attempt));
+        for (Item item : snapshot.items()) {
+            UUID question = item.prompt().id();
+            if (delta.containsKey(question)) merged.put(question, delta.get(question));
+        }
+        return merged;
+    }
+
+    private Map<UUID, List<String>> draft(QuizAttempt attempt) {
+        if (attempt.getExamDraft() == null) return Map.of();
+        try {
+            return json.readValue(attempt.getExamDraft(), new com.fasterxml.jackson.core.type.TypeReference<>() {});
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("Invalid exam draft", ex);
+        }
+    }
+
     private boolean supported(Quiz quiz) {
         return quiz.getAssessmentKind() == Quiz.Kind.MINI_QUIZ || quiz.getAssessmentKind() == Quiz.Kind.PRE_TEST
-                || quiz.getAssessmentKind() == Quiz.Kind.POST_TEST;
+                || quiz.getAssessmentKind() == Quiz.Kind.POST_TEST || quiz.getAssessmentKind() == Quiz.Kind.MASS_EXAM;
     }
 
     private PostTestAccess postTestAccess(Quiz quiz, Enrollment enrollment, Instant now) {
@@ -252,7 +345,8 @@ public class LearnerQuizService {
     }
 
     private Start response(QuizAttempt attempt, Snapshot snapshot) {
-        return new Start(attempt.getId(), snapshot.expiresAt(), snapshot.items().stream().map(Item::prompt).toList());
+        return new Start(attempt.getId(), snapshot.expiresAt(), snapshot.items().stream().map(Item::prompt).toList(),
+                Instant.now(), draft(attempt), sequence(attempt));
     }
 
     private Snapshot read(QuizAttempt attempt) {

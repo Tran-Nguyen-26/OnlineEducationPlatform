@@ -246,7 +246,7 @@ export default function AssessmentPage() {
                     <div>
                       <div className="flex items-start justify-between gap-3">
                         <span className="rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 border border-blue-200">
-                          {quiz.assessment_kind === 'POST_TEST' ? 'Post-test' : quiz.assessment_kind === 'PRE_TEST' ? 'Pre-test' : 'Mini-quiz'}
+                          {quiz.assessment_kind === 'MASS_EXAM' ? 'Thi đồng loạt' : quiz.assessment_kind === 'POST_TEST' ? 'Post-test' : quiz.assessment_kind === 'PRE_TEST' ? 'Pre-test' : 'Mini-quiz'}
                         </span>
                         {quiz.is_locked ? (
                           <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold text-slate-600">

@@ -2,6 +2,7 @@ import axios from 'axios'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import CurriculumSettings from './CurriculumSettings'
+import ExamScheduleForm from './ExamScheduleForm'
 
 type Item = { id: string; title: string; description?: string; lifecycle_status?: string }
 type Level = 'course' | 'module' | 'lesson'
@@ -130,6 +131,7 @@ export default function AdminCoursesPage() {
       </form>
       {selectedCourse && <CurriculumSettings key={courseId} courseId={courseId} editable={selectedCourse.lifecycle_status === 'DRAFT'}
         moduleId={moduleId} lessonId={level === 'lesson' ? editing?.id : undefined} />}
+      {selectedCourse && <ExamScheduleForm key={courseId} courseId={courseId} />}
     </section>
   )
 }

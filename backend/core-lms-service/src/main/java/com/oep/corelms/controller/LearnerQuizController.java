@@ -25,6 +25,8 @@ public class LearnerQuizController {
 
     public record Submission(@NotNull @Size(max = 500)
             Map<UUID, @NotNull @Size(max = 32) List<@NotNull @Size(max = 500) String>> answers) {}
+    public record Delta(@jakarta.validation.constraints.Positive long sequence,
+            @NotNull @Size(max = 500) Map<UUID, @NotNull @Size(max = 32) List<@NotNull @Size(max = 500) String>> answers) {}
 
     @GetMapping("/quizzes")
     public List<LearnerQuizService.AvailableQuiz> list(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
@@ -33,15 +35,24 @@ public class LearnerQuizController {
 
     @PostMapping("/quizzes/{quizId}/attempts")
     public ResponseEntity<LearnerQuizService.Start> start(@AuthenticationPrincipal Jwt jwt,
-            @PathVariable UUID courseId, @PathVariable UUID quizId) {
+            @PathVariable UUID courseId, @PathVariable UUID quizId,
+            @RequestHeader(value = "X-Exam-Device", required = false) UUID device) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
-                .body(quizzes.start(UUID.fromString(jwt.getSubject()), courseId, quizId));
+                .body(quizzes.start(UUID.fromString(jwt.getSubject()), courseId, quizId, device));
     }
 
     @PostMapping("/attempts/{attemptId}/submit")
     public ResponseEntity<LearnerQuizService.Score> submit(@AuthenticationPrincipal Jwt jwt,
-            @PathVariable UUID courseId, @PathVariable UUID attemptId, @Valid @RequestBody Submission submission) {
+            @PathVariable UUID courseId, @PathVariable UUID attemptId, @Valid @RequestBody Submission submission,
+            @RequestHeader(value = "X-Exam-Device", required = false) UUID device) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
-                .body(quizzes.submit(UUID.fromString(jwt.getSubject()), courseId, attemptId, submission.answers()));
+                .body(quizzes.submit(UUID.fromString(jwt.getSubject()), courseId, attemptId, submission.answers(), device));
+    }
+
+    @PutMapping("/attempts/{attemptId}/draft")
+    public Map<String, Long> sync(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
+            @PathVariable UUID attemptId, @RequestHeader("X-Exam-Device") UUID device, @Valid @RequestBody Delta delta) {
+        return Map.of("sequence", quizzes.sync(UUID.fromString(jwt.getSubject()), courseId, attemptId, device,
+                delta.sequence(), delta.answers()));
     }
 }

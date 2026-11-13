@@ -18,6 +18,7 @@ public enum ErrorCode {
     ALREADY_ENROLLED(HttpStatus.CONFLICT),
     // --- Assessment ---
     QUIZ_LOCKED(HttpStatus.CONFLICT),
+    EXAM_DEVICE_LOCKED(HttpStatus.LOCKED),
     ATTEMPT_LIMIT_REACHED(HttpStatus.CONFLICT),
     DEADLINE_PASSED(HttpStatus.CONFLICT),
     // --- Identity & Auth ---
