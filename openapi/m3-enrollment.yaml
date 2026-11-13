@@ -17,57 +17,49 @@ tags:
   - name: Instructor progress
     description: Course-level progress reporting.
 paths:
-  /enrollments:
+  /enrollments/redeem:
     post:
       tags: [Enrollment]
-      operationId: enrollInCourse
-      summary: Enroll in a public published course or resume a withdrawn enrollment
+      operationId: redeemAccessCode
+      summary: Redeem an Active Code or Extension Code
       description: |
-        Student only. An existing ACTIVE or COMPLETED enrollment is returned unchanged.
-        WITHDRAWN is reactivated using the same row and preserved progress.
-        REMOVED cannot be reactivated by the student. Capacity checks must be atomic.
+        Learner only. Redeeming a code again as the same learner returns the current enrollment
+        without changing its expiry. Code consumption and access updates are atomic.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [courseId]
+              required: [code]
               properties:
-                courseId: { $ref: '#/components/schemas/Uuid' }
-            example: { courseId: '11111111-1111-4111-8111-111111111111' }
+                code: { type: string, minLength: 1, maxLength: 64 }
       responses:
-        '201':
-          description: New enrollment
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Enrollment' }
-              example: { id: '22222222-2222-4222-8222-222222222222', courseId: '11111111-1111-4111-8111-111111111111', studentId: '33333333-3333-4333-8333-333333333333', status: ACTIVE, enrolledAt: '2026-10-12T10:00:00Z' }
         '200':
           $ref: '#/components/responses/EnrollmentOk'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '403':
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/EnrollmentConflict'
-  /enrollments/me:
+  /enrollments:
     get:
       tags: [Enrollment]
-      operationId: listMyEnrollments
-      summary: List the current student's enrollments
+      operationId: listEnrollments
+      summary: List learner enrollments or a course owner's roster
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Size'
-        - name: status
+        - name: courseId
           in: query
-          schema: { $ref: '#/components/schemas/EnrollmentStatus' }
-          example: ACTIVE
+          schema: { $ref: '#/components/schemas/Uuid' }
       responses:
         '200':
           description: Paged enrollments
           content:
             application/json:
               schema: { $ref: '#/components/schemas/EnrollmentPage' }
-              example: { items: [{ id: '22222222-2222-4222-8222-222222222222', courseId: '11111111-1111-4111-8111-111111111111', studentId: '33333333-3333-4333-8333-333333333333', status: ACTIVE, enrolledAt: '2026-10-12T10:00:00Z' }], page: 0, size: 20, total: 1 }
         '400':
           $ref: '#/components/responses/BadRequest'
   /enrollments/{enrollmentId}:
@@ -308,7 +300,7 @@ components:
     EnrollmentStatus: { type: string, enum: [ACTIVE, COMPLETED, WITHDRAWN, REMOVED] }
     Enrollment:
       type: object
-      required: [id, courseId, studentId, status, enrolledAt]
+      required: [id, courseId, courseTitle, studentId, status, enrolledAt, accessState]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         courseId: { $ref: '#/components/schemas/Uuid' }
@@ -318,14 +310,17 @@ components:
         completedAt: { type: string, format: date-time, nullable: true }
         withdrawnAt: { type: string, format: date-time, nullable: true }
         removedAt: { type: string, format: date-time, nullable: true }
+        courseTitle: { type: string }
+        accessExpiresAt: { type: string, format: date-time, nullable: true }
+        accessState: { type: string, enum: [ACTIVE, ARCHIVED_STATIC, UNAVAILABLE] }
     EnrollmentPage:
       type: object
-      required: [items, page, size, total]
+      required: [content, number, size, totalElements]
       properties:
-        items: { type: array, items: { $ref: '#/components/schemas/Enrollment' } }
-        page: { type: integer }
+        content: { type: array, items: { $ref: '#/components/schemas/Enrollment' } }
+        number: { type: integer }
         size: { type: integer }
-        total: { type: integer }
+        totalElements: { type: integer }
     HeartbeatRequest:
       type: object
       required: [enrollmentId, lessonId, sequence, deltaSeconds]

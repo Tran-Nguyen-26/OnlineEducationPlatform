@@ -22,10 +22,10 @@ public class CourseManagementController {
     private final CourseManagementService service;
 
     @GetMapping("/courses")
-    public CourseDtos.CoursePage listPublicCourses(@RequestParam(defaultValue = "1") int page,
+    public CourseDtos.CoursePage listVisibleCourses(@AuthenticationPrincipal Jwt jwt, @RequestParam(defaultValue = "1") int page,
                                                     @RequestParam(name = "page_size", defaultValue = "20") int pageSize,
                                                     @RequestParam(name = "q", required = false) String search) {
-        return service.listPublicCourses(page, pageSize, search);
+        return service.listVisibleCourses(userId(jwt), page, pageSize, search);
     }
 
     @GetMapping("/my/courses")
@@ -44,7 +44,7 @@ public class CourseManagementController {
 
     @GetMapping("/courses/{courseId}")
     public CourseDtos.CourseResponse getCourse(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
-        return service.getCourse(userIdOrNull(jwt), courseId);
+        return service.getCourse(userId(jwt), courseId);
     }
 
     @PatchMapping("/courses/{courseId}")

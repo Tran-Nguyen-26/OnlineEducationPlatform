@@ -26,4 +26,22 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
 
     @Query("select c from Course c where exists (select ci from CourseInstructor ci where ci.course = c and ci.instructor.id = :instructorId)")
     Page<Course> findManagedByInstructor(@Param("instructorId") UUID instructorId, Pageable pageable);
+
+    @Query("""
+            select c from Course c
+            where lower(c.title) like lower(concat('%', :search, '%'))
+              and (:admin = true
+                or exists (select ci from CourseInstructor ci where ci.course = c and ci.instructor.id = :actor)
+                or (c.lifecycleStatus in ('PUBLISHED', 'ARCHIVED')
+                  and exists (select e from Enrollment e where e.course = c and e.student.id = :actor
+                    and e.status in ('ACTIVE', 'COMPLETED'))))
+            """)
+    Page<Course> findVisibleTo(@Param("actor") UUID actor, @Param("admin") boolean admin,
+                               @Param("search") String search, Pageable pageable);
+
+    @Query("""
+            select count(e) > 0 from Enrollment e
+            where e.course.id = :course and e.student.id = :actor and e.status in ('ACTIVE', 'COMPLETED')
+            """)
+    boolean hasReadableEnrollment(@Param("course") UUID course, @Param("actor") UUID actor);
 }

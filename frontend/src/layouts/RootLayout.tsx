@@ -2,8 +2,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: '📊' },
-  { to: '/courses', label: 'Khóa học', icon: '📚' },
-  { to: '/enrollment', label: 'Đăng ký học', icon: '✏️' },
+  { to: '/enrollment', label: 'Khóa học của tôi', icon: '📚' },
   { to: '/assessment', label: 'Kiểm tra', icon: '📝' },
 ]
 

@@ -9,6 +9,7 @@ A full Flyway baseline and switching Hibernate to `validate` are a separate task
 - `V1__init_users_schema.sql`: Identity and user accounts base schema.
 - `V3__enrollments_and_lesson_progress.sql`: M3 enrollment lifecycle and lesson progress tables & indexes. Creates missing enrollment/progress tables and adds indexes on existing Hibernate-created tables without deleting data.
 - `V6__notifications_outbox_audit_logs.sql`: M6 notifications, outbox_events, audit_logs, and notification_preferences.
+- `V9__access_codes.sql`: Active and Extension Codes plus enrollment expiry. Existing rows keep their access until an explicit expiry is assigned.
 
 ## Execution
 

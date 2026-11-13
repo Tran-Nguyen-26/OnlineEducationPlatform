@@ -43,6 +43,9 @@ public class Enrollment extends BaseEntity {
     @Column(name = "enrolled_at", nullable = false)
     private Instant enrolledAt = Instant.now();
 
+    @Column(name = "access_expires_at")
+    private Instant accessExpiresAt;
+
     @Column(name = "completed_at", nullable = true)
     private Instant completedAt;
 

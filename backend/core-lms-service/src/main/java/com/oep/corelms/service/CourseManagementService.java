@@ -83,12 +83,12 @@ public class CourseManagementService {
     }
 
     @Transactional(readOnly = true)
-    public CourseDtos.CoursePage listPublicCourses(int page, int pageSize, String search) {
+    public CourseDtos.CoursePage listVisibleCourses(UUID actorId, int page, int pageSize, String search) {
         validatePage(page, pageSize);
-        // Keep the parameter non-null so PostgreSQL can infer its type in the JPQL query.
+        User actor = requireActiveViewer(actorId);
         String normalizedSearch = search == null || search.isBlank() ? "" : search.trim();
-        Page<Course> result = courses.findCatalog(CourseVisibility.PUBLIC, CourseLifecycleStatus.PUBLISHED,
-                normalizedSearch, PageRequest.of(page - 1, pageSize));
+        Page<Course> result = courses.findVisibleTo(actorId, actor.getRole() == UserRole.ADMIN,
+                normalizedSearch, PageRequest.of(page - 1, pageSize, org.springframework.data.domain.Sort.by("title", "id")));
         return new CourseDtos.CoursePage(result.getContent().stream().map(this::toCourse).toList(),
                 new CourseDtos.PageInfo(page, pageSize, result.getTotalElements(), result.hasNext()));
     }
@@ -103,7 +103,11 @@ public class CourseManagementService {
     @Transactional(readOnly = true)
     public CourseDtos.CourseResponse getCourse(UUID actorId, UUID courseId) {
         Course course = requireCourse(courseId);
-        if (course.getVisibility() == CourseVisibility.PUBLIC && course.getLifecycleStatus() == CourseLifecycleStatus.PUBLISHED) {
+        User actor = requireActiveViewer(actorId);
+        if (actor.getRole() == UserRole.STUDENT
+                && (course.getLifecycleStatus() == CourseLifecycleStatus.PUBLISHED
+                    || course.getLifecycleStatus() == CourseLifecycleStatus.ARCHIVED)
+                && courses.hasReadableEnrollment(courseId, actorId)) {
             return toCourse(course);
         }
         requireCourseManager(courseId, actorId);
@@ -582,6 +586,13 @@ public class CourseManagementService {
 
     private User requireUser(UUID userId) {
         return users.findById(userId).orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "User not found"));
+    }
+    private User requireActiveViewer(UUID actorId) {
+        if (actorId == null) throw new BusinessException(ErrorCode.INVALID_TOKEN, "Authentication is required");
+        User actor = requireUser(actorId);
+        if (actor.getAccountStatus() != AccountStatus.ACTIVE)
+            throw new BusinessException(ErrorCode.FORBIDDEN, "Account unavailable");
+        return actor;
     }
     private Course requireCourse(UUID id) {
         return courses.findById(id).orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Course not found"));
