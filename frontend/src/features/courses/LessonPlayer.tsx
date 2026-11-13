@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type Hls from 'hls.js'
+import LessonDiscussion from './LessonDiscussion'
+import { useSearchParams } from 'react-router-dom'
 
 type Video = { enrollmentId: string; lessonId: string; title: string; videoId: string }
 type Session = { streamToken: string; watermark: string }
@@ -76,6 +78,10 @@ function LessonDocuments({ base, lessonId, onOpened }: { base: string; lessonId:
 export default function LessonPlayer({ courseId }: { courseId: string }) {
   const base = `/api/v1/courses/${courseId}/playback`
   const cache = useQueryClient()
+  const [search] = useSearchParams()
+  const [discussion, setDiscussion] = useState<string | undefined>(() => search.get('discussion') ?? undefined)
+  const [questionContext, setQuestionContext] = useState<{ videoId: string; timestampSec: number }>()
+  const seekAfterLoad = useRef<number | undefined>(undefined)
   const [documentsFor, setDocumentsFor] = useState<string>()
   const [selected, setSelected] = useState<Video>()
   const [session, setSession] = useState<Session>()
@@ -93,8 +99,13 @@ export default function LessonPlayer({ courseId }: { courseId: string }) {
     queryKey: ['course-mastery', courseId],
     queryFn: ({ signal }) => readList<Lesson>(`${base}/lessons`, signal),
   })
+  const discussionLessons = useQuery({
+    queryKey: ['discussion-lessons', courseId],
+    queryFn: ({ signal }) => readList<{ id: string; title: string }>(`/api/v1/courses/${courseId}/discussions`, signal),
+  })
 
-  async function open(video: Video) {
+  async function open(video: Video, at?: number) {
+    seekAfterLoad.current = at
     setOpening(true)
     setMessage('')
     setCues([])
@@ -209,10 +220,15 @@ export default function LessonPlayer({ courseId }: { courseId: string }) {
               {lesson.video ? '✓' : '○'} Video · {lesson.documents ? '✓' : '○'} Tài liệu · {lesson.miniQuiz ? '✓' : '○'} Mini-quiz
             </p>
             {lesson.unlocked && (
+              <div className="flex flex-wrap gap-3">
               <button type="button" aria-expanded={documentsFor === lesson.id}
                 className="text-teal-800 underline" onClick={() => setDocumentsFor(documentsFor === lesson.id ? undefined : lesson.id)}>
                 Tài liệu đính kèm
               </button>
+              <button type="button" className="text-teal-800 underline" onClick={() => {
+                setDiscussion(lesson.id); setQuestionContext(undefined)
+              }}>Thảo luận</button>
+              </div>
             )}
             {documentsFor === lesson.id && lesson.unlocked && (
               <LessonDocuments key={lesson.id} base={base} lessonId={lesson.id} onOpened={() => {
@@ -233,12 +249,40 @@ export default function LessonPlayer({ courseId }: { courseId: string }) {
       {session && (
         <div className="relative overflow-hidden rounded-lg bg-slate-950">
           <video ref={element} className="aspect-video w-full" aria-label={selected?.title}
-            controls playsInline disablePictureInPicture />
+            controls playsInline disablePictureInPicture onLoadedMetadata={(event) => {
+              if (seekAfterLoad.current !== undefined) event.currentTarget.currentTime = seekAfterLoad.current
+              seekAfterLoad.current = undefined
+            }} />
           <div aria-hidden="true" className={`pointer-events-none absolute max-w-[85%] break-all rounded bg-black/40 px-2 py-1 text-xs text-white ${
             ['left-4 top-4', 'right-4 top-4', 'right-4 bottom-14', 'left-4 bottom-14'][corner]
           }`}>{session.watermark}</div>
         </div>
       )}
+      {session && selected && (
+        <button type="button" className="rounded border px-3 py-2 text-sm text-teal-800" onClick={() => {
+          setDiscussion(selected.lessonId)
+          setQuestionContext({ videoId: selected.videoId, timestampSec: Math.floor(element.current?.currentTime ?? 0) })
+        }}>Hỏi tại mốc đang xem</button>
+      )}
+      {!!discussionLessons.data?.length && (
+        <label className="grid gap-1 text-sm">Chọn bài để xem thảo luận
+          <select className="rounded border p-2" value={discussion ?? ''} onChange={(event) => {
+            setDiscussion(event.target.value || undefined); setQuestionContext(undefined)
+          }}>
+            <option value="">Chọn bài học</option>
+            {discussionLessons.data.map((lesson) => <option key={lesson.id} value={lesson.id}>{lesson.title}</option>)}
+          </select>
+        </label>
+      )}
+      {discussion && <LessonDiscussion key={discussion} courseId={courseId} lessonId={discussion}
+        context={selected?.lessonId === discussion ? questionContext : undefined}
+        onSeek={videos.data?.length ? (videoId, seconds) => {
+          if (videoId === selected?.videoId && element.current && session) element.current.currentTime = seconds
+          else {
+            const video = videos.data.find((item) => item.videoId === videoId)
+            if (video) void open(video, seconds)
+          }
+        } : undefined} />}
       {session && cues.length > 0 && (
         <details className="rounded-lg border p-3">
           <summary className="cursor-pointer font-medium">Phụ đề và mốc thời gian</summary>

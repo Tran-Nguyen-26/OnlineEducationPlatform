@@ -73,3 +73,8 @@ key and origin across deployments so previously issued credentials remain
 verifiable. The learner can request and download a signed credential once
 eligible. The public QR page validates the stored signature and displays
 the course, issuer and issue date. The subject uses an opaque per-badge ID.
+
+Apply V16 to enable timestamped lesson discussions. Learners ask from a
+video timestamp and reply on unlocked lessons. Assigned instructors can
+verify one reply per question. Archived learners retain read access.
+Replies notify the question author through the existing notification outbox.

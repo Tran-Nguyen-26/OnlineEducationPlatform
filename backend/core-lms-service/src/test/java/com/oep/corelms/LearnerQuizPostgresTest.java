@@ -37,6 +37,7 @@ class LearnerQuizPostgresTest {
     @Autowired LearnerQuizService quizzes;
     @Autowired LessonMasteryService mastery;
     @Autowired com.oep.corelms.service.GraduationService graduation;
+    @Autowired com.oep.corelms.service.LessonDiscussionService discussion;
     @Autowired com.fasterxml.jackson.databind.ObjectMapper json;
     @Autowired javax.sql.DataSource datasource;
     @org.springframework.boot.test.mock.mockito.MockBean com.oep.corelms.service.HeartbeatBuffer heartbeat;
@@ -114,6 +115,51 @@ class LearnerQuizPostgresTest {
 
     private List<Boolean> states(User learner, UUID course) {
         return mastery.lessons(learner.getId(), course).stream().map(LessonMasteryService.Lesson::unlocked).toList();
+    }
+
+    @Test
+    void discussionValidatesTimestampAndScopesVerifiedRepliesAndArchivedReads() {
+        new org.springframework.jdbc.datasource.init.ResourceDatabasePopulator(
+                new org.springframework.core.io.ClassPathResource("db/migration/V16__lesson_discussions.sql")).execute(datasource);
+        User learner = user(UserRole.STUDENT);
+        User instructor = user(UserRole.INSTRUCTOR);
+        Course entity = new Course();
+        entity.setTitle("Discussion");
+        entity.setCreatedBy(user(UserRole.ADMIN));
+        entity.setLifecycleStatus(CourseLifecycleStatus.PUBLISHED);
+        UUID course = courses.save(entity).getId();
+        UUID enrollment = UUID.randomUUID(), module = UUID.randomUUID();
+        jdbc.update("insert into enrollments(id,course_id,student_id,status,enrolled_at) values (?,?,?,'ACTIVE',now())",
+                enrollment, course, learner.getId());
+        jdbc.update("insert into course_instructors(course_id,instructor_id,course_role,added_at) values (?,?,'CO_INSTRUCTOR',now())",
+                course, instructor.getId());
+        jdbc.update("insert into course_modules(id,course_id,title,position,is_default,created_at,updated_at) values (?,?,?,0,false,now(),now())",
+                module, course, "Module");
+        UUID lesson = lesson(module, 0), video = UUID.randomUUID();
+        jdbc.update("""
+                insert into lesson_contents(id,lesson_id,content_type,upload_status,position,duration_seconds,version_number,created_at,updated_at)
+                values (?,?,'VIDEO','AVAILABLE',0,100,1,now(),now())
+                """, video, lesson);
+        assertThatThrownBy(() -> discussion.ask(learner.getId(), course, lesson, video, 101, "Question")).isInstanceOf(BusinessException.class);
+        UUID question = discussion.ask(learner.getId(), course, lesson, video, 42, "Question");
+        UUID reply = discussion.reply(instructor.getId(), course, lesson, question, "Answer");
+        UUID otherReply = discussion.reply(instructor.getId(), course, lesson, question, "Another answer");
+        assertThatThrownBy(() -> discussion.verify(learner.getId(), course, lesson, question, reply)).isInstanceOf(BusinessException.class);
+        discussion.verify(instructor.getId(), course, lesson, question, reply);
+        discussion.verify(instructor.getId(), course, lesson, question, otherReply);
+        assertThat(discussion.replies(learner.getId(), course, lesson, question, 0).stream()
+                .filter(com.oep.corelms.service.LessonDiscussionService.Reply::verified).map(item -> item.id()))
+                .containsExactly(otherReply);
+        assertThat(jdbc.queryForObject("select count(*) from outbox_events where event_type = 'QA_REPLY' and aggregate_id = ?",
+                Integer.class, reply)).isEqualTo(1);
+        jdbc.update("update enrollments set access_expires_at = now() - interval '1 second' where id = ?", enrollment);
+        var archived = discussion.list(learner.getId(), course, lesson, 0);
+        assertThat(archived.canReply()).isFalse();
+        assertThat(archived.questions().getFirst().timestampSec()).isEqualTo(42);
+        assertThatThrownBy(() -> discussion.reply(learner.getId(), course, lesson, question, "Late reply"))
+                .isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> discussion.list(user(UserRole.STUDENT).getId(), course, lesson, 0))
+                .isInstanceOf(BusinessException.class);
     }
 
     @Test
