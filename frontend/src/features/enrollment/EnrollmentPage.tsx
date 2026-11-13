@@ -1,98 +1,74 @@
-import { useQuery } from '@tanstack/react-query'
+import { useState, type FormEvent } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { accessCodeError, fetchEnrollments, redeemAccessCode } from '@/api/accessCodes'
 
-interface Enrollment {
-  id: string
-  courseTitle: string
-  progress: number
-  status: 'active' | 'completed' | 'paused'
-  enrolledAt: string
-}
-
-const mockEnrollments: Enrollment[] = [
-  {
-    id: '1',
-    courseTitle: 'Lập trình React từ cơ bản đến nâng cao',
-    progress: 65,
-    status: 'active',
-    enrolledAt: '2024-01-15',
-  },
-  {
-    id: '2',
-    courseTitle: 'Spring Boot & Microservices',
-    progress: 100,
-    status: 'completed',
-    enrolledAt: '2024-01-01',
-  },
-  {
-    id: '3',
-    courseTitle: 'DevOps với Docker & Kubernetes',
-    progress: 20,
-    status: 'paused',
-    enrolledAt: '2024-02-10',
-  },
-]
-
-const statusConfig = {
-  active: { label: 'Đang học', class: 'bg-blue-100 text-blue-700' },
-  completed: { label: 'Hoàn thành', class: 'bg-green-100 text-green-700' },
-  paused: { label: 'Tạm dừng', class: 'bg-gray-100 text-gray-700' },
+const statusLabels = {
+  ACTIVE: 'Đang học',
+  ARCHIVED_STATIC: 'Xem lưu trữ',
+  UNAVAILABLE: 'Đã ngừng truy cập',
 }
 
 export default function EnrollmentPage() {
-  const { data: enrollments, isLoading } = useQuery({
+  const queryClient = useQueryClient()
+  const [code, setCode] = useState('')
+  const [message, setMessage] = useState('')
+  const { data: enrollments, isPending, isError } = useQuery({
     queryKey: ['enrollments'],
-    queryFn: async () => {
-      // TODO: apiClient.GET('/enrollments/me')
-      await new Promise((resolve) => setTimeout(resolve, 300))
-      return mockEnrollments
+    queryFn: fetchEnrollments,
+  })
+  const redeem = useMutation({
+    mutationFn: redeemAccessCode,
+    onSuccess: async (enrollment) => {
+      setCode('')
+      setMessage(`Đã cập nhật quyền học cho ${enrollment.courseTitle}.`)
+      await queryClient.invalidateQueries({ queryKey: ['enrollments'] })
     },
   })
 
-  return (
-    <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Khóa học của tôi</h1>
-        <p className="mt-1 text-sm text-gray-500">Theo dõi tiến độ học tập của bạn</p>
-      </div>
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setMessage('')
+    if (code.trim()) redeem.mutate(code.trim())
+  }
 
-      {isLoading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-24 animate-pulse rounded-xl bg-gray-200" />
-          ))}
+  return (
+    <section className="space-y-6">
+      <h1 className="text-2xl font-bold text-slate-900">Khóa học của tôi</h1>
+      <form onSubmit={handleSubmit} className="space-y-3 rounded-xl border border-slate-200 bg-white p-5">
+        <label htmlFor="access-code" className="block font-medium text-slate-900">
+          Mã kích hoạt hoặc gia hạn
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <input id="access-code" value={code} onChange={(event) => setCode(event.target.value)}
+            autoComplete="off" required maxLength={64} className="min-w-0 flex-1 rounded-lg border px-3 py-2" />
+          <button disabled={redeem.isPending || !code.trim()} className="rounded-lg bg-teal-700 px-4 py-2 text-white disabled:opacity-60">
+            {redeem.isPending ? 'Đang kiểm tra…' : 'Áp dụng mã'}
+          </button>
         </div>
-      ) : (
-        <div className="space-y-4">
-          {enrollments?.map((enrollment) => {
-            const statusCfg = statusConfig[enrollment.status]
-            return (
-              <div key={enrollment.id} className="rounded-xl bg-white p-5 shadow-sm">
-                <div className="mb-3 flex items-start justify-between">
-                  <h2 className="font-semibold text-gray-900">{enrollment.courseTitle}</h2>
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusCfg.class}`}
-                  >
-                    {statusCfg.label}
-                  </span>
-                </div>
-                <div className="mb-1 flex justify-between text-sm text-gray-500">
-                  <span>Tiến độ</span>
-                  <span className="font-medium text-gray-900">{enrollment.progress}%</span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-gray-100">
-                  <div
-                    className="h-full rounded-full bg-blue-600 transition-all"
-                    style={{ width: `${enrollment.progress}%` }}
-                  />
-                </div>
-                <p className="mt-2 text-xs text-gray-400">
-                  Đăng ký: {new Date(enrollment.enrolledAt).toLocaleDateString('vi-VN')}
-                </p>
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
+        {message && <p role="status" className="text-sm text-teal-800">{message}</p>}
+        {redeem.isError && <p role="alert" className="text-sm text-red-700">{accessCodeError(redeem.error, 'Không thể áp dụng mã.')}</p>}
+      </form>
+      {isPending && <p role="status">Đang tải khóa học…</p>}
+      {isError && <p role="alert">Không tải được danh sách khóa học.</p>}
+      {enrollments?.length === 0 && <p className="text-slate-600">Nhập mã do trung tâm cấp để mở khóa học đầu tiên.</p>}
+      <ul className="space-y-3">
+        {enrollments?.map((enrollment) => (
+          <li key={enrollment.id} className="space-y-1 rounded-xl border border-slate-200 bg-white p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              {enrollment.accessState === 'UNAVAILABLE'
+                ? <h2 className="font-semibold">{enrollment.courseTitle}</h2>
+                : <Link className="font-semibold text-teal-800 hover:underline" to={`/courses/${enrollment.courseId}`}>{enrollment.courseTitle}</Link>}
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-sm">{statusLabels[enrollment.accessState]}</span>
+            </div>
+            {enrollment.accessExpiresAt && (
+              <p className="text-sm text-slate-600">
+                Hết hạn học ngày {new Date(enrollment.accessExpiresAt).toLocaleDateString('vi-VN')}
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }

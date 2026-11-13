@@ -65,6 +65,10 @@ export function AdminLayout() {
               Quản trị chính
             </div>
             <nav className="space-y-1">
+              <NavLink to="/admin/access-codes" className="flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50">
+                <BookOpen className="h-4 w-4" />
+                Mã truy cập
+              </NavLink>
               <NavLink
                 to="/admin/dashboard"
                 className={({ isActive }) =>

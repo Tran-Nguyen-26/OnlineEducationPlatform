@@ -15,9 +15,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class EnrollmentController {
     private final EnrollmentService service;
-    @PostMapping
-    public EnrollmentResponse enroll(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody EnrollRequest request) {
-        return service.enroll(request.courseId(), actor(jwt));
+    @PostMapping("/redeem")
+    public EnrollmentResponse redeem(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody AccessCodeDtos.RedeemRequest request) {
+        return service.redeem(request.code(), actor(jwt));
     }
     @PostMapping("/{id}/withdraw")
     public EnrollmentResponse withdraw(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {

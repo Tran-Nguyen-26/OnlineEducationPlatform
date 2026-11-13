@@ -28,29 +28,30 @@ class EnrollmentControllerTest {
     @MockBean EnrollmentService service;
     UUID actor = UUID.randomUUID(), course = UUID.randomUUID(), id = UUID.randomUUID();
     EnrollmentResponse response() {
-        return new EnrollmentResponse(id, course, actor, EnrollmentStatus.ACTIVE, "DIRECT", Instant.now(), null, null, null);
+        return new EnrollmentResponse(id, course, actor, EnrollmentStatus.ACTIVE, "ACTIVE_CODE", Instant.now(),
+                null, null, null, "Course", Instant.now().plusSeconds(3600), EnrollmentResponse.AccessState.ACTIVE);
     }
     @Test void unauthenticated401() throws Exception {
-        mvc.perform(post("/api/enrollments").contentType("application/json").content("{\"courseId\":\"" + course + "\"}"))
+        mvc.perform(post("/api/enrollments/redeem").contentType("application/json").content("{\"code\":\"access-code\"}"))
                 .andExpect(status().isUnauthorized()); verifyNoInteractions(service);
     }
     @Test void usesJwtSubjectForStudent() throws Exception {
-        when(service.enroll(course, actor)).thenReturn(response());
-        mvc.perform(post("/api/enrollments").with(jwt().jwt(j -> j.subject(actor.toString())))
-                .contentType("application/json").content("{\"courseId\":\"" + course + "\",\"studentId\":\"" + UUID.randomUUID() + "\"}"))
+        when(service.redeem("access-code", actor)).thenReturn(response());
+        mvc.perform(post("/api/enrollments/redeem").with(jwt().jwt(j -> j.subject(actor.toString())))
+                .contentType("application/json").content("{\"code\":\"access-code\",\"studentId\":\"" + UUID.randomUUID() + "\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("id").value(id.toString()));
-        verify(service).enroll(course, actor);
+        verify(service).redeem("access-code", actor);
     }
-    @Test void missingCourse400() throws Exception {
-        mvc.perform(post("/api/enrollments").with(jwt()).contentType("application/json").content("{}"))
+    @Test void missingCode400() throws Exception {
+        mvc.perform(post("/api/enrollments/redeem").with(jwt()).contentType("application/json").content("{}"))
                 .andExpect(status().isBadRequest()); verifyNoInteractions(service);
     }
-    @Test void invalidUuid400() throws Exception {
-        mvc.perform(post("/api/enrollments").with(jwt()).contentType("application/json").content("{\"courseId\":\"bad\"}"))
+    @Test void blankCode400() throws Exception {
+        mvc.perform(post("/api/enrollments/redeem").with(jwt()).contentType("application/json").content("{\"code\":\" \"}"))
                 .andExpect(status().isBadRequest());
     }
     @Test void malformedJson400() throws Exception {
-        mvc.perform(post("/api/enrollments").with(jwt()).contentType("application/json").content("{"))
+        mvc.perform(post("/api/enrollments/redeem").with(jwt()).contentType("application/json").content("{"))
                 .andExpect(status().isBadRequest());
     }
     @Test void invalidPath400() throws Exception {
@@ -61,9 +62,9 @@ class EnrollmentControllerTest {
                 .andExpect(status().isUnauthorized()); verifyNoInteractions(service);
     }
     @Test void full409() throws Exception {
-        when(service.enroll(course, actor)).thenThrow(new BusinessException(ErrorCode.COURSE_FULL, "Course is full"));
-        mvc.perform(post("/api/enrollments").with(jwt().jwt(j -> j.subject(actor.toString())))
-                .contentType("application/json").content("{\"courseId\":\"" + course + "\"}"))
+        when(service.redeem("access-code", actor)).thenThrow(new BusinessException(ErrorCode.COURSE_FULL, "Course is full"));
+        mvc.perform(post("/api/enrollments/redeem").with(jwt().jwt(j -> j.subject(actor.toString())))
+                .contentType("application/json").content("{\"code\":\"access-code\"}"))
                 .andExpect(status().isConflict()).andExpect(jsonPath("error").value("COURSE_FULL"));
     }
     @Test void forbidden403() throws Exception {

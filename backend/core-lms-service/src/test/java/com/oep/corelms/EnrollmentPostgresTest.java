@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.oep.corelms.repository.*;
 import com.oep.corelms.service.*;
 import com.oep.coremodel.entity.course.Course;
+import com.oep.coremodel.entity.enrollment.AccessCode;
+import com.oep.corelms.dto.enrollment.AccessCodeDtos;
+import com.oep.corelms.dto.enrollment.EnrollmentResponse;
 import com.oep.coremodel.entity.identity.User;
 import com.oep.coremodel.enums.*;
 import org.junit.jupiter.api.*;
@@ -20,6 +23,7 @@ import javax.sql.DataSource;
 import java.net.URI;
 import java.net.http.*;
 import java.sql.DriverManager;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
 import static org.assertj.core.api.Assertions.*;
@@ -36,6 +40,7 @@ class EnrollmentPostgresTest {
     @Autowired CourseRepository courses;
     @Autowired EnrollmentRepository enrollments;
     @Autowired EnrollmentService service;
+    @Autowired CourseManagementService courseManagement;
     @Autowired JwtService jwt;
     @Autowired ObjectMapper json;
     @Autowired JdbcTemplate jdbc;
@@ -67,11 +72,15 @@ class EnrollmentPostgresTest {
         c.setCreatedBy(user(UserRole.INSTRUCTOR)); c.setLifecycleStatus(CourseLifecycleStatus.PUBLISHED);
         return courses.save(c);
     }
-    List<HttpResponse<String>> concurrent(Course c, List<User> students) throws Exception {
-        var requests = students.stream().map(s -> HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/enrollments"))
+    String issue(Course c, AccessCode.Kind kind) {
+        return service.issueBatch(new AccessCodeDtos.CreateBatch(c.getId(), kind, 1, 90,
+                Instant.now().plusSeconds(3600))).codes().getFirst().code();
+    }
+    List<HttpResponse<String>> concurrent(String code, List<User> students) throws Exception {
+        var requests = students.stream().map(s -> HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/enrollments/redeem"))
                 .header("Authorization", "Bearer " + jwt.generateAccessToken(s)).header("Content-Type", "application/json")
                 .timeout(java.time.Duration.ofSeconds(60))
-                .POST(HttpRequest.BodyPublishers.ofString("{\"courseId\":\"" + c.getId() + "\"}")).build()).toList();
+                .POST(HttpRequest.BodyPublishers.ofString("{\"code\":\"" + code + "\"}")).build()).toList();
         var start = new CountDownLatch(1);
         var ready = new CountDownLatch(requests.size());
         try (var client = HttpClient.newHttpClient(); var pool = Executors.newVirtualThreadPerTaskExecutor()) {
@@ -86,20 +95,18 @@ class EnrollmentPostgresTest {
             return responses;
         } finally { start.countDown(); }
     }
-    @Test void twoHundredRequestsExactlyFiftySuccessAndOneHundredFifty409() throws Exception {
-        Course c = course(50);
-        List<User> students = new ArrayList<>(); for (int i = 0; i < 200; i++) students.add(user(UserRole.STUDENT));
-        var responses = concurrent(c, students);
-        assertThat(responses.stream().filter(r -> r.statusCode() == 200).count()).isEqualTo(50);
-        assertThat(responses.stream().filter(r -> r.statusCode() == 409).count()).isEqualTo(150);
-        for (var response : responses) if (response.statusCode() == 409)
-            assertThat(json.readTree(response.body()).get("error").asText()).isEqualTo("COURSE_FULL");
-        assertThat(enrollments.countByCourseIdAndStatusIn(c.getId(), List.of(EnrollmentStatus.ACTIVE, EnrollmentStatus.COMPLETED))).isEqualTo(50);
-        assertThat(jdbc.queryForObject("select count(*) from enrollments where course_id = ?", Long.class, c.getId())).isEqualTo(50);
+    @Test void oneCodeCanBeRedeemedByOnlyOneOfTenLearners() throws Exception {
+        Course c = course(10);
+        List<User> students = new ArrayList<>();
+        for (int i = 0; i < 10; i++) students.add(user(UserRole.STUDENT));
+        var responses = concurrent(issue(c, AccessCode.Kind.ACTIVE), students);
+        assertThat(responses.stream().filter(r -> r.statusCode() == 200).count()).isEqualTo(1);
+        assertThat(responses.stream().filter(r -> r.statusCode() == 403).count()).isEqualTo(9);
+        assertThat(jdbc.queryForObject("select count(*) from enrollments where course_id = ?", Long.class, c.getId())).isEqualTo(1);
     }
     @Test void concurrentRetriesReturnOneEnrollment() throws Exception {
         Course c = course(1); User student = user(UserRole.STUDENT);
-        var responses = concurrent(c, Collections.nCopies(20, student));
+        var responses = concurrent(issue(c, AccessCode.Kind.ACTIVE), Collections.nCopies(10, student));
         var ids = new HashSet<String>();
         for (var response : responses) { assertThat(response.statusCode()).isEqualTo(200); ids.add(json.readTree(response.body()).get("id").asText()); }
         assertThat(ids).hasSize(1);
@@ -107,18 +114,46 @@ class EnrollmentPostgresTest {
     }
     @Test void withdrawAndRejoinPreservesProgress() {
         Course c = course(1); User student = user(UserRole.STUDENT);
-        var enrolled = service.enroll(c.getId(), student.getId());
+        var enrolled = service.redeem(issue(c, AccessCode.Kind.ACTIVE), student.getId());
         UUID module = UUID.randomUUID(), lesson = UUID.randomUUID(), progress = UUID.randomUUID();
         jdbc.update("insert into course_modules(id,course_id,title,position,is_default,created_at,updated_at) values (?,?,?,0,false,now(),now())", module, c.getId(), "Module");
         jdbc.update("insert into lessons(id,module_id,title,position,is_required,created_at,updated_at) values (?,?,?,0,true,now(),now())", lesson, module, "Lesson");
         jdbc.update("insert into lesson_progress(id,enrollment_id,lesson_id,status,time_spent_seconds,last_accessed_at) values (?,?,?,'IN_PROGRESS',120,now())", progress, enrolled.id(), lesson);
         service.withdraw(enrolled.id(), student.getId());
-        assertThat(service.enroll(c.getId(), student.getId()).id()).isEqualTo(enrolled.id());
+        assertThat(service.redeem(issue(c, AccessCode.Kind.ACTIVE), student.getId()).id()).isEqualTo(enrolled.id());
         assertThat(jdbc.queryForObject("select time_spent_seconds from lesson_progress where id = ?", Integer.class, progress)).isEqualTo(120);
+    }
+    @Test void extensionRestoresArchivedAccessAndDoesNotExtendAgainOnRetry() {
+        Course c = course(1);
+        User learner = user(UserRole.STUDENT);
+        var enrolled = service.redeem(issue(c, AccessCode.Kind.ACTIVE), learner.getId());
+        jdbc.update("update enrollments set access_expires_at = now() - interval '1 second' where id = ?", enrolled.id());
+        assertThat(service.list(learner.getId(), null, 0, 20).getContent().getFirst().accessState())
+                .isEqualTo(EnrollmentResponse.AccessState.ARCHIVED_STATIC);
+        String code = issue(c, AccessCode.Kind.EXTENSION);
+        var extended = service.redeem(code, learner.getId());
+        assertThat(extended.accessState()).isEqualTo(EnrollmentResponse.AccessState.ACTIVE);
+        assertThat(service.redeem(code, learner.getId()).accessExpiresAt()).isCloseTo(extended.accessExpiresAt(),
+                within(1, java.time.temporal.ChronoUnit.MILLIS));
+    }
+    @Test void learnerCanListAndReadOnlyCoursesWithReadableEnrollment() {
+        Course assigned = course(1);
+        Course unrelated = course(1);
+        User learner = user(UserRole.STUDENT);
+        service.redeem(issue(assigned, AccessCode.Kind.ACTIVE), learner.getId());
+
+        assertThat(courseManagement.listVisibleCourses(learner.getId(), 1, 20, "").items())
+                .extracting(com.oep.corelms.dto.course.CourseDtos.CourseResponse::id)
+                .containsExactly(assigned.getId());
+        assertThat(courseManagement.getCourse(learner.getId(), assigned.getId()).id()).isEqualTo(assigned.getId());
+        assertThatThrownBy(() -> courseManagement.getCourse(learner.getId(), unrelated.getId()))
+                .isInstanceOf(com.oep.coremodel.exception.BusinessException.class);
     }
     @Test void sqlMigrationCanBeAppliedTwiceAfterHibernate() {
         var script = new ResourceDatabasePopulator(new ClassPathResource("db/migration/V3__enrollments_and_lesson_progress.sql"));
         script.execute(datasource); script.execute(datasource);
+        var accessCodes = new ResourceDatabasePopulator(new ClassPathResource("db/migration/V9__access_codes.sql"));
+        accessCodes.execute(datasource); accessCodes.execute(datasource);
         assertThat(jdbc.queryForObject("select count(*) from pg_indexes where schemaname = ? and indexname = 'idx_enrollments_course_id_status'", Long.class, SCHEMA)).isEqualTo(1);
     }
 }

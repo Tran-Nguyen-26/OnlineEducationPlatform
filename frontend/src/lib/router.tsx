@@ -12,7 +12,6 @@ const RegisterPage = lazy(() => import('@/features/auth/registerStudent/Register
 const ForgotPasswordPage = lazy(
   () => import('@/features/auth/forgotPassword/ForgotPasswordPage.tsx')
 )
-const CoursesPage = lazy(() => import('@/features/courses/CoursesPage'))
 const CourseDetailPage = lazy(() => import('@/features/courses/CourseDetailPage'))
 const EnrollmentPage = lazy(() => import('@/features/enrollment/EnrollmentPage'))
 const AssessmentPage = lazy(() => import('@/features/assessment/AssessmentPage'))
@@ -20,8 +19,9 @@ const DashboardPage = lazy(() => import('@/features/dashboard/DashboardPage'))
 const AdminUsersPage = lazy(() => import('@/features/admin/users/AdminUsersPage'))
 const InstructorApplicationsPage = lazy(() => import('@/features/admin/instructorApplications/InstructorApplicationsPage'))
 const AdminDashboardPage = lazy(() => import('@/features/admin/AdminPlaceholders').then(m => ({ default: m.AdminDashboardPage })))
-const AdminCoursesPage = lazy(() => import('@/features/admin/AdminPlaceholders').then(m => ({ default: m.AdminCoursesPage })))
+const AdminCoursesPage = lazy(() => import('@/features/admin/AdminCoursesPage'))
 const AdminQuizzesPage = lazy(() => import('@/features/admin/quizzes/AdminQuizzesPage'))
+const AccessCodesPage = lazy(() => import('@/features/admin/AccessCodesPage'))
 const AdminSettingsPage = lazy(() => import('@/features/admin/AdminPlaceholders').then(m => ({ default: m.AdminSettingsPage })))
 
 const PageLoader = () => (
@@ -46,7 +46,7 @@ export const router = createBrowserRouter([
     children: [
       { path: 'dashboard', element: withSuspense(DashboardPage) },
       { path: 'dashboard/analytics', element: withSuspense(lazy(() => import('@/features/dashboard/CourseAnalyticsPage'))) },
-      { path: 'courses', element: withSuspense(CoursesPage) },
+      { path: 'courses', element: <Navigate to="/enrollment" replace /> },
       { path: 'courses/:id', element: withSuspense(CourseDetailPage) },
       { path: 'enrollment', element: withSuspense(EnrollmentPage) },
       { path: 'assessment', element: withSuspense(AssessmentPage) },
@@ -82,6 +82,7 @@ export const router = createBrowserRouter([
       { path: 'dashboard', element: withSuspense(AdminDashboardPage) },
       { path: 'courses', element: withSuspense(AdminCoursesPage) },
       { path: 'quizzes', element: withSuspense(AdminQuizzesPage) },
+      { path: 'access-codes', element: withSuspense(AccessCodesPage) },
       { path: 'settings', element: withSuspense(AdminSettingsPage) },
     ],
   },
