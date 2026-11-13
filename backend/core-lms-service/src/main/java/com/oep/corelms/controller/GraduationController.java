@@ -16,6 +16,14 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class GraduationController {
     private final GraduationService graduation;
+    private final com.oep.corelms.service.OutcomeMasteryService outcomes;
+
+    @GetMapping("/outcomes")
+    @PreAuthorize("hasRole('STUDENT')")
+    public java.util.List<com.oep.corelms.service.OutcomeMasteryService.Outcome> outcomes(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
+        return outcomes.forLearner(UUID.fromString(jwt.getSubject()), courseId);
+    }
 
     @GetMapping
     @PreAuthorize("hasRole('STUDENT')")

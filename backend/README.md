@@ -84,3 +84,9 @@ learning outcomes. Learners submit text or a PDF/DOCX of up to 20 MB.
 File submissions retain the extracted text for anonymous grading.
 An existing submission can be revised before the deadline and before
 the first instructor claim, subject to the configured submission limit.
+
+The learner's outcome mastery map divides earned points by possible points
+for each outcome. It uses the latest graded attempt of each visible-score
+Mini-quiz, Post-test and Mass Exam, plus the latest published rubric grades.
+Pre-test remains diagnostic. An outcome without graded evidence displays
+no score, and an archived learner can still read their own outcome map.

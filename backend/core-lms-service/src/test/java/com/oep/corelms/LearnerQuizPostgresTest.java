@@ -37,6 +37,7 @@ class LearnerQuizPostgresTest {
     @Autowired LearnerQuizService quizzes;
     @Autowired LessonMasteryService mastery;
     @Autowired com.oep.corelms.service.GraduationService graduation;
+    @Autowired com.oep.corelms.service.OutcomeMasteryService outcomeMastery;
     @Autowired com.oep.corelms.service.LessonDiscussionService discussion;
     @Autowired com.oep.corelms.service.LearnerAssignmentService assignments;
     @Autowired com.oep.corelms.service.BlindGradingService grading;
@@ -113,6 +114,19 @@ class LearnerQuizPostgresTest {
                 where a.enrollment_id = ?
                 """, Integer.class, enrollment)).isEqualTo(2);
         assertThat(second).isNotEqualTo(third);
+
+        assertThat(outcomeMastery.forLearner(learner.getId(), course).getFirst().percent()).isNull();
+        var practice = quiz(course, third, "MINI_QUIZ", outcome);
+        var practiceAttempt = quizzes.start(learner.getId(), course, practice.quiz());
+        quizzes.submit(learner.getId(), course, practiceAttempt.attemptId(), practice.correct());
+        var measured = outcomeMastery.forLearner(learner.getId(), course).getFirst();
+        assertThat(measured.percent()).isEqualByComparingTo("100");
+        assertThat(measured.quizItems()).isEqualTo(1);
+        var retry = quizzes.start(learner.getId(), course, practice.quiz());
+        quizzes.submit(learner.getId(), course, retry.attemptId(), Map.of());
+        assertThat(outcomeMastery.forLearner(learner.getId(), course).getFirst().percent()).isEqualByComparingTo("0");
+        assertThatThrownBy(() -> outcomeMastery.forLearner(user(UserRole.STUDENT).getId(), course))
+                .isInstanceOf(BusinessException.class);
     }
 
     private List<Boolean> states(User learner, UUID course) {
@@ -147,6 +161,20 @@ class LearnerQuizPostgresTest {
         assertThat(grading.claim(instructor.getId(), course, first.submissionId()).text()).isEqualTo(edited);
         assertThatThrownBy(() -> assignments.submitText(learner.getId(), course, id, original)).isInstanceOf(BusinessException.class);
         assertThatThrownBy(() -> assignments.list(user(UserRole.STUDENT).getId(), course)).isInstanceOf(BusinessException.class);
+        UUID outcome = UUID.randomUUID();
+        jdbc.update("insert into learning_outcomes(id,course_id,code,description,bloom_level) values (?,?,'ESSAY','Essay outcome','APPLY')",
+                outcome, course);
+        jdbc.update("""
+                update assignments set rubric = cast(? as jsonb) where id = ?
+                """, """
+                [{"code":"R1","learningOutcome":"ESSAY","description":"Evidence","maxScore":100}]
+                """, id);
+        var claim = grading.claim(instructor.getId(), course, first.submissionId());
+        grading.grade(instructor.getId(), course, first.submissionId(), claim.token(),
+                Map.of("R1", new java.math.BigDecimal("75")), "Feedback");
+        var rubric = outcomeMastery.forLearner(learner.getId(), course).getFirst();
+        assertThat(rubric.percent()).isEqualByComparingTo("75");
+        assertThat(rubric.rubricCriteria()).isEqualTo(1);
     }
 
     @Test

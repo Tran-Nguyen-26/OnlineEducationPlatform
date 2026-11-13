@@ -354,6 +354,8 @@ export default function AssessmentPage() {
               [takingQuiz.id]: achieved,
             }))
             void cache.invalidateQueries({ queryKey: ['course-mastery', takingQuiz.course_id] })
+            void cache.invalidateQueries({ queryKey: ['outcome-mastery', takingQuiz.course_id] })
+            void cache.invalidateQueries({ queryKey: ['graduation', takingQuiz.course_id] })
             void cache.invalidateQueries({ queryKey: ['course-playback', takingQuiz.course_id] })
             void fetchLearnerQuizzes(takingQuiz.course_id).then(setStudentQuizzes).catch(() => {})
           }}
