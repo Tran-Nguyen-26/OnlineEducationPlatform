@@ -12,6 +12,7 @@ import java.util.UUID;
 
 public interface BlindGradingRepository extends JpaRepository<AssignmentSubmission, UUID> {
     Optional<AssignmentSubmission> findByIdAndAssignmentCourseId(UUID id, UUID courseId);
+    Optional<AssignmentSubmission> findByAssignmentIdAndEnrollmentId(UUID assignment, UUID enrollment);
 
     @Query("""
             select s from AssignmentSubmission s

@@ -154,6 +154,11 @@ public class BlindGradingService {
     public void appeal(UUID actor, UUID course, UUID id, String criterion, String reason) {
         AssignmentSubmission submission = get(course, id);
         requireOwner(submission, actor);
+        var enrollment = submission.getEnrollment();
+        if (enrollment.getStatus() != com.oep.coremodel.enums.EnrollmentStatus.ACTIVE
+                || (enrollment.getAccessExpiresAt() != null && Instant.now().isAfter(enrollment.getAccessExpiresAt()))) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "Cần quyền học còn hiệu lực để gửi phúc khảo");
+        }
         AssignmentGrade grade = grades.findBySubmissionId(id)
                 .orElseThrow(() -> conflict("Submission has no grade"));
         if (submission.getStatus() != AssignmentStatus.GRADED || grade.getRegradedAt() != null

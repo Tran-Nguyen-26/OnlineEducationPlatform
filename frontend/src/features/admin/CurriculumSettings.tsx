@@ -1,4 +1,5 @@
 import axios from 'axios'
+import AssignmentBuilder from './AssignmentBuilder'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -163,6 +164,7 @@ export default function CurriculumSettings({ courseId, editable, moduleId, lesso
         </>
       )}
       {save.isSuccess && <p role="status" className="text-sm text-teal-800">Đã lưu cấu hình.</p>}
+      {editable && data.outcomes.length > 0 && <AssignmentBuilder courseId={courseId} outcomes={data.outcomes} />}
       {save.isError && <p role="alert" className="text-sm text-red-700">{error ?? 'Không thể lưu cấu hình.'}</p>}
       {editable && lessonId && data.outcomes.length > 0 && (
         <form key={lessonId} className="space-y-2 border-t pt-4" onSubmit={(event) => {

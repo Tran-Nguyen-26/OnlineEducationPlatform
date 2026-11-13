@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { accessCodeError, fetchAccessibleCourse } from '@/api/accessCodes'
 import LessonPlayer from './LessonPlayer'
 import GraduationPanel from './GraduationPanel'
+import AssignmentPanel from './AssignmentPanel'
 
 export default function CourseDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -29,6 +30,7 @@ export default function CourseDetailPage() {
       )}
       {course.data && id && <LessonPlayer key={id} courseId={id} />}
       {course.data && id && <GraduationPanel key={id} courseId={id} />}
+      {course.data && id && <AssignmentPanel key={id} courseId={id} />}
     </section>
   )
 }

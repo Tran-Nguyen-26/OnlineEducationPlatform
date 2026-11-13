@@ -38,6 +38,8 @@ class LearnerQuizPostgresTest {
     @Autowired LessonMasteryService mastery;
     @Autowired com.oep.corelms.service.GraduationService graduation;
     @Autowired com.oep.corelms.service.LessonDiscussionService discussion;
+    @Autowired com.oep.corelms.service.LearnerAssignmentService assignments;
+    @Autowired com.oep.corelms.service.BlindGradingService grading;
     @Autowired com.fasterxml.jackson.databind.ObjectMapper json;
     @Autowired javax.sql.DataSource datasource;
     @org.springframework.boot.test.mock.mockito.MockBean com.oep.corelms.service.HeartbeatBuffer heartbeat;
@@ -115,6 +117,36 @@ class LearnerQuizPostgresTest {
 
     private List<Boolean> states(User learner, UUID course) {
         return mastery.lessons(learner.getId(), course).stream().map(LessonMasteryService.Lesson::unlocked).toList();
+    }
+
+    @Test
+    void essayResubmissionEntersBlindQueueAndStopsAfterClaim() {
+        User learner = user(UserRole.STUDENT);
+        User instructor = user(UserRole.INSTRUCTOR);
+        Course entity = new Course();
+        entity.setTitle("Essay");
+        entity.setCreatedBy(user(UserRole.ADMIN));
+        entity.setLifecycleStatus(CourseLifecycleStatus.PUBLISHED);
+        UUID course = courses.save(entity).getId();
+        jdbc.update("insert into enrollments(id,course_id,student_id,status,enrolled_at) values (?,?,?,'ACTIVE',now())",
+                UUID.randomUUID(), course, learner.getId());
+        jdbc.update("insert into course_instructors(course_id,instructor_id,course_role,added_at) values (?,?,'CO_INSTRUCTOR',now())",
+                course, instructor.getId());
+        UUID id = UUID.randomUUID();
+        jdbc.update("""
+                insert into assignments(id,course_id,title,max_submissions,allow_late_submission,allow_text,allow_files,max_score,
+                    created_at,updated_at,deadline)
+                values (?,?,'Essay',3,false,true,true,100,now(),now(),now()+interval '1 day')
+                """, id, course);
+        String original = "Nội dung bài làm hợp lệ. ".repeat(12);
+        String edited = original + "Đã cập nhật.";
+        var first = assignments.submitText(learner.getId(), course, id, original);
+        assertThat(assignments.submitText(learner.getId(), course, id, original).submissionId()).isEqualTo(first.submissionId());
+        assignments.submitText(learner.getId(), course, id, edited);
+        assertThat(grading.queue(instructor.getId(), course, 0)).hasSize(1);
+        assertThat(grading.claim(instructor.getId(), course, first.submissionId()).text()).isEqualTo(edited);
+        assertThatThrownBy(() -> assignments.submitText(learner.getId(), course, id, original)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> assignments.list(user(UserRole.STUDENT).getId(), course)).isInstanceOf(BusinessException.class);
     }
 
     @Test
