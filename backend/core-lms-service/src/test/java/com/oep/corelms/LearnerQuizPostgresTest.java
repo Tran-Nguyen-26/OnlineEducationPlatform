@@ -153,13 +153,38 @@ class LearnerQuizPostgresTest {
         var beforeSurvey = graduation.get(learner.getId(), course);
         assertThat(beforeSurvey.finalPercent()).isEqualByComparingTo("100");
         assertThat(beforeSurvey.eligible()).isFalse();
+        new org.springframework.jdbc.datasource.init.ResourceDatabasePopulator(
+                new org.springframework.core.io.ClassPathResource("db/migration/V15__course_credentials.sql")).execute(datasource);
+        var credentials = credentialService();
+        assertThatThrownBy(() -> credentials.issue(learner.getId(), course)).isInstanceOf(BusinessException.class);
         var survey = new com.oep.corelms.service.GraduationService.Survey(5, 9);
         assertThat(graduation.submitSurvey(learner.getId(), course, survey).eligible()).isTrue();
+        var badge = credentials.issue(learner.getId(), course);
+        assertThat(credentials.issue(learner.getId(), course)).isEqualTo(badge);
+        assertThat(credentials.verify(badge.id()).courseTitle()).isEqualTo("Graduation");
+        assertThatThrownBy(() -> credentials.owned(user(UserRole.STUDENT).getId(), course)).isInstanceOf(BusinessException.class);
         graduation.submitSurvey(learner.getId(), course, new com.oep.corelms.service.GraduationService.Survey(1, 0));
         assertThat(jdbc.queryForObject("select csat from course_surveys where enrollment_id = ?", Integer.class, enrollment))
                 .isEqualTo(5);
         jdbc.update("update enrollments set access_expires_at = now() - interval '1 second' where id = ?", enrollment);
         assertThatThrownBy(() -> graduation.get(learner.getId(), course)).isInstanceOf(BusinessException.class);
+    }
+
+    @Autowired com.oep.corelms.repository.EnrollmentRepository enrollments;
+    @Autowired org.springframework.transaction.PlatformTransactionManager transactionManager;
+
+    private com.oep.corelms.service.CourseCredentialService credentialService() {
+        try {
+            var signer = new com.oep.corelms.service.BadgeSigner(new com.nimbusds.jose.jwk.gen.RSAKeyGenerator(2048).generate(),
+                    "https://example.test", "Issuer");
+            var target = new com.oep.corelms.service.CourseCredentialService(enrollments, graduation, signer, jdbc);
+            var proxy = new org.springframework.aop.framework.ProxyFactory(target);
+            proxy.addAdvice(new org.springframework.transaction.interceptor.TransactionInterceptor(transactionManager,
+                    new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()));
+            return (com.oep.corelms.service.CourseCredentialService) proxy.getProxy();
+        } catch (com.nimbusds.jose.JOSEException ex) {
+            throw new IllegalStateException(ex);
+        }
     }
 
     @Test

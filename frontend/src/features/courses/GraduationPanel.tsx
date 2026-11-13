@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { request } from '@/api/quiz'
 import type { FormEvent } from 'react'
+import CourseBadge from './CourseBadge'
 
 type Progress = {
   requiredLessons: number
@@ -35,7 +36,12 @@ export default function GraduationPanel({ courseId }: { courseId: string }) {
     survey.mutate({ csat: Number(form.get('csat')), nps: Number(form.get('nps')) })
   }
   if (progress.isPending) return <p role="status">Đang tải kết quả khóa học…</p>
-  if (progress.isError) return <p role="status" className="text-sm text-slate-600">{progress.error.message}</p>
+  if (progress.isError) return (
+    <>
+      <p role="status" className="text-sm text-slate-600">{progress.error.message}</p>
+      <CourseBadge courseId={courseId} eligible={false} />
+    </>
+  )
   const data = progress.data
   const scores = [
     ['Post-test', percent(data.postTest)], ['Thi đồng loạt', percent(data.massExam)],
@@ -68,6 +74,7 @@ export default function GraduationPanel({ courseId }: { courseId: string }) {
         </form>
       )}
       <p role="status" className="text-sm font-medium">{data.eligible ? 'Đã đạt điều kiện tốt nghiệp.' : 'Chưa đủ điều kiện tốt nghiệp.'}</p>
+      <CourseBadge courseId={courseId} eligible={data.eligible} />
     </section>
   )
 }

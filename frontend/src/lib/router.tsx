@@ -37,6 +37,7 @@ const withSuspense = (Component: React.ComponentType) => (
 )
 
 export const router = createBrowserRouter([
+  { path: '/verify/:id', element: withSuspense(lazy(() => import('@/features/courses/VerifyCredentialPage'))) },
   {
     path: '/',
     element: <Navigate to="/login" replace />,

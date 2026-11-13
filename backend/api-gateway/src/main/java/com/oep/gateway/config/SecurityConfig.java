@@ -17,6 +17,7 @@ public class SecurityConfig {
         return http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .authorizeExchange(ex -> ex
+                        .pathMatchers(org.springframework.http.HttpMethod.GET, "/api/public/credentials/*").permitAll()
                         .pathMatchers("/api/auth/**", "/actuator/health").permitAll()
                         .pathMatchers("/api/**").authenticated()
                         .anyExchange().denyAll())

@@ -64,3 +64,12 @@ The course results screen uses official Post-test, Mass Exam and assignment
 scores with the configured weights. Within each quiz category, the configured
 retake policy selects the score for each quiz and those scores are averaged.
 A pending grade in a weighted category leaves the final score pending.
+
+Apply V15 for course credentials. Set `OEP_BADGES_SIGNING_KEY_FILE` to a
+mounted private RSA JWK (minimum 2048 bits), `OEP_BADGES_PUBLIC_ORIGIN` to the
+public frontend origin that also serves the gateway under `/api`, and
+`OEP_BADGES_ISSUER_NAME` to the issuer's display name. Preserve the signing
+key and origin across deployments so previously issued credentials remain
+verifiable. The learner can request and download a signed credential once
+eligible. The public QR page validates the stored signature and displays
+the course, issuer and issue date. The subject uses an opaque per-badge ID.
