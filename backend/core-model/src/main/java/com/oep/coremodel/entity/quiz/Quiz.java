@@ -23,6 +23,11 @@ import java.util.UUID;
 @Entity
 @Table(name = "quizzes", indexes = {@Index(name = "idx_quizzes_course_id", columnList = "course_id"), @Index(name = "idx_quizzes_lesson_id", columnList = "lesson_id")})
 public class Quiz extends BaseEntity {
+    public enum Kind { PRE_TEST, MINI_QUIZ, POST_TEST, MASS_EXAM }
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "assessment_kind", length = 16)
+    private Kind assessmentKind;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "course_id", nullable = false)

@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import CurriculumSettings from './CurriculumSettings'
 
 type Item = { id: string; title: string; description?: string; lifecycle_status?: string }
 type Level = 'course' | 'module' | 'lesson'
@@ -127,6 +128,7 @@ export default function AdminCoursesPage() {
         {update.isSuccess && <p role="status" className="text-sm text-teal-800">Đã lưu thay đổi.</p>}
         {update.isError && <p role="alert" className="text-sm text-red-700">{errorMessage ?? 'Không lưu được thay đổi.'}</p>}
       </form>
+      {selectedCourse && <CurriculumSettings key={courseId} courseId={courseId} editable={selectedCourse.lifecycle_status === 'DRAFT'} />}
     </section>
   )
 }
