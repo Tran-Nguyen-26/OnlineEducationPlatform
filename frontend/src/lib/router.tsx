@@ -9,8 +9,6 @@ import { lazy, Suspense } from 'react'
 
 const LoginPage = lazy(() => import('@/features/auth/loginPage/LoginPage.tsx'))
 const RegisterPage = lazy(() => import('@/features/auth/registerStudent/RegisterStudentPage'))
-const RegisterInstructorPage = lazy(() => import('@/features/auth/registerInstructor/RegisterInstructorPage'))
-const ChooseRolePage = lazy(() => import('@/features/auth/chooseRole/ChooseRolePage.tsx'))
 const ForgotPasswordPage = lazy(
   () => import('@/features/auth/forgotPassword/ForgotPasswordPage.tsx')
 )
@@ -61,9 +59,8 @@ export const router = createBrowserRouter([
     element: withSuspense(LoginPage),
   },
   {
-    // ChooseRolePage is a self-contained full-page layout – no wrapper layout needed
     path: '/choose-role',
-    element: withSuspense(ChooseRolePage),
+    element: <Navigate to="/register" replace />,
   },
   {
     // ForgotPasswordPage is self-contained (full-page layout)
@@ -89,8 +86,7 @@ export const router = createBrowserRouter([
     ],
   },
   {
-    // RegisterInstructorPage is self-contained (full-page layout)
     path: '/register-instructor',
-    element: withSuspense(RegisterInstructorPage),
+    element: <Navigate to="/login" replace />,
   },
 ])

@@ -276,7 +276,7 @@ export default function LoginPage() {
 
           {/* Signup link */}
           <p className="lp-signup-link">
-            Chưa có tài khoản? <Link to="/choose-role">Tạo tài khoản</Link>
+            Chưa có tài khoản? <Link to="/register">Đăng ký học viên</Link>
           </p>
         </form>
       </div>

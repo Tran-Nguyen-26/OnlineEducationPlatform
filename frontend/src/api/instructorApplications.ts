@@ -48,6 +48,15 @@ function getAuthHeader(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
+export async function createInstructorApplication(input: { fullName: string; email: string }) {
+  const response = await axios.post<InstructorApplicationItem>(
+    '/api/admin/instructor-applications',
+    input,
+    { headers: getAuthHeader() }
+  )
+  return response.data
+}
+
 /**
  * Fetch paginated and filtered instructor applications directly from backend API.
  */

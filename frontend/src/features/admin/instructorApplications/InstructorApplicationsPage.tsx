@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   fetchInstructorApplications,
   fetchInstructorApplicationStats,
+  createInstructorApplication,
   approveInstructorApplication,
   rejectInstructorApplication,
   type InstructorApplicationItem,
@@ -30,6 +31,8 @@ export default function InstructorApplicationsPage() {
   const [selectedAppForApprove, setSelectedAppForApprove] = useState<InstructorApplicationItem | null>(null)
   const [selectedAppForReject, setSelectedAppForReject] = useState<InstructorApplicationItem | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [creationError, setCreationError] = useState('')
 
   // Toast alert state
   const [toastMessage, setToastMessage] = useState<string | null>(null)
@@ -37,6 +40,33 @@ export default function InstructorApplicationsPage() {
   const showToast = (msg: string) => {
     setToastMessage(msg)
     setTimeout(() => setToastMessage(null), 4000)
+  }
+
+  const handleCreateApplication = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const form = event.currentTarget
+    const data = new FormData(form)
+    setCreating(true)
+    setCreationError('')
+    try {
+      await createInstructorApplication({
+        fullName: String(data.get('fullName') ?? '').trim(),
+        email: String(data.get('email') ?? '').trim(),
+      })
+      form.reset()
+      setStatus('PENDING')
+      setSearch('')
+      setPage(0)
+      showToast('Đã tạo hồ sơ. Duyệt hồ sơ để cấp tài khoản giảng viên.')
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['instructorApplications'] }),
+        queryClient.invalidateQueries({ queryKey: ['instructorApplicationStats'] }),
+      ])
+    } catch {
+      setCreationError('Không thể tạo hồ sơ. Kiểm tra email và hồ sơ đang chờ duyệt.')
+    } finally {
+      setCreating(false)
+    }
   }
 
   // Stats query
@@ -151,6 +181,24 @@ export default function InstructorApplicationsPage() {
         {/* Top 4 Metrics Cards */}
         <ApplicationMetrics stats={stats} loading={statsLoading} />
       </div>
+
+      <form onSubmit={handleCreateApplication} className="space-y-3 rounded-xl border bg-white p-4">
+        <h2 className="font-semibold text-slate-900">Tạo hồ sơ giảng viên nội bộ</h2>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="grid gap-1 text-sm">
+            Họ và tên
+            <input name="fullName" className="rounded-lg border px-3 py-2" required minLength={2} maxLength={255} />
+          </label>
+          <label className="grid gap-1 text-sm">
+            Email
+            <input name="email" type="email" className="rounded-lg border px-3 py-2" required maxLength={255} />
+          </label>
+          <button type="submit" disabled={creating} className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
+            {creating ? 'Đang tạo…' : 'Tạo hồ sơ'}
+          </button>
+        </div>
+        {creationError && <p role="alert" className="text-sm text-red-700">{creationError}</p>}
+      </form>
 
       {/* ── Filter Controls ── */}
       <ApplicationFilters
