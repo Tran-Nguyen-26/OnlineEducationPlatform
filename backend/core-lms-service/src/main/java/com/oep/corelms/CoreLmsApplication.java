@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
+@org.springframework.scheduling.annotation.EnableScheduling
 @SpringBootApplication
 @EntityScan("com.oep.coremodel.entity")
 @EnableJpaRepositories("com.oep.corelms")
