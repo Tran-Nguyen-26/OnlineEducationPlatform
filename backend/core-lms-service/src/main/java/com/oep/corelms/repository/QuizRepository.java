@@ -16,6 +16,8 @@ public interface QuizRepository extends JpaRepository<Quiz, UUID> {
 
     Page<Quiz> findByCourseId(UUID courseId, Pageable pageable);
 
+    java.util.List<Quiz> findByCourseIdAndAssessmentKindInOrderByTitle(UUID courseId, java.util.Collection<Quiz.Kind> kinds);
+
     Optional<Quiz> findByIdAndCourseId(UUID id, UUID courseId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

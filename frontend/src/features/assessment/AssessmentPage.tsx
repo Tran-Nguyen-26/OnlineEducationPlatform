@@ -12,10 +12,16 @@ import {
 } from 'lucide-react'
 import { InstructorQuizManager } from './components/InstructorQuizManager'
 import { StudentQuizPlayer } from './components/StudentQuizPlayer'
-import type { QuizItem, QuestionItem, TeachingCourse } from '@/api/quiz'
-import { fetchTeachingCourses, fetchQuizzes, fetchQuestions } from '@/api/quiz'
+import type { QuizItem, LearnerAttempt, TeachingCourse } from '@/api/quiz'
+import { fetchLearnerQuizzes, startLearnerQuiz } from '@/api/quiz'
+import { fetchEnrollments } from '@/api/accessCodes'
+import { useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 
 export default function AssessmentPage() {
+  const cache = useQueryClient()
+  const [searchParams] = useSearchParams()
+  const requestedCourse = searchParams.get('course')
   // Detect current user role
   let userRole = 'STUDENT'
   let userName = 'Học viên'
@@ -38,7 +44,7 @@ export default function AssessmentPage() {
   )
 
   // Student assessments state
-  const [courses, setCourses] = useState<TeachingCourse[]>([])
+  const [courses, setCourses] = useState<Pick<TeachingCourse, 'id' | 'title' | 'description'>[]>([])
   const [selectedCourseId, setSelectedCourseId] = useState<string>('')
   const [studentQuizzes, setStudentQuizzes] = useState<QuizItem[]>([])
   const [studentStatusFilter, setStudentStatusFilter] = useState<'all' | 'open' | 'locked'>('all')
@@ -46,31 +52,32 @@ export default function AssessmentPage() {
 
   // Student player
   const [takingQuiz, setTakingQuiz] = useState<QuizItem | null>(null)
-  const [takingQuestions, setTakingQuestions] = useState<QuestionItem[]>([])
+  const [attempt, setAttempt] = useState<LearnerAttempt | null>(null)
   const [completedScores, setCompletedScores] = useState<Record<string, number>>({})
 
   useEffect(() => {
     async function loadStudentCourses() {
       try {
-        const cList = await fetchTeachingCourses()
+        if (isInstructorOrAdmin) return
+        const cList = (await fetchEnrollments()).filter((item) => item.accessState === 'ACTIVE')
+          .map((item) => ({ id: item.courseId, title: item.courseTitle }))
         setCourses(cList)
         if (cList.length > 0) {
-          setSelectedCourseId(cList[0].id)
+          setSelectedCourseId(cList.find((course) => course.id === requestedCourse)?.id ?? cList[0].id)
         }
       } catch {
         // ignore
       }
     }
     loadStudentCourses()
-  }, [])
+  }, [isInstructorOrAdmin, requestedCourse])
 
   useEffect(() => {
     async function loadQuizzesForStudent() {
       if (!selectedCourseId) return
       setLoadingStudent(true)
       try {
-        const res = await fetchQuizzes(selectedCourseId)
-        setStudentQuizzes(res.items || [])
+        setStudentQuizzes(await fetchLearnerQuizzes(selectedCourseId))
       } catch {
         setStudentQuizzes([])
       } finally {
@@ -82,9 +89,9 @@ export default function AssessmentPage() {
 
   const handleStartExam = async (quiz: QuizItem) => {
     try {
-      const qRes = await fetchQuestions(selectedCourseId, quiz.id)
+      const started = await startLearnerQuiz(selectedCourseId, quiz.id)
       setTakingQuiz(quiz)
-      setTakingQuestions(qRes.items || [])
+      setAttempt(started)
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Không thể tải đề thi')
     }
@@ -275,7 +282,7 @@ export default function AssessmentPage() {
                           <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                           <span>
                             Lượt làm bài:{' '}
-                            <strong className="text-slate-800">{quiz.max_attempts} lần</strong>
+                            <strong className="text-slate-800">{quiz.max_attempts === 0 ? 'Không giới hạn' : `${quiz.max_attempts} lần`}</strong>
                           </span>
                         </div>
                         {quiz.deadline && (
@@ -316,16 +323,19 @@ export default function AssessmentPage() {
       )}
 
       {/* ── Active Student Quiz Player Modal ── */}
-      {takingQuiz && (
+      {takingQuiz && attempt && (
         <StudentQuizPlayer
           quiz={takingQuiz}
-          questions={takingQuestions}
-          onClose={() => setTakingQuiz(null)}
+          attempt={attempt}
+          onClose={() => { setTakingQuiz(null); setAttempt(null) }}
           onCompleted={(achieved) => {
             setCompletedScores((prev) => ({
               ...prev,
               [takingQuiz.id]: achieved,
             }))
+            void cache.invalidateQueries({ queryKey: ['course-mastery', takingQuiz.course_id] })
+            void cache.invalidateQueries({ queryKey: ['course-playback', takingQuiz.course_id] })
+            void fetchLearnerQuizzes(takingQuiz.course_id).then(setStudentQuizzes).catch(() => {})
           }}
         />
       )}

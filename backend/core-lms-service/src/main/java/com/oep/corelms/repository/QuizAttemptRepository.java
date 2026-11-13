@@ -13,6 +13,8 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, UUID> 
 
     long countByQuizId(UUID quizId);
 
+    java.util.List<QuizAttempt> findByQuizIdAndEnrollmentIdOrderByAttemptNumberDesc(UUID quizId, UUID enrollmentId);
+
     @Query("SELECT COUNT(a) FROM QuizAttempt a WHERE a.quiz.course.id = :courseId")
     long countByCourseId(@Param("courseId") UUID courseId);
 }

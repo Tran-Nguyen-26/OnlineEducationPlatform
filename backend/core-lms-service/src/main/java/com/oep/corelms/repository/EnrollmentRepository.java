@@ -7,6 +7,9 @@ import org.springframework.data.domain.*;
 import java.util.*;
 public interface EnrollmentRepository extends JpaRepository<Enrollment, UUID> {
     Optional<Enrollment> findByCourseIdAndStudentId(UUID courseId, UUID studentId);
+    @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select e from Enrollment e where e.course.id = :course and e.student.id = :actor")
+    Optional<Enrollment> lockForAssessment(@Param("course") UUID course, @Param("actor") UUID actor);
     long countByCourseIdAndStatusIn(UUID courseId, Collection<EnrollmentStatus> statuses);
     Page<Enrollment> findByStudentId(UUID studentId, Pageable pageable);
     Page<Enrollment> findByCourseId(UUID courseId, Pageable pageable);

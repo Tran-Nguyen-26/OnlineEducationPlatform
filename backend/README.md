@@ -37,5 +37,6 @@ transcript. This delivery path uses the application gateway and Core LMS.
 Apply V11 for existing schemas to track individual document opens. Sequential
 unlock checks the per-video Redis watch counters, all attached PDF/DOCX opens,
 and a graded Mini-quiz score of at least 70 percent. Fast-track uses graded
-first Pre-test results at 85 percent per LO. The legacy quiz UI still needs
-server-side submission before it can produce these results.
+first Pre-test results at 85 percent per LO. The learner assessment API serves
+the question snapshot without the answer key and stores the grade in PostgreSQL
+when the learner submits a Mini-quiz or Pre-test.

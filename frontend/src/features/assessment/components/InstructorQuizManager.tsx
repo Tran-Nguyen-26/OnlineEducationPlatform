@@ -730,7 +730,7 @@ export function InstructorQuizManager() {
       {previewQuiz && (
         <StudentQuizPlayer
           quiz={previewQuiz}
-          questions={previewQuestions}
+          previewQuestions={previewQuestions}
           onClose={() => setPreviewQuiz(null)}
         />
       )}

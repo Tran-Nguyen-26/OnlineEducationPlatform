@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Clock,
   CheckCircle2,
@@ -8,23 +8,25 @@ import {
   ArrowLeft,
   X,
   Trophy,
-  RotateCcw,
 } from 'lucide-react'
-import type { QuizItem, QuestionItem } from '@/api/quiz'
+import { submitLearnerQuiz, type QuizItem, type LearnerAttempt, type QuestionItem } from '@/api/quiz'
 
 interface StudentQuizPlayerProps {
   quiz: QuizItem
-  questions: QuestionItem[]
+  attempt?: LearnerAttempt
+  previewQuestions?: QuestionItem[]
   onClose: () => void
   onCompleted?: (score: number, totalPoints: number) => void
 }
 
 export function StudentQuizPlayer({
   quiz,
-  questions,
+  attempt,
+  previewQuestions,
   onClose,
   onCompleted,
 }: StudentQuizPlayerProps) {
+  const questions = attempt?.questions ?? previewQuestions ?? []
   const [currentIndex, setCurrentIndex] = useState(0)
   // answers map: questionId -> array of selected optionIds (or string for text)
   const [answers, setAnswers] = useState<Record<string, string[]>>({})
@@ -37,62 +39,59 @@ export function StudentQuizPlayer({
     correctCount: number
   } | null>(null)
 
-  // Timer
-  const timeLimit = quiz.time_limit_seconds || 1800 // default 30 min if not set
-  const [secondsLeft, setSecondsLeft] = useState(timeLimit)
+  const [secondsLeft, setSecondsLeft] = useState(() => attempt
+    ? Math.max(0, Math.ceil((Date.parse(attempt.expiresAt) - Date.now()) / 1000))
+    : quiz.time_limit_seconds ?? 1800)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
+  const inFlight = useRef(false)
+  const autoSubmitted = useRef(false)
 
-  const handleSubmitQuiz = useCallback(() => {
+  const handleSubmitQuiz = useCallback(async () => {
+    if (inFlight.current || isSubmitted) return
+    inFlight.current = true
+    setSubmitting(true)
     setShowConfirmModal(false)
-
-    // Calculate score
-    let achieved = 0
-    let total = 0
-    let correctCount = 0
-
-    questions.forEach((q) => {
-      const qPoints = Number(q.points) || 1
-      total += qPoints
-
-      const selected = answers[q.id] || []
-      const correctOptionIds = q.options.filter((o) => o.is_correct).map((o) => o.id)
-
-      if (q.question_type === 'SINGLE_CHOICE' || q.question_type === 'TRUE_FALSE') {
-        if (selected.length === 1 && correctOptionIds.includes(selected[0])) {
-          achieved += qPoints
-          correctCount++
-        }
-      } else if (q.question_type === 'MULTIPLE_CHOICE') {
-        const isMatch =
-          selected.length === correctOptionIds.length &&
-          selected.every((id) => correctOptionIds.includes(id))
-        if (isMatch) {
-          achieved += qPoints
-          correctCount++
-        }
-      }
-    })
-
-    setScoreResult({ achieved, total, correctCount })
-    setIsSubmitted(true)
-    if (onCompleted) {
-      onCompleted(achieved, total)
+    setSubmitError('')
+    try {
+      const result = attempt ? await submitLearnerQuiz(quiz.course_id, attempt.attemptId, answers)
+        : (previewQuestions ?? []).reduce((score, question) => {
+            const selected = answers[question.id] ?? []
+            const correct = question.options.filter((option) => option.is_correct).map((option) => option.id)
+            const matches = correct.length > 0 && selected.length === correct.length
+              && selected.every((id) => correct.includes(id))
+            return {
+              achieved: score.achieved + (matches ? Number(question.points) : 0),
+              total: score.total + Number(question.points),
+              correctCount: score.correctCount + Number(matches),
+            }
+          }, { achieved: 0, total: 0, correctCount: 0 })
+      setScoreResult(result)
+      setIsSubmitted(true)
+      onCompleted?.(result.achieved, result.total)
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Không nộp được bài. Hãy thử lại.')
+    } finally {
+      inFlight.current = false
+      setSubmitting(false)
     }
-  }, [questions, answers, onCompleted])
+  }, [answers, attempt, isSubmitted, onCompleted, previewQuestions, quiz.course_id])
 
   useEffect(() => {
-    if (isSubmitted || secondsLeft <= 0) return
-    const interval = setInterval(() => {
-      setSecondsLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval)
-          handleSubmitQuiz()
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [isSubmitted, secondsLeft, handleSubmitQuiz])
+    if (isSubmitted) return
+    const update = () => setSecondsLeft((previous) => attempt
+      ? Math.max(0, Math.ceil((Date.parse(attempt.expiresAt) - Date.now()) / 1000))
+      : Math.max(0, previous - 1))
+    const timer = window.setInterval(update, 1000)
+    return () => window.clearInterval(timer)
+  }, [attempt, isSubmitted])
+
+  useEffect(() => {
+    if (secondsLeft === 0 && !autoSubmitted.current) {
+      autoSubmitted.current = true
+      void handleSubmitQuiz()
+    }
+  }, [handleSubmitQuiz, secondsLeft])
 
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60)
@@ -223,12 +222,20 @@ export function StudentQuizPlayer({
                     ? 'Chọn 1 đáp án'
                     : currentQ.question_type === 'TRUE_FALSE'
                       ? 'Đúng hoặc Sai'
-                      : 'Chọn nhiều đáp án'}
+                      : currentQ.question_type === 'KEYWORD_FILL' ? 'Điền câu trả lời' : 'Chọn nhiều đáp án'}
                 </div>
               </div>
 
               {/* Options */}
               <div className="space-y-3">
+                {currentQ.question_type === 'KEYWORD_FILL' && (
+                  <input aria-label="Câu trả lời" maxLength={500} value={answers[currentQ.id]?.[0] ?? ''}
+                    onChange={(event) => {
+                      const value = event.target.value
+                      setAnswers((previous) => ({ ...previous, [currentQ.id]: value ? [value] : [] }))
+                    }}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3" />
+                )}
                 {currentQ.options.map((opt, idx) => {
                   const letter = String.fromCharCode(65 + idx)
                   const isSelected = (answers[currentQ.id] || []).includes(opt.id)
@@ -393,19 +400,6 @@ export function StudentQuizPlayer({
 
             <div className="mt-8 flex gap-3">
               <button
-                onClick={() => {
-                  setIsSubmitted(false)
-                  setAnswers({})
-                  setFlagged({})
-                  setCurrentIndex(0)
-                  setSecondsLeft(timeLimit)
-                }}
-                className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-slate-700 py-3 text-sm font-semibold text-slate-300 hover:bg-slate-800 transition"
-              >
-                <RotateCcw className="h-4 w-4" />
-                Làm lại bài
-              </button>
-              <button
                 onClick={onClose}
                 className="flex-1 rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 hover:bg-blue-500 transition"
               >
@@ -414,6 +408,13 @@ export function StudentQuizPlayer({
             </div>
           </div>
         </main>
+      )}
+
+      {submitError && !isSubmitted && (
+        <div role="alert" className="flex items-center gap-3 bg-red-950 px-6 py-3 text-sm text-white">
+          {submitError}
+          <button type="button" disabled={submitting} className="underline" onClick={() => void handleSubmitQuiz()}>Nộp lại</button>
+        </div>
       )}
 
       {/* ── Submit Confirmation Dialog ── */}
@@ -442,7 +443,7 @@ export function StudentQuizPlayer({
                 Tiếp tục làm bài
               </button>
               <button
-                onClick={handleSubmitQuiz}
+                onClick={() => void handleSubmitQuiz()} disabled={submitting}
                 className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-emerald-600/30 hover:bg-emerald-500 transition"
               >
                 Đồng ý nộp bài

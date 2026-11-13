@@ -29,16 +29,17 @@ public class LessonMasteryService {
                       and u.account_status = 'ACTIVE' and u.role = 'STUDENT' and c.lifecycle_status = 'PUBLISHED'
                       and (e.access_expires_at is null or e.access_expires_at >= now())
                 ), pretest_mastery as (
-                    select q.lo_id
+                    select cast(item.value ->> 'outcomeId' as uuid) as lo_id
                     from access e join quiz_attempts a on a.enrollment_id = e.id
                     join quizzes z on z.id = a.quiz_id and z.assessment_kind = 'PRE_TEST' and z.course_id = ?
                     join quiz_results r on r.attempt_id = a.id
-                    join quiz_questions qq on qq.quiz_id = z.id
-                    join questions q on q.id = qq.question_id
-                    left join quiz_answers answer on answer.attempt_id = a.id and answer.question_id = q.id
-                    where a.attempt_number = 1 and a.status = 'GRADED' and q.lo_id is not null
-                    group by a.id, q.lo_id
-                    having sum(qq.points) > 0 and sum(coalesce(answer.awarded_score, 0)) >= sum(qq.points) * 0.85
+                    cross join lateral jsonb_array_elements(a.snapshot_payload -> 'items') item(value)
+                    left join quiz_answers answer on answer.attempt_id = a.id
+                      and answer.question_id = cast(item.value -> 'prompt' ->> 'id' as uuid)
+                    where a.attempt_number = 1 and a.status = 'GRADED' and item.value ->> 'outcomeId' is not null
+                    group by a.id, item.value ->> 'outcomeId'
+                    having sum(cast(item.value -> 'prompt' ->> 'points' as numeric)) > 0
+                       and sum(coalesce(answer.awarded_score, 0)) >= sum(cast(item.value -> 'prompt' ->> 'points' as numeric)) * 0.85
                 )
                 select l.id, l.title, e.id,
                     not exists (
@@ -50,7 +51,8 @@ public class LessonMasteryService {
                     exists (
                         select 1 from quizzes z join quiz_attempts a on a.quiz_id = z.id
                         join quiz_results r on r.attempt_id = a.id
-                        cross join lateral (select sum(qq.points) as total from quiz_questions qq where qq.quiz_id = z.id) points
+                        cross join lateral (select sum(cast(item.value -> 'prompt' ->> 'points' as numeric)) as total
+                            from jsonb_array_elements(a.snapshot_payload -> 'items') item(value)) points
                         where z.lesson_id = l.id and z.course_id = ? and z.assessment_kind = 'MINI_QUIZ'
                           and a.enrollment_id = e.id and a.status = 'GRADED'
                           and points.total > 0 and r.final_score >= points.total * 0.7

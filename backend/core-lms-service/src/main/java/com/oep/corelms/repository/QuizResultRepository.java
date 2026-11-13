@@ -11,6 +11,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface QuizResultRepository extends JpaRepository<QuizResult, UUID> {
+    Optional<QuizResult> findByAttemptId(UUID attemptId);
 
     @Query("SELECT qr FROM QuizResult qr JOIN qr.attempt a WHERE a.quiz.id = :quizId")
     Page<QuizResult> findByQuizId(@Param("quizId") UUID quizId, Pageable pageable);

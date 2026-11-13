@@ -96,6 +96,33 @@ export interface QuestionPageResponse {
   pagination: PageInfo
 }
 
+export interface LearnerAttempt {
+  attemptId: string
+  expiresAt: string
+  questions: {
+    id: string
+    question_type: QuestionType | 'KEYWORD_FILL'
+    question_text: string
+    points: number
+    options: Omit<QuestionOptionItem, 'is_correct'>[]
+  }[]
+}
+
+export function fetchLearnerQuizzes(courseId: string) {
+  return request<QuizItem[]>(`/api/v1/courses/${courseId}/learner-assessments/quizzes`)
+}
+
+export function startLearnerQuiz(courseId: string, quizId: string) {
+  return request<LearnerAttempt>(`/api/v1/courses/${courseId}/learner-assessments/quizzes/${quizId}/attempts`, { method: 'POST' })
+}
+
+export function submitLearnerQuiz(courseId: string, attemptId: string, answers: Record<string, string[]>) {
+  return request<{ achieved: number; total: number; correctCount: number }>(
+    `/api/v1/courses/${courseId}/learner-assessments/attempts/${attemptId}/submit`,
+    { method: 'POST', body: JSON.stringify({ answers }) },
+  )
+}
+
 export interface CreateQuestionPayload {
   question_type: QuestionType
   question_text: string

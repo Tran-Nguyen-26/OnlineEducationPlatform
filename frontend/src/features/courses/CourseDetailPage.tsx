@@ -22,6 +22,8 @@ export default function CourseDetailPage() {
         <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-6">
           <h1 className="text-2xl font-bold text-slate-900">{course.data.title}</h1>
           {course.data.description && <p className="whitespace-pre-wrap text-slate-600">{course.data.description}</p>}
+          <Link to={`/assessment?course=${encodeURIComponent(course.data.id)}`}
+            className="inline-block text-sm font-medium text-teal-800 hover:underline">Bài kiểm tra của khóa</Link>
         </div>
       )}
       {course.data && id && <LessonPlayer key={id} courseId={id} />}
