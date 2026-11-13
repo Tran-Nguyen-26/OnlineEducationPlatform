@@ -56,16 +56,16 @@ public class CourseManagementService {
     @Transactional
     public CourseDtos.CourseResponse createCourse(UUID actorId, CourseDtos.CreateCourseRequest request) {
         User actor = requireUser(actorId);
-        if (actor.getRole() != UserRole.INSTRUCTOR) {
-            throw new BusinessException(ErrorCode.INSTRUCTOR_ROLE_REQUIRED, "An approved instructor role is required");
+        if (actor.getRole() != UserRole.ADMIN || actor.getAccountStatus() != AccountStatus.ACTIVE) {
+            throw new BusinessException(ErrorCode.ADMIN_ROLE_REQUIRED, "An active ADMIN account is required");
         }
         validateDateRange(request.startAt(), request.endAt());
         Course course = new Course();
         course.setTitle(request.title().trim());
         course.setDescription(request.description());
-        course.setVisibility(request.visibility() == null ? CourseVisibility.PUBLIC : request.visibility());
+        course.setVisibility(request.visibility() == null ? CourseVisibility.PRIVATE : request.visibility());
         course.setCapacity(request.capacity());
-        course.setLearningMode(request.learningMode() == null ? LearningMode.FREE_NAVIGATION : request.learningMode());
+        course.setLearningMode(request.learningMode() == null ? LearningMode.SEQUENTIAL : request.learningMode());
         course.setStartAt(request.startAt());
         course.setEndAt(request.endAt());
         course.setLifecycleStatus(CourseLifecycleStatus.DRAFT);
@@ -96,7 +96,10 @@ public class CourseManagementService {
     @Transactional(readOnly = true)
     public CourseDtos.CoursePage listTeachingCourses(UUID actorId, int page, int pageSize) {
         validatePage(page, pageSize);
-        Page<Course> result = courses.findManagedByInstructor(actorId, PageRequest.of(page - 1, pageSize));
+        User actor = requireUser(actorId);
+        var pageable = PageRequest.of(page - 1, pageSize, org.springframework.data.domain.Sort.by("title", "id"));
+        Page<Course> result = actor.getRole() == UserRole.ADMIN
+                ? courses.findAll(pageable) : courses.findManagedByInstructor(actorId, pageable);
         return new CourseDtos.CoursePage(result.getContent().stream().map(this::toCourse).toList(), pageInfo(result));
     }
 
@@ -256,6 +259,8 @@ public class CourseManagementService {
     }
 
     private void requireCourseOwner(UUID courseId, UUID actorId) {
+        if (actorId != null && users.findById(actorId).filter(user -> user.getRole() == UserRole.ADMIN
+                && user.getAccountStatus() == AccountStatus.ACTIVE).isPresent()) return;
         if (actorId == null) throw new BusinessException(ErrorCode.COURSE_OWNER_REQUIRED, "Course OWNER permission required");
         CourseInstructor link = courseInstructors.findByIdCourseIdAndIdInstructorId(courseId, actorId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COURSE_OWNER_REQUIRED, "Course OWNER permission required"));
@@ -518,6 +523,8 @@ public class CourseManagementService {
     private void requireInstructorAssociation(UUID courseId, UUID actorId) {
         if (actorId == null) throw new BusinessException(ErrorCode.FORBIDDEN, "Course manager access is required");
         requireCourse(courseId);
+        if (users.findById(actorId).filter(user -> user.getRole() == UserRole.ADMIN
+                && user.getAccountStatus() == AccountStatus.ACTIVE).isPresent()) return;
         CourseInstructor link = courseInstructors.findByIdCourseIdAndIdInstructorId(courseId, actorId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.FORBIDDEN, "Course manager access is required"));
         if (link.getCourseRole() != CourseInstructorRole.OWNER && link.getCourseRole() != CourseInstructorRole.CO_INSTRUCTOR) {

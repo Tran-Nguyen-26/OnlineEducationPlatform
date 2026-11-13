@@ -22,7 +22,7 @@ const DashboardPage = lazy(() => import('@/features/dashboard/DashboardPage'))
 const AdminUsersPage = lazy(() => import('@/features/admin/users/AdminUsersPage'))
 const InstructorApplicationsPage = lazy(() => import('@/features/admin/instructorApplications/InstructorApplicationsPage'))
 const AdminDashboardPage = lazy(() => import('@/features/admin/AdminPlaceholders').then(m => ({ default: m.AdminDashboardPage })))
-const AdminCoursesPage = lazy(() => import('@/features/admin/AdminPlaceholders').then(m => ({ default: m.AdminCoursesPage })))
+const AdminCoursesPage = lazy(() => import('@/features/admin/AdminCoursesPage'))
 const AdminQuizzesPage = lazy(() => import('@/features/admin/quizzes/AdminQuizzesPage'))
 const AdminSettingsPage = lazy(() => import('@/features/admin/AdminPlaceholders').then(m => ({ default: m.AdminSettingsPage })))
 

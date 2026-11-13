@@ -9,6 +9,7 @@ import com.oep.coremodel.enums.UploadStatus;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -35,6 +36,7 @@ public class CourseManagementController {
         return service.listTeachingCourses(userId(jwt), page, pageSize);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/courses")
     @ResponseStatus(HttpStatus.CREATED)
     public CourseDtos.CourseResponse createCourse(@AuthenticationPrincipal Jwt jwt,
@@ -47,37 +49,44 @@ public class CourseManagementController {
         return service.getCourse(userIdOrNull(jwt), courseId);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/courses/{courseId}")
     public CourseDtos.CourseResponse updateCourse(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
                                                    @Valid @RequestBody CourseDtos.UpdateCourseRequest request) {
         return service.updateCourse(userId(jwt), courseId, request);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/courses/{courseId}/publish")
     public CourseDtos.CourseResponse publishCourse(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
         return service.publishCourse(userId(jwt), courseId);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/courses/{courseId}/unpublish")
     public CourseDtos.CourseResponse unpublishCourse(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
         return service.unpublishCourse(userId(jwt), courseId);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/courses/{courseId}/archive")
     public CourseDtos.CourseResponse archiveCourse(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
         return service.archiveCourse(userId(jwt), courseId);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/courses/{courseId}/restore")
     public CourseDtos.CourseResponse restoreCourse(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
         return service.restoreCourse(userId(jwt), courseId);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/courses/{courseId}/disable")
     public CourseDtos.CourseResponse disableCourse(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
         return service.disableCourse(userId(jwt), courseId);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/courses/{courseId}/enable")
     public CourseDtos.CourseResponse enableCourse(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
         return service.enableCourse(userId(jwt), courseId);
@@ -88,6 +97,7 @@ public class CourseManagementController {
         return service.listCourseInstructors(userId(jwt), courseId);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/courses/{courseId}/instructors")
     @ResponseStatus(HttpStatus.CREATED)
     public CourseDtos.InstructorResponse addCoInstructor(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
@@ -95,6 +105,7 @@ public class CourseManagementController {
         return service.addCoInstructor(userId(jwt), courseId, request);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/courses/{courseId}/instructors/{instructorId}")
     public CourseDtos.DeleteInstructorResponse removeCoInstructor(@AuthenticationPrincipal Jwt jwt,
                                                                   @PathVariable UUID courseId,
@@ -109,6 +120,7 @@ public class CourseManagementController {
         return service.listModules(userId(jwt), courseId, page, pageSize);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/courses/{courseId}/modules")
     @ResponseStatus(HttpStatus.CREATED)
     public ModuleDtos.Response createModule(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
@@ -122,6 +134,7 @@ public class CourseManagementController {
         return service.getModule(userId(jwt), courseId, moduleId);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/courses/{courseId}/modules/{moduleId}")
     public ModuleDtos.Response updateModule(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
                                             @PathVariable UUID moduleId,
@@ -129,6 +142,7 @@ public class CourseManagementController {
         return service.updateModule(userId(jwt), courseId, moduleId, request);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/courses/{courseId}/module-order")
     public ModuleDtos.ReorderResponse reorderModules(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
                                                        @Valid @RequestBody ModuleDtos.ReorderRequest request) {
@@ -143,6 +157,7 @@ public class CourseManagementController {
         return service.listLessons(userId(jwt), courseId, moduleId, page, pageSize);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/courses/{courseId}/modules/{moduleId}/lessons")
     @ResponseStatus(HttpStatus.CREATED)
     public LessonDtos.Response createLesson(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
@@ -157,6 +172,7 @@ public class CourseManagementController {
         return service.getLesson(userId(jwt), courseId, moduleId, lessonId);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/courses/{courseId}/modules/{moduleId}/lessons/{lessonId}")
     public LessonDtos.Response updateLesson(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
                                             @PathVariable UUID moduleId, @PathVariable UUID lessonId,
@@ -164,6 +180,7 @@ public class CourseManagementController {
         return service.updateLesson(userId(jwt), courseId, moduleId, lessonId, request);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/courses/{courseId}/modules/{moduleId}/lesson-order")
     public LessonDtos.ReorderResponse reorderLessons(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
                                                        @PathVariable UUID moduleId,
@@ -182,6 +199,7 @@ public class CourseManagementController {
         return service.listLessonContents(userId(jwt), courseId, moduleId, lessonId, page, pageSize, status);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/courses/{courseId}/modules/{moduleId}/lessons/{lessonId}/contents")
     @ResponseStatus(HttpStatus.CREATED)
     public LessonContentDtos.Response createLessonContent(@AuthenticationPrincipal Jwt jwt,
@@ -201,6 +219,7 @@ public class CourseManagementController {
         return service.getLessonContent(userId(jwt), courseId, moduleId, lessonId, contentId);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/courses/{courseId}/modules/{moduleId}/lessons/{lessonId}/contents/{contentId}")
     public LessonContentDtos.Response updateLessonContent(@AuthenticationPrincipal Jwt jwt,
                                                            @PathVariable UUID courseId,
@@ -211,6 +230,7 @@ public class CourseManagementController {
         return service.updateLessonContent(userId(jwt), courseId, moduleId, lessonId, contentId, request);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/courses/{courseId}/modules/{moduleId}/lessons/{lessonId}/contents/{contentId}")
     public LessonContentDtos.DeleteResponse deleteLessonContent(@AuthenticationPrincipal Jwt jwt,
                                                                   @PathVariable UUID courseId,
