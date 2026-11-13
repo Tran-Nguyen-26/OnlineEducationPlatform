@@ -13,10 +13,11 @@ import {
 import { InstructorQuizManager } from './components/InstructorQuizManager'
 import { StudentQuizPlayer } from './components/StudentQuizPlayer'
 import type { QuizItem, LearnerAttempt, TeachingCourse } from '@/api/quiz'
-import { fetchLearnerQuizzes, startLearnerQuiz } from '@/api/quiz'
+import { fetchLearnerQuizzes, startLearnerQuiz, transferExamDevice, QuizRequestError } from '@/api/quiz'
 import { fetchEnrollments } from '@/api/accessCodes'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
+import { writeExamDraft } from './examDraft'
 
 export default function AssessmentPage() {
   const cache = useQueryClient()
@@ -89,7 +90,15 @@ export default function AssessmentPage() {
 
   const handleStartExam = async (quiz: QuizItem) => {
     try {
-      const started = await startLearnerQuiz(selectedCourseId, quiz.id)
+      let started: LearnerAttempt
+      try {
+        started = await startLearnerQuiz(selectedCourseId, quiz.id)
+      } catch (error) {
+        if (!(error instanceof QuizRequestError) || error.status !== 423 || quiz.assessment_kind !== 'MASS_EXAM') throw error
+        if (!window.confirm('Chuyển ca thi sang thiết bị này? Thiết bị cũ sẽ mất quyền ghi đáp án.')) return
+        started = await transferExamDevice(selectedCourseId, quiz.id)
+        await writeExamDraft(started.attemptId, started.draft).catch(() => {})
+      }
       setTakingQuiz(quiz)
       setAttempt(started)
     } catch (err: unknown) {

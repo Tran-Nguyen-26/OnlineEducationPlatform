@@ -55,4 +55,12 @@ public class LearnerQuizController {
         return Map.of("sequence", quizzes.sync(UUID.fromString(jwt.getSubject()), courseId, attemptId, device,
                 delta.sequence(), delta.answers()));
     }
+
+    @PostMapping("/quizzes/{quizId}/transfer-device")
+    public ResponseEntity<LearnerQuizService.Start> transfer(@AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID courseId, @PathVariable UUID quizId, @RequestHeader("X-Exam-Device") UUID device,
+            jakarta.servlet.http.HttpServletRequest request) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(quizzes.transferDevice(
+                UUID.fromString(jwt.getSubject()), courseId, quizId, device, request.getRemoteAddr(), request.getHeader("User-Agent")));
+    }
 }

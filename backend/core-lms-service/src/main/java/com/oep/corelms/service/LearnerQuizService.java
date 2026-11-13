@@ -27,6 +27,7 @@ public class LearnerQuizService {
     private final QuizAnswerRepository answers;
     private final QuestionRepository questionRepository;
     private final QuizResultRepository results;
+    private final AuditLogRepository auditLogs;
     private final LessonMasteryService mastery;
     private final HeartbeatBuffer heartbeat;
     private final org.springframework.jdbc.core.JdbcTemplate jdbc;
@@ -188,6 +189,33 @@ public class LearnerQuizService {
             attempt.setExamDraftSequence(sequence);
         }
         return sequence(attempt);
+    }
+
+    @Transactional
+    public Start transferDevice(UUID actor, UUID course, UUID quizId, UUID device, String ip, String userAgent) {
+        Enrollment enrollment = access(actor, course);
+        Quiz quiz = quizzes.findByIdAndCourseIdForUpdate(quizId, course).orElseThrow(this::unavailable);
+        if (quiz.getAssessmentKind() != Quiz.Kind.MASS_EXAM || device == null) throw unavailable();
+        QuizAttempt attempt = attempts.findByQuizIdAndEnrollmentIdOrderByAttemptNumberDesc(quizId, enrollment.getId())
+                .stream().findFirst().orElseThrow(this::unavailable);
+        Instant now = Instant.now();
+        if (attempt.getStatus() != QuizAttemptStatus.IN_PROGRESS || attempt.getExamCutoffAt() == null
+                || ExamWindow.shouldFinalize(attempt.getExamCutoffAt(), now)) throw unavailable();
+        Snapshot snapshot = read(attempt);
+        if (!device.equals(attempt.getExamDeviceId())) {
+            var entry = new com.oep.coremodel.entity.system.AuditLog();
+            entry.setActor(enrollment.getStudent());
+            entry.setAction(AuditAction.TRANSFER_EXAM_DEVICE);
+            entry.setTargetType("QUIZ_ATTEMPT");
+            entry.setTargetId(attempt.getId());
+            entry.setMetadata(write(Map.of(
+                    "ip", Objects.toString(ip, ""),
+                    "userAgent", userAgent == null ? "" : userAgent.substring(0, Math.min(512, userAgent.length())),
+                    "at", now.toString())));
+            auditLogs.save(entry);
+            attempt.setExamDeviceId(device);
+        }
+        return response(attempt, snapshot);
     }
 
     @Transactional

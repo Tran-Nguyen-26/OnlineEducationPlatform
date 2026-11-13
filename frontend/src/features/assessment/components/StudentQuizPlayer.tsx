@@ -9,7 +9,7 @@ import {
   X,
   Trophy,
 } from 'lucide-react'
-import { submitLearnerQuiz, syncExamDraft, type QuizItem, type LearnerAttempt, type QuestionItem } from '@/api/quiz'
+import { submitLearnerQuiz, syncExamDraft, QuizRequestError, type QuizItem, type LearnerAttempt, type QuestionItem } from '@/api/quiz'
 import { readExamDraft, writeExamDraft } from '../examDraft'
 
 interface StudentQuizPlayerProps {
@@ -37,6 +37,7 @@ export function StudentQuizPlayer({
   const [answers, setAnswers] = useState<Record<string, string[]>>(attempt?.draft ?? {})
   const [restored, setRestored] = useState(!massExam)
   const [syncState, setSyncState] = useState('')
+  const [deviceRevoked, setDeviceRevoked] = useState(false)
   const sent = useRef(attempt?.draft ?? {})
   const sequence = useRef(attempt?.draftSequence ?? 0)
   const syncInFlight = useRef(false)
@@ -63,7 +64,7 @@ export function StudentQuizPlayer({
   }, [])
 
   const handleSubmitQuiz = useCallback(async () => {
-    if (inFlight.current || isSubmitted) return
+    if (inFlight.current || isSubmitted || deviceRevoked) return
     inFlight.current = true
     setSubmitting(true)
     setShowConfirmModal(false)
@@ -86,12 +87,13 @@ export function StudentQuizPlayer({
       if (massExam && attempt) void writeExamDraft(attempt.attemptId).catch(() => {})
       onCompleted?.(result.achieved, result.total)
     } catch (error) {
+      if (error instanceof QuizRequestError && error.status === 423) setDeviceRevoked(true)
       setSubmitError(error instanceof Error ? error.message : 'Không nộp được bài. Hãy thử lại.')
     } finally {
       inFlight.current = false
       setSubmitting(false)
     }
-  }, [answers, attempt, isSubmitted, massExam, onCompleted, previewQuestions, quiz.course_id])
+  }, [answers, attempt, deviceRevoked, isSubmitted, massExam, onCompleted, previewQuestions, quiz.course_id])
 
   useEffect(() => {
     if (!massExam || !attempt) return
@@ -112,7 +114,7 @@ export function StudentQuizPlayer({
   useEffect(() => { currentAnswers.current = answers }, [answers])
   const nearEnd = secondsLeft <= 60
   useEffect(() => {
-    if (!massExam || !attempt || !restored || isSubmitted) return
+    if (!massExam || !attempt || !restored || isSubmitted || deviceRevoked) return
     async function sync() {
       if (!attempt || remaining() === 0 || syncInFlight.current || inFlight.current) return
       const delta = Object.fromEntries(Object.entries(currentAnswers.current)
@@ -124,13 +126,14 @@ export function StudentQuizPlayer({
         sequence.current = result.sequence
         sent.current = { ...sent.current, ...delta }
         setSyncState('Đã đồng bộ bản nháp.')
-      } catch {
-        setSyncState('Chưa đồng bộ. Bản nháp được giữ trên thiết bị.')
+      } catch (error) {
+        if (error instanceof QuizRequestError && error.status === 423) setDeviceRevoked(true)
+        else setSyncState('Chưa đồng bộ. Bản nháp được giữ trên thiết bị.')
       } finally { syncInFlight.current = false }
     }
     const timer = window.setInterval(() => void sync(), nearEnd ? 5000 : 20000)
     return () => window.clearInterval(timer)
-  }, [attempt, isSubmitted, massExam, nearEnd, quiz.course_id, remaining, restored])
+  }, [attempt, deviceRevoked, isSubmitted, massExam, nearEnd, quiz.course_id, remaining, restored])
 
   useEffect(() => {
     if (isSubmitted) return
@@ -158,8 +161,8 @@ export function StudentQuizPlayer({
   const currentQ = questions[currentIndex]
   const totalQuestions = questions.length
 
-  const handleSelectOption = (optionId: string, isSingleChoice: boolean) => {
-    if (!currentQ || (massExam && (!restored || remaining() === 0))) return
+  const handleSelectOption = useCallback((optionId: string, isSingleChoice: boolean) => {
+    if (!currentQ || (massExam && (!restored || deviceRevoked || remaining() === 0))) return
     const qId = currentQ.id
     setAnswers((prev) => {
       const existing = prev[qId] || []
@@ -174,7 +177,23 @@ export function StudentQuizPlayer({
         }
       }
     })
-  }
+  }, [currentQ, deviceRevoked, massExam, remaining, restored])
+
+  useEffect(() => {
+    if (!massExam || !currentQ || isSubmitted || showConfirmModal || submitting) return
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.repeat) return
+      if (event.target instanceof HTMLElement && (event.target.isContentEditable ||
+        ['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName))) return
+      if (!/^[1-4]$/.test(event.key)) return
+      const option = currentQ.options[Number(event.key) - 1]
+      if (!option) return
+      event.preventDefault()
+      handleSelectOption(option.id, currentQ.question_type !== 'MULTIPLE_CHOICE')
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [currentQ, handleSelectOption, isSubmitted, massExam, showConfirmModal, submitting])
 
   const toggleFlag = (qId: string) => {
     setFlagged((prev) => ({ ...prev, [qId]: !prev[qId] }))
@@ -286,7 +305,7 @@ export function StudentQuizPlayer({
               <div className="space-y-3">
                 {currentQ.question_type === 'KEYWORD_FILL' && (
                   <input aria-label="Câu trả lời" maxLength={500} value={answers[currentQ.id]?.[0] ?? ''}
-                    disabled={massExam && (!restored || secondsLeft === 0)}
+                    disabled={massExam && (!restored || deviceRevoked || secondsLeft === 0)}
                     onChange={(event) => {
                       const value = event.target.value
                       setAnswers((previous) => ({ ...previous, [currentQ.id]: value ? [value] : [] }))
@@ -303,7 +322,7 @@ export function StudentQuizPlayer({
                   return (
                     <button
                       key={opt.id}
-                      disabled={massExam && (!restored || secondsLeft === 0)}
+                      disabled={massExam && (!restored || deviceRevoked || secondsLeft === 0)}
                       onClick={() => handleSelectOption(opt.id, isSingle)}
                       className={`w-full flex items-center gap-4 rounded-xl border p-4 text-left transition-all ${
                         isSelected
@@ -468,8 +487,9 @@ export function StudentQuizPlayer({
         </main>
       )}
 
-      {massExam && syncState && !isSubmitted && <p role="status" className="bg-slate-950 px-6 py-2 text-sm">{syncState}</p>}
-      {submitError && !isSubmitted && (
+      {deviceRevoked && <p role="alert" className="bg-red-950 px-6 py-2 text-sm">Ca thi đã chuyển sang thiết bị khác.</p>}
+      {massExam && syncState && !isSubmitted && !deviceRevoked && <p role="status" className="bg-slate-950 px-6 py-2 text-sm">{syncState}</p>}
+      {submitError && !isSubmitted && !deviceRevoked && (
         <div role="alert" className="flex items-center gap-3 bg-red-950 px-6 py-3 text-sm text-white">
           {submitError}
           <button type="button" disabled={submitting} className="underline" onClick={() => void handleSubmitQuiz()}>Nộp lại</button>
@@ -502,7 +522,7 @@ export function StudentQuizPlayer({
                 Tiếp tục làm bài
               </button>
               <button
-                onClick={() => void handleSubmitQuiz()} disabled={submitting}
+                onClick={() => void handleSubmitQuiz()} disabled={submitting || deviceRevoked}
                 className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-emerald-600/30 hover:bg-emerald-500 transition"
               >
                 Đồng ý nộp bài

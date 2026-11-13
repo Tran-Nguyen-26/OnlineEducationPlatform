@@ -25,6 +25,7 @@ public enum AuditAction {
     RESET_QUIZ_ATTEMPT,
     ADJUST_QUIZ_SCORE,
     UNLOCK_QUIZ_CONTENT,
+    TRANSFER_EXAM_DEVICE,
 
     // Module 5: Assessment - Assignment Engine
     REGRADE,

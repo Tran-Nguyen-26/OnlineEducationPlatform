@@ -135,6 +135,21 @@ export function startLearnerQuiz(courseId: string, quizId: string) {
   })
 }
 
+export function transferExamDevice(courseId: string, quizId: string) {
+  return request<LearnerAttempt>(`/api/v1/courses/${courseId}/learner-assessments/quizzes/${quizId}/transfer-device`, {
+    method: 'POST', headers: examHeaders(),
+  })
+}
+
+export class QuizRequestError extends Error {
+  readonly status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.status = status
+  }
+}
+
 export function submitLearnerQuiz(courseId: string, attemptId: string, answers: Record<string, string[]>) {
   return request<{ achieved: number; total: number; correctCount: number }>(
     `/api/v1/courses/${courseId}/learner-assessments/attempts/${attemptId}/submit`,
@@ -253,7 +268,7 @@ export async function request<T>(url: string, options: RequestInit = {}): Promis
       errData?.message ||
       errData?.error ||
       `Request failed with status ${response.status}: ${response.statusText}`
-    throw new Error(errorMsg)
+    throw new QuizRequestError(errorMsg, response.status)
   }
 
   return data as T

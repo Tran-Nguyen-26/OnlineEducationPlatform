@@ -139,11 +139,22 @@ class LearnerQuizPostgresTest {
         assertThat(quizzes.sync(learner.getId(), course, attempt.attemptId(), device, 2, scheduled.correct())).isEqualTo(2);
         assertThat(quizzes.sync(learner.getId(), course, attempt.attemptId(), device, 1, Map.of())).isEqualTo(2);
         assertThat(quizzes.start(learner.getId(), course, scheduled.quiz(), device).draft()).isEqualTo(scheduled.correct());
-        jdbc.update("update quiz_attempts set exam_cutoff_at = now() - interval '31 seconds' where id = ?", attempt.attemptId());
+        UUID nextDevice = UUID.randomUUID();
+        assertThat(quizzes.transferDevice(learner.getId(), course, scheduled.quiz(), nextDevice,
+                "127.0.0.1", "Integration test").draft()).isEqualTo(scheduled.correct());
+        quizzes.transferDevice(learner.getId(), course, scheduled.quiz(), nextDevice, "127.0.0.1", "Integration test");
+        assertThat(jdbc.queryForObject("""
+                select count(*) from audit_logs where target_id = ? and action = 'TRANSFER_EXAM_DEVICE'
+                  and metadata ->> 'ip' = '127.0.0.1' and metadata ->> 'userAgent' = 'Integration test'
+                """, Integer.class, attempt.attemptId())).isEqualTo(1);
         assertThatThrownBy(() -> quizzes.sync(learner.getId(), course, attempt.attemptId(), device, 3, Map.of()))
+                .isInstanceOfSatisfying(BusinessException.class, error -> assertThat(error.getCode())
+                        .isEqualTo(com.oep.coremodel.exception.ErrorCode.EXAM_DEVICE_LOCKED));
+        jdbc.update("update quiz_attempts set exam_cutoff_at = now() - interval '31 seconds' where id = ?", attempt.attemptId());
+        assertThatThrownBy(() -> quizzes.sync(learner.getId(), course, attempt.attemptId(), nextDevice, 3, Map.of()))
                 .isInstanceOf(BusinessException.class);
         quizzes.finalizeExam(attempt.attemptId(), course, learner.getId(), Instant.now());
-        assertThat(quizzes.submit(learner.getId(), course, attempt.attemptId(), Map.of(), device).achieved())
+        assertThat(quizzes.submit(learner.getId(), course, attempt.attemptId(), Map.of(), nextDevice).achieved())
                 .isEqualByComparingTo("10");
 
         var graceExam = quiz(course, null, "MASS_EXAM", null);

@@ -53,3 +53,8 @@ versioned answer changes to PostgreSQL. The server refuses changes at cutoff,
 accepts final submission of the saved draft during the 30-second grace window,
 and collects unfinished attempts after grace. This initial path grades in Core
 LMS, with a scheduled collector for abandoned attempts.
+
+When the learner confirms a device transfer, the server changes the device
+binding and appends an audit entry in the same transaction. The new device
+resumes from the last acknowledged server draft. The audit IP is the remote
+address supplied by the servlet container and depends on trusted proxy setup.
