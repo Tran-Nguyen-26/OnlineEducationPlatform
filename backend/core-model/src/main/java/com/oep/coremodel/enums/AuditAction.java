@@ -10,6 +10,7 @@ public enum AuditAction {
 
     // Module 2: Course & Media
     DISABLE_COURSE,
+    RESOLVE_COURSE_ISSUE,
     APPROVE_COURSE,
     REJECT_COURSE,
     TRANSFER_COURSE_OWNERSHIP,
@@ -36,6 +37,7 @@ public enum AuditAction {
     UPDATE_SYSTEM_SETTING,
     BROADCAST_SYSTEM_ALERT,
     RETRY_FAILED_OUTBOX,
+    REPLAY_FAILED_EMAIL,
 
     // Module 8: Reviews & Communication
     MODERATE_HIDE_REVIEW,

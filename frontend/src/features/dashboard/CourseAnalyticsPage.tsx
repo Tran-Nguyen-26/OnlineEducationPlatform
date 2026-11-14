@@ -12,6 +12,8 @@ interface Analytics {
     postTestScores: { from: number; to: number; learners: number }[]
   }
 }
+interface RewindBucket { videoId: string; videoTitle: string; lessonId: string; lessonTitle: string; bucketStartSec: number; rewinds: number }
+interface Misconception { questionId: string; question: string; learningOutcome: string | null; distractor: string; wrongSelections: number }
 
 const percent = new Intl.NumberFormat('vi-VN', { style: 'percent', maximumFractionDigits: 1 })
 
@@ -34,6 +36,10 @@ export default function CourseAnalyticsPage({ admin = false }: { admin?: boolean
     queryFn: ({ signal }) => request<Analytics>(url, { signal }),
     enabled: Boolean(course),
   })
+  const rewindHeatmap = useQuery({ queryKey: ['course-rewind-heatmap', course],
+    queryFn: ({ signal }) => request<RewindBucket[]>(url + '/rewind-heatmap', { signal }), enabled: Boolean(course) })
+  const misconceptions = useQuery({ queryKey: ['course-misconception-radar', course],
+    queryFn: ({ signal }) => request<Misconception[]>(url + '/misconception-radar', { signal }), enabled: Boolean(course) })
 
   const exportReport = useMutation({
     mutationFn: async () => {
@@ -95,6 +101,33 @@ export default function CourseAnalyticsPage({ admin = false }: { admin?: boolean
       {(metrics.error || exportReport.error) && (
         <p role="alert">{(metrics.error || exportReport.error)?.message}</p>
       )}
+      {rewindHeatmap.error && <p role="alert">{rewindHeatmap.error.message}</p>}
+      {rewindHeatmap.data && <section className="space-y-3 rounded-xl bg-white p-5 shadow-sm">
+        <div><h2 className="font-semibold">Heatmap tua lại video</h2><p className="text-sm text-slate-600">Các mốc 30 giây được tua lại nhiều nhất; chỉ ghi nhận tổng hợp, không gắn với học viên.</p></div>
+        {!rewindHeatmap.data.length ? <p className="text-sm text-slate-600">Chưa có dữ liệu tua lại.</p> : <ol className="space-y-2">
+          {rewindHeatmap.data.slice(0, 20).map((bucket) => {
+            const maximum = Math.max(...rewindHeatmap.data.map((row) => row.rewinds), 1)
+            const marker = `${Math.floor(bucket.bucketStartSec / 60)}:${String(bucket.bucketStartSec % 60).padStart(2, '0')}`
+            return <li key={`${bucket.videoId}-${bucket.bucketStartSec}`} className="grid gap-1 text-sm sm:grid-cols-[1fr_auto]">
+              <span>{bucket.lessonTitle} · {bucket.videoTitle} · {marker}–{Math.floor((bucket.bucketStartSec + 30) / 60)}:{String((bucket.bucketStartSec + 30) % 60).padStart(2, '0')}</span>
+              <strong>{bucket.rewinds} lượt</strong>
+              <span aria-hidden="true" className="h-2 rounded bg-slate-100 sm:col-span-2"><span className="block h-2 rounded bg-amber-500" style={{ width: `${100 * bucket.rewinds / maximum}%` }} /></span>
+            </li>
+          })}
+        </ol>}
+      </section>}
+      {misconceptions.error && <p role="alert">{misconceptions.error.message}</p>}
+      {misconceptions.data && <section className="space-y-3 rounded-xl bg-white p-5 shadow-sm">
+        <div><h2 className="font-semibold">Radar phương án nhiễu</h2><p className="text-sm text-slate-600">Phương án sai được chọn nhiều nhất trên các bài đã chấm; dùng để tìm LO hoặc câu hỏi cần giảng lại.</p></div>
+        {!misconceptions.data.length ? <p className="text-sm text-slate-600">Chưa có dữ liệu câu trả lời sai.</p> : <ol className="space-y-2">
+          {misconceptions.data.slice(0, 20).map((row, index) => <li key={`${row.questionId}-${row.distractor}`} className="rounded border p-3 text-sm">
+            <p className="font-medium">{index + 1}. {row.question}</p>
+            {row.learningOutcome && <p className="text-xs text-slate-500">LO {row.learningOutcome}</p>}
+            <p className="mt-1">Phương án nhiễu: {row.distractor}</p>
+            <p className="text-xs text-rose-700">Được chọn sai {row.wrongSelections} lượt</p>
+          </li>)}
+        </ol>}
+      </section>}
       {metrics.data && (
         <section className="space-y-4 rounded-xl bg-white p-5 shadow-sm">
           <p>

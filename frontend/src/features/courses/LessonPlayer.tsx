@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type Hls from 'hls.js'
 import LessonDiscussion from './LessonDiscussion'
+import AiTutorPanel from './AiTutorPanel'
 import { useSearchParams } from 'react-router-dom'
 
 type Video = { enrollmentId: string; lessonId: string; title: string; videoId: string }
@@ -81,7 +82,9 @@ export default function LessonPlayer({ courseId }: { courseId: string }) {
   const [search] = useSearchParams()
   const [discussion, setDiscussion] = useState<string | undefined>(() => search.get('discussion') ?? undefined)
   const [questionContext, setQuestionContext] = useState<{ videoId: string; timestampSec: number }>()
+  const [aiContext, setAiContext] = useState<{ lessonId: string; videoId: string; timestampSec: number }>()
   const seekAfterLoad = useRef<number | undefined>(undefined)
+  const autoOpenedVideo = useRef<string | undefined>(undefined)
   const [documentsFor, setDocumentsFor] = useState<string>()
   const [selected, setSelected] = useState<Video>()
   const [session, setSession] = useState<Session>()
@@ -114,7 +117,7 @@ export default function LessonPlayer({ courseId }: { courseId: string }) {
     queryFn: ({ signal }) => readList<{ id: string; title: string }>(`/api/v1/courses/${courseId}/discussions`, signal),
   })
 
-  async function open(video: Video, at?: number) {
+  const open = useCallback(async (video: Video, at?: number) => {
     seekAfterLoad.current = at
     setOpening(true)
     setMessage('')
@@ -137,7 +140,18 @@ export default function LessonPlayer({ courseId }: { courseId: string }) {
     } finally {
       setOpening(false)
     }
-  }
+  }, [base, cache, courseId])
+
+  const autoVideoId = search.get('video')
+  const autoTime = Math.max(0, Number(search.get('time') ?? 0))
+  useEffect(() => {
+    if (!autoVideoId || !videos.data || selected?.videoId === autoVideoId || autoOpenedVideo.current === autoVideoId) return
+    const video = videos.data.find((item) => item.videoId === autoVideoId)
+    if (!video) return
+    autoOpenedVideo.current = autoVideoId
+    const timer = window.setTimeout(() => void open(video, autoTime), 0)
+    return () => window.clearTimeout(timer)
+  }, [autoTime, autoVideoId, open, selected, videos.data])
 
   useEffect(() => {
     const player = element.current
@@ -146,9 +160,25 @@ export default function LessonPlayer({ courseId }: { courseId: string }) {
     const abort = new AbortController()
     let sequence = 0
     let lastTick = performance.now()
+    let lastPosition = player.currentTime || 0
     let watched = 0
     let sending = false
     const sessionHeaders = { ...headers(), 'X-Playback-Session': session.streamToken }
+    const onSeeking = () => {
+      const target = Math.floor(player.currentTime || 0)
+      const previous = Math.floor(lastPosition)
+      if (previous - target >= 10) {
+        void fetch(`${base}/${selected.videoId}/rewinds`, {
+          method: 'POST', signal: abort.signal,
+          headers: { ...sessionHeaders, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fromSec: previous, toSec: target }),
+        }).catch(() => {})
+      }
+      lastPosition = target
+    }
+    const onTimeUpdate = () => { if (!player.seeking) lastPosition = player.currentTime || 0 }
+    player.addEventListener('seeking', onSeeking)
+    player.addEventListener('timeupdate', onTimeUpdate)
     void fetch(`${base}/${selected.videoId}/transcript`, { headers: sessionHeaders, signal: abort.signal })
       .then((response) => response.ok ? response.text() : '')
       .then((text) => { if (!abort.signal.aborted) setCues(parseTranscript(text)) })
@@ -164,6 +194,8 @@ export default function LessonPlayer({ courseId }: { courseId: string }) {
     function stop(reason: string) {
       if (abort.signal.aborted) return
       abort.abort()
+      player.removeEventListener('seeking', onSeeking)
+      player.removeEventListener('timeupdate', onTimeUpdate)
       player?.pause()
       setMessage(reason)
       setSession(undefined)
@@ -281,11 +313,26 @@ export default function LessonPlayer({ courseId }: { courseId: string }) {
         </div>
       )}
       {session && selected && !session.archived && (
-        <button type="button" className="rounded border px-3 py-2 text-sm text-teal-800" onClick={() => {
-          setDiscussion(selected.lessonId)
-          setQuestionContext({ videoId: selected.videoId, timestampSec: Math.floor(element.current?.currentTime ?? 0) })
-        }}>Hỏi tại mốc đang xem</button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="rounded border px-3 py-2 text-sm text-teal-800" onClick={() => {
+            setDiscussion(selected.lessonId)
+            setQuestionContext({ videoId: selected.videoId, timestampSec: Math.floor(element.current?.currentTime ?? 0) })
+          }}>Đặt câu hỏi thảo luận tại mốc</button>
+          <button type="button" className="rounded border border-teal-700 px-3 py-2 text-sm font-medium text-teal-800" onClick={() => {
+            setAiContext({ lessonId: selected.lessonId, videoId: selected.videoId, timestampSec: Math.floor(element.current?.currentTime ?? 0) })
+          }}>Hỏi AI tại mốc đang xem</button>
+        </div>
       )}
+      {aiContext && <AiTutorPanel key={`${aiContext.lessonId}-${aiContext.timestampSec}`} courseId={courseId}
+        lessonId={aiContext.lessonId} timestampSeconds={aiContext.timestampSec}
+        onSeek={(citationVideoId, seconds) => {
+          const targetVideoId = citationVideoId || aiContext.videoId
+          if (targetVideoId === selected?.videoId && element.current && session) element.current.currentTime = seconds
+          else {
+            const video = videos.data?.find((item) => item.videoId === targetVideoId)
+            if (video) void open(video, seconds)
+          }
+        }} />}
       {!!discussionLessons.data?.length && (
         <label className="grid gap-1 text-sm">Chọn bài để xem thảo luận
           <select className="rounded border p-2" value={discussion ?? ''} onChange={(event) => {

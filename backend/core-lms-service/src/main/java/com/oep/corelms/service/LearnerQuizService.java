@@ -32,6 +32,8 @@ public class LearnerQuizService {
     private final HeartbeatBuffer heartbeat;
     private final org.springframework.jdbc.core.JdbcTemplate jdbc;
     private final ObjectMapper json;
+    private final ExamPanicCircuitBreaker examPanicCircuitBreaker;
+    private final NotificationPublisher notifications;
 
     public record Option(UUID id, String option_text, int position) {}
     public record Prompt(UUID id, String question_type, String question_text, BigDecimal points, List<Option> options) {}
@@ -42,31 +44,37 @@ public class LearnerQuizService {
     public record AvailableQuiz(UUID id, UUID courseId, UUID lessonId, String title, String description,
                                 Integer timeLimitSeconds, Instant deadline, int maxAttempts, String gradingPolicy,
                                 boolean locked, Boolean showScore, Quiz.Kind assessmentKind,
-                                String attemptState, Instant retryAfter, BigDecimal effectivePercent) {
+                                String attemptState, Instant retryAfter, BigDecimal effectivePercent,
+                                String lockReason) {
         @com.fasterxml.jackson.annotation.JsonProperty("is_locked")
         public boolean locked() { return locked; }
     }
     public record Item(Prompt prompt, Set<UUID> correctOptions, String keyword, UUID outcomeId) {}
     public record Snapshot(Instant expiresAt, List<Item> items) {}
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<AvailableQuiz> list(UUID actor, UUID course) {
         Enrollment enrollment = enrollments.findByCourseIdAndStudentId(course, actor)
                 .filter(this::eligible).orElseThrow(this::unavailable);
         var unlocked = mastery.lessons(actor, course).stream().filter(LessonMasteryService.Lesson::unlocked)
                 .map(LessonMasteryService.Lesson::id).collect(java.util.stream.Collectors.toSet());
         Instant now = Instant.now();
-        return quizzes.findByCourseIdAndAssessmentKindInOrderByTitle(course, List.of(Quiz.Kind.PRE_TEST, Quiz.Kind.MINI_QUIZ, Quiz.Kind.POST_TEST, Quiz.Kind.MASS_EXAM))
+        boolean panicEnabled = examPanicCircuitBreaker.isEnabled();
+        return quizzes.findLearnerAssessments(course, List.of(Quiz.Kind.PRE_TEST, Quiz.Kind.MINI_QUIZ, Quiz.Kind.POST_TEST, Quiz.Kind.MASS_EXAM))
                 .stream().map(quiz -> {
+                    Quiz.Kind kind = quiz.getAssessmentKind() == null ? Quiz.Kind.MINI_QUIZ : quiz.getAssessmentKind();
                     UUID lesson = quiz.getLesson() == null ? null : quiz.getLesson().getId();
-                    boolean pretest = quiz.getAssessmentKind() == Quiz.Kind.PRE_TEST;
-                    boolean posttest = quiz.getAssessmentKind() == Quiz.Kind.POST_TEST;
-                    boolean exam = quiz.getAssessmentKind() == Quiz.Kind.MASS_EXAM;
+                    boolean pretest = kind == Quiz.Kind.PRE_TEST;
+                    boolean posttest = kind == Quiz.Kind.POST_TEST;
+                    boolean exam = kind == Quiz.Kind.MASS_EXAM;
                     var history = pretest || exam ? attempts.findByQuizIdAndEnrollmentIdOrderByAttemptNumberDesc(quiz.getId(), enrollment.getId())
                             : List.<QuizAttempt>of();
                     boolean exhausted = !history.isEmpty() && (history.getFirst().getStatus() != QuizAttemptStatus.IN_PROGRESS
                             || history.getFirst().getSnapshotPayload() == null || !now.isBefore(read(history.getFirst()).expiresAt()));
                     PostTestAccess post = posttest ? postTestAccess(quiz, enrollment, now) : null;
+                    if (post != null && "REMEDIATION_AVAILABLE".equals(post.state())) {
+                        notifyRemediationAvailable(actor, quiz, course);
+                    }
                     boolean locked = quiz.isLocked() || exhausted || (quiz.getDeadline() != null && !now.isBefore(quiz.getDeadline()))
                             || (!pretest && !exam && (lesson == null || !unlocked.contains(lesson)));
                     if (exam) {
@@ -74,14 +82,29 @@ public class LearnerQuizService {
                                 : history.getFirst().getStatus() != QuizAttemptStatus.IN_PROGRESS
                                     || history.getFirst().getExamCutoffAt() == null
                                     || ExamWindow.shouldFinalize(history.getFirst().getExamCutoffAt(), now));
+                        if (history.isEmpty() && panicEnabled) locked = true;
                     }
                     if (post != null && !post.canStart()) locked = true;
+                    String lockReason = exam && panicEnabled && history.isEmpty()
+                            ? "Kỳ thi đang tạm dừng nhận lượt mới theo công tắc an toàn của Admin" : null;
                     return new AvailableQuiz(quiz.getId(), course, lesson, quiz.getTitle(), quiz.getDescription(),
                             quiz.getTimeLimitSeconds(), exam ? quiz.getExamEndsAt() : quiz.getDeadline(), pretest || exam ? 1 : posttest ? Math.max(1, quiz.getMaxAttempts()) : 0,
-                            quiz.getGradingPolicy().name(), locked, quiz.getShowScore(), quiz.getAssessmentKind(),
+                            quiz.getGradingPolicy().name(), locked, quiz.getShowScore(), kind,
                             post == null ? null : post.state(), post == null ? null : post.retryAfter(),
-                            post == null || Boolean.FALSE.equals(quiz.getShowScore()) ? null : post.effectivePercent());
+                            post == null || Boolean.FALSE.equals(quiz.getShowScore()) ? null : post.effectivePercent(), lockReason);
                 }).toList();
+    }
+
+    private void notifyRemediationAvailable(UUID actor, Quiz quiz, UUID course) {
+        String dedupeKey = notifications.computeDedupeKey("POST_TEST_RETAKE_OPENED", quiz.getId(), actor);
+        boolean alreadyQueued = Boolean.TRUE.equals(jdbc.queryForObject("""
+                select exists(select 1 from outbox_events where payload ->> 'dedupeKey' = ?)
+                """, Boolean.class, dedupeKey));
+        if (alreadyQueued) return;
+        notifications.publishNotificationEvent("POST_TEST_RETAKE_OPENED", "QUIZ", quiz.getId(), actor,
+                "Lượt học bù Post-test đã mở", "Bạn đã xem lại nội dung bắt buộc và đủ thời gian chờ. Có thể làm lượt Post-test học bù cho khóa học “"
+                        + quiz.getCourse().getTitle() + "”.",
+                "/assessment", Map.of("courseId", course, "quizId", quiz.getId()));
     }
 
     @Transactional
@@ -110,6 +133,9 @@ public class LearnerQuizService {
             if (latest.getStatus() == QuizAttemptStatus.IN_PROGRESS && latest.getExamCutoffAt() != null
                     && !ExamWindow.shouldFinalize(latest.getExamCutoffAt(), now)) return response(latest, read(latest));
             throw new BusinessException(ErrorCode.ATTEMPT_LIMIT_REACHED, "Ca thi chỉ có một lượt");
+        }
+        if (exam && examPanicCircuitBreaker.isEnabled()) {
+            throw new BusinessException(ErrorCode.EXAM_PANIC_ACTIVE, "Ca thi đang tạm dừng nhận lượt làm bài mới theo công tắc an toàn");
         }
         if (exam && !mayEnter(quiz, now)) throw unavailable();
         if (latest != null && latest.getStatus() == QuizAttemptStatus.IN_PROGRESS) {

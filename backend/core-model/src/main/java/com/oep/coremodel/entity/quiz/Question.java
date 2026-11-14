@@ -28,6 +28,13 @@ public class Question extends BaseEntity {
     @Column(name = "approval_state", length = 16)
     private String approvalState;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "bloom_level", length = 16)
+    private com.oep.coremodel.entity.course.LearningOutcome.Bloom bloomLevel;
+
+    @Column(name = "source_lesson_id")
+    private java.util.UUID sourceLessonId;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = true)
     @JoinColumn(name = "question_bank_id", nullable = true)
     private QuestionBank questionBank;

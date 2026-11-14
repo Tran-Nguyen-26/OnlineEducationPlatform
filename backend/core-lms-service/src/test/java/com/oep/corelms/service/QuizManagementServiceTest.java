@@ -42,6 +42,7 @@ class QuizManagementServiceTest {
     @Mock private LessonRepository lessonRepository;
     @Mock private UserRepository userRepository;
     @Mock private CourseInstructorRepository courseInstructorRepository;
+    @Mock private LearningOutcomeRepository learningOutcomeRepository;
 
     private QuizManagementService service;
 
@@ -66,7 +67,8 @@ class QuizManagementServiceTest {
                 courseRepository,
                 lessonRepository,
                 userRepository,
-                courseInstructorRepository
+                courseInstructorRepository,
+                learningOutcomeRepository
         );
 
         actor = new User();
@@ -106,7 +108,8 @@ class QuizManagementServiceTest {
                 true,
                 false,
                 true,
-                false
+                false,
+                Quiz.Kind.MINI_QUIZ
         );
 
         when(quizRepository.save(any(Quiz.class))).thenAnswer(invocation -> {
@@ -131,7 +134,7 @@ class QuizManagementServiceTest {
         when(quizRepository.findByIdAndCourseIdForUpdate(quizId, courseId)).thenReturn(Optional.of(quiz));
 
         QuizDtos.UpdateQuizRequest req = new QuizDtos.UpdateQuizRequest(
-                "Updated Title", null, null, null, null, null, null, null, null, null, null, null
+                "Updated Title", null, null, null, null, null, null, null, null, null, null, null, null
         );
 
         BusinessException ex = assertThrows(BusinessException.class, () ->
@@ -178,6 +181,8 @@ class QuizManagementServiceTest {
                 "Is the earth flat?",
                 null,
                 null,
+                null,
+                null,
                 BigDecimal.ONE,
                 null,
                 List.of(
@@ -220,6 +225,8 @@ class QuizManagementServiceTest {
         QuizDtos.CreateQuestionRequest req = new QuizDtos.CreateQuestionRequest(
                 QuestionType.SINGLE_CHOICE,
                 "What is 2+2?",
+                null,
+                null,
                 null,
                 null,
                 new BigDecimal("2.5"),

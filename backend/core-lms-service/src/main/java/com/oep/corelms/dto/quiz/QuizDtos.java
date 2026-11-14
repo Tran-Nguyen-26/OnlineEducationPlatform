@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import com.oep.coremodel.enums.QuestionType;
 import com.oep.coremodel.enums.QuizGradingPolicy;
+import com.oep.coremodel.entity.course.LearningOutcome;
+import com.oep.coremodel.entity.quiz.Quiz;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -39,7 +41,8 @@ public final class QuizDtos {
             Boolean randomizeQuestions,
             Boolean randomizeAnswers,
             Boolean showScore,
-            Boolean showCorrectAnswers
+            Boolean showCorrectAnswers,
+            Quiz.Kind assessmentKind
     ) {}
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
@@ -55,7 +58,8 @@ public final class QuizDtos {
             Boolean randomizeQuestions,
             Boolean randomizeAnswers,
             Boolean showScore,
-            Boolean showCorrectAnswers
+            Boolean showCorrectAnswers,
+            Quiz.Kind assessmentKind
     ) {}
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
@@ -77,7 +81,8 @@ public final class QuizDtos {
             boolean isLocked,
             UUID createdBy,
             Instant createdAt,
-            Instant updatedAt
+            Instant updatedAt,
+            Quiz.Kind assessmentKind
     ) {}
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
@@ -129,6 +134,8 @@ public final class QuizDtos {
             @NotBlank String questionText,
             String keywordAnswer,
             UUID questionBankId,
+            UUID learningOutcomeId,
+            LearningOutcome.Bloom bloomLevel,
             BigDecimal points,
             Integer position,
             List<OptionRequest> options
@@ -140,15 +147,21 @@ public final class QuizDtos {
             String questionText,
             String keywordAnswer,
             UUID questionBankId,
+            UUID learningOutcomeId,
+            LearningOutcome.Bloom bloomLevel,
             BigDecimal points,
             Integer position,
-            List<OptionRequest> options
+            List<OptionRequest> options,
+            boolean clearQuestionBank,
+            boolean clearLearningOutcome
     ) {}
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record QuestionResponse(
             UUID id,
             UUID questionBankId,
+            UUID learningOutcomeId,
+            LearningOutcome.Bloom bloomLevel,
             QuestionType questionType,
             String questionText,
             String keywordAnswer,
@@ -159,6 +172,9 @@ public final class QuizDtos {
             Instant createdAt,
             Instant updatedAt
     ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record QuestionOutcomeResponse(UUID id, String code, String description, LearningOutcome.Bloom bloom) {}
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record QuestionPage(List<QuestionResponse> items, PageInfo pagination) {}

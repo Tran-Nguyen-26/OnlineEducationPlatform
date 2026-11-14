@@ -3,16 +3,30 @@ import { request } from '@/api/quiz'
 import { useState, type FormEvent } from 'react'
 
 type Assignment = { id: string; title: string; instructions: string; deadline: string; allowText: boolean;
-  allowFiles: boolean; submissionId?: string; status?: string; submittedText?: string; canSubmit: boolean }
+  allowFiles: boolean; submissionId?: string; status?: string; submittedText?: string; canSubmit: boolean;
+  vivaQuestions?: string[]; vivaCompleted?: boolean }
 type Grade = { score: number; scores: Record<string, number>; feedback?: string; appealUntil?: string }
+type VivaResult = { submissionId: string; questions: string[]; completed: boolean; consistencyScore?: number | null; consistencyNote?: string | null }
 
 function AssignmentCard({ item, courseId }: { item: Assignment; courseId: string }) {
   const cache = useQueryClient()
   const [mode, setMode] = useState(item.allowText ? 'text' : 'file')
+  const [draftText, setDraftText] = useState(item.submittedText ?? '')
+  const [validationError, setValidationError] = useState('')
+  const wordCount = (draftText.match(/\p{L}[\p{L}\p{M}]*/gu) ?? []).length
+  const letterCount = (draftText.match(/\p{L}/gu) ?? []).length
+  const textMeetsMinimum = wordCount >= 50 || letterCount >= 300
   const gradePath = `/api/v1/courses/${courseId}/grading/${item.submissionId}`
   const grade = useQuery({ queryKey: ['assignment-grade', item.submissionId],
     enabled: !!item.submissionId && ['GRADED', 'PENDING_REGRADE'].includes(item.status ?? ''),
     queryFn: () => request<Grade>(gradePath + '/result') })
+  const viva = useQuery({ queryKey: ['assignment-viva', item.id, item.submissionId], enabled: !!item.submissionId,
+    queryFn: () => request<VivaResult>(`/api/v1/courses/${courseId}/learner-assignments/${item.id}/viva`) })
+  const [vivaAnswers, setVivaAnswers] = useState(['', ''])
+  const answerViva = useMutation({ mutationFn: () => request<VivaResult>(
+    `/api/v1/courses/${courseId}/learner-assignments/${item.id}/viva/answers`,
+    { method: 'POST', body: JSON.stringify({ answers: vivaAnswers }) }),
+    onSuccess: () => void cache.invalidateQueries({ queryKey: ['assignment-viva', item.id, item.submissionId] }) })
   const save = useMutation({
     mutationFn: async ({ form, appeal }: { form: FormData; appeal?: boolean }) => {
       if (appeal) return request(gradePath + '/appeal', { method: 'POST',
@@ -33,6 +47,25 @@ function AssignmentCard({ item, courseId }: { item: Assignment; courseId: string
   })
   const submit = (event: FormEvent<HTMLFormElement>, appeal = false) => {
     event.preventDefault()
+    setValidationError('')
+    if (!appeal) {
+      const form = new FormData(event.currentTarget)
+      if (mode === 'text' && !textMeetsMinimum) {
+        setValidationError('Bài viết cần có ít nhất 50 từ hoặc 300 ký tự chữ cái.')
+        return
+      }
+      if (mode === 'file') {
+        const file = form.get('file')
+        if (!(file instanceof File) || file.size === 0) {
+          setValidationError('Hãy chọn tệp PDF hoặc DOCX cần nộp.')
+          return
+        }
+        if (file.size > 20 * 1024 * 1024) {
+          setValidationError('Tệp nộp không được vượt quá 20 MB.')
+          return
+        }
+      }
+    }
     save.mutate({ form: new FormData(event.currentTarget), appeal })
   }
   return (
@@ -41,12 +74,26 @@ function AssignmentCard({ item, courseId }: { item: Assignment; courseId: string
       <p className="whitespace-pre-wrap text-sm">{item.instructions}</p>
       {item.deadline && <p className="text-sm text-slate-600">Hạn nộp {new Date(item.deadline).toLocaleString('vi-VN')}</p>}
       {item.status && <p role="status" className="text-sm">{({ SUBMITTED: 'Đã nộp', GRADED: 'Đã chấm', PENDING_REGRADE: 'Đang phúc khảo' } as Record<string,string>)[item.status] ?? item.status}</p>}
+      {viva.data?.questions.length === 2 && !viva.data.completed && <section className="space-y-2 rounded-md border border-teal-200 bg-teal-50 p-3">
+        <h4 className="font-medium">Vấn đáp xác thực bài làm (2 câu)</h4>
+        {viva.data.questions.map((question, index) => <label key={index} className="grid gap-1 text-sm">{question}
+          <textarea required maxLength={5000} value={vivaAnswers[index]} onChange={(event) => setVivaAnswers((rows) => rows.map((value, row) => row === index ? event.target.value : value))} className="rounded border p-2" rows={2} />
+        </label>)}
+        <p className="text-xs text-slate-600">Chỉ số nhất quán là gợi ý cho giảng viên, không phải kết luận về quyền tác giả.</p>
+        <button type="button" disabled={answerViva.isPending || vivaAnswers.some((answer) => !answer.trim())} onClick={() => answerViva.mutate()} className="rounded bg-teal-700 px-3 py-2 text-sm text-white">{answerViva.isPending ? 'Đang gửi…' : 'Gửi câu trả lời'}</button>
+      </section>}
+      {viva.data?.completed && <section className="rounded-md border p-3 text-sm"><h4 className="font-medium">Đã hoàn thành phần vấn đáp</h4>
+        {viva.data.consistencyScore != null && <p>Chỉ số nhất quán tham khảo: {viva.data.consistencyScore}/100</p>}
+        {viva.data.consistencyNote && <p className="text-slate-600">{viva.data.consistencyNote}</p>}
+      </section>}
+      {answerViva.isError && <p role="alert" className="text-sm text-red-700">{answerViva.error.message}</p>}
       {item.canSubmit && <form className="grid gap-2" onSubmit={submit}>
         {item.allowText && item.allowFiles && <label className="text-sm">Cách nộp <select className="rounded border p-1" value={mode}
           onChange={(event) => setMode(event.target.value)}><option value="text">Văn bản</option><option value="file">PDF / DOCX</option></select></label>}
         {mode === 'text' ? <label className="grid gap-1 text-sm">Nội dung<textarea name="text" required maxLength={100000}
-          defaultValue={item.submittedText ?? ''} className="rounded border p-2" rows={5} /></label>
-          : <label className="grid gap-1 text-sm">Tệp tối đa 20 MB<input type="file" name="file" required accept=".pdf,.docx" /></label>}
+          value={draftText} onChange={(event) => setDraftText(event.target.value)} className="rounded border p-2" rows={5} />
+          <span className="text-xs text-slate-500">{wordCount} từ · cần tối thiểu 50 từ hoặc 300 ký tự chữ cái</span></label>
+          : <label className="grid gap-1 text-sm">Tệp PDF hoặc DOCX, tối đa 20 MB<input type="file" name="file" required accept=".pdf,.docx" /></label>}
         <button disabled={save.isPending} className="w-fit rounded bg-teal-700 px-3 py-2 text-sm text-white">{item.submissionId ? 'Nộp lại' : 'Nộp bài'}</button>
       </form>}
       {grade.data && <div className="space-y-2 border-t pt-2 text-sm">
@@ -64,6 +111,7 @@ function AssignmentCard({ item, courseId }: { item: Assignment; courseId: string
         )}
       </div>}
       {save.isError && <p role="alert" className="text-sm text-red-700">{save.error.message}</p>}
+      {validationError && <p role="alert" className="text-sm text-red-700">{validationError}</p>}
     </article>
   )
 }

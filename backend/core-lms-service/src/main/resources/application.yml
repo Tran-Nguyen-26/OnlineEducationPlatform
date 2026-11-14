@@ -18,23 +18,33 @@ spring:
         format_sql: true
   rabbitmq:
     host: ${RABBIT_HOST:localhost}
-    port: ${RABBIT_PORT:5672}
-    username: ${RABBIT_USER:guest}
-    password: ${RABBIT_PASSWORD:guest}
+    port: ${RABBIT_PORT:5673}
+    username: ${RABBIT_USER:oep}
+    password: ${RABBIT_PASSWORD:oep}
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 
 oep:
+  ai:
+    chat-completions-url: ${AI_CHAT_COMPLETIONS_URL:}
+    embeddings-url: ${AI_EMBEDDINGS_URL:}
+    api-key: ${AI_API_KEY:}
+    model: ${AI_MODEL:gpt-4o-mini}
+    embedding-model: ${AI_EMBEDDING_MODEL:text-embedding-3-small}
+    embedding-index-enabled: ${AI_EMBEDDING_INDEX_ENABLED:true}
+    cost:
+      input-usd-per-million: ${OEP_AI_COST_INPUT_USD_PER_MILLION:0}
+      output-usd-per-million: ${OEP_AI_COST_OUTPUT_USD_PER_MILLION:0}
   datasource:
     routing-enabled: true
     primary:
-      url: ${DB_URL:jdbc:postgresql://localhost:5432/oep}
+      url: ${DB_URL:jdbc:postgresql://localhost:5434/oep}
       username: ${DB_USER:oep}
       password: ${DB_PASSWORD:oep}
     replica:
-      url: ${DB_REPLICA_URL:jdbc:postgresql://localhost:5433/oep}
+      url: ${DB_REPLICA_URL:jdbc:postgresql://localhost:5435/oep}
       username: ${DB_REPLICA_USER:oep}
       password: ${DB_REPLICA_PASSWORD:oep}
 jwt:

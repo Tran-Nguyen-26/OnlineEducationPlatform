@@ -4,6 +4,7 @@ import com.oep.corelms.dto.admin.AdminUserDetailResponse;
 import com.oep.corelms.dto.admin.AdminUserItemResponse;
 import com.oep.corelms.dto.admin.AdminUserStatsResponse;
 import com.oep.corelms.repository.UserProfileRepository;
+import com.oep.corelms.repository.RefreshTokenRepository;
 import com.oep.corelms.repository.UserRepository;
 import com.oep.coremodel.entity.identity.User;
 import com.oep.coremodel.entity.identity.UserProfile;
@@ -30,6 +31,7 @@ public class AdminUserService {
 
     private final UserRepository userRepository;
     private final UserProfileRepository userProfileRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     @Transactional(readOnly = true)
     public Page<AdminUserItemResponse> getUsers(
@@ -79,6 +81,10 @@ public class AdminUserService {
             String reason,
             UUID currentAdminId
     ) {
+        if (newStatus != AccountStatus.ACTIVE && newStatus != AccountStatus.LOCKED && newStatus != AccountStatus.DISABLED) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED,
+                    "Quản trị viên chỉ có thể đặt trạng thái ACTIVE, LOCKED hoặc DISABLED");
+        }
         User targetUser = userRepository.findById(targetUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Không tìm thấy người dùng với ID: " + targetUserId));
 
@@ -94,6 +100,7 @@ public class AdminUserService {
 
         targetUser.setAccountStatus(newStatus);
         userRepository.save(targetUser);
+        if (newStatus != AccountStatus.ACTIVE) refreshTokenRepository.revokeAllByUserId(targetUserId);
 
         log.info("Quản trị viên ({}) đã thay đổi trạng thái người dùng ({}, {}) sang: {}. Lý do: {}",
                 currentAdminId, targetUser.getId(), targetUser.getEmail(), newStatus, reason);

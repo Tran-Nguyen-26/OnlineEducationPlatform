@@ -4,6 +4,7 @@ import com.oep.corelms.service.BlindGradingService;
 import com.oep.corelms.service.BlindGradingService.Claim;
 import com.oep.corelms.service.BlindGradingService.QueueItem;
 import com.oep.corelms.service.BlindGradingService.Result;
+import com.oep.corelms.service.AiTutorService;
 import com.oep.coremodel.exception.BusinessException;
 import com.oep.coremodel.exception.ErrorCode;
 import jakarta.validation.Valid;
@@ -58,6 +59,12 @@ public class BlindGradingController {
     public void grade(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID course, @PathVariable UUID id,
                       @Valid @RequestBody GradeRequest request) {
         grading.grade(actor(jwt), course, id, request.token(), request.scores(), request.feedback());
+    }
+
+    @PostMapping("/{id}/ai-pregrade")
+    public List<AiTutorService.RubricSuggestion> aiPregrade(@AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID course, @PathVariable UUID id, @Valid @RequestBody TokenRequest request) {
+        return grading.aiPregrade(actor(jwt), course, id, request.token());
     }
 
     @GetMapping("/{id}/result")

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
-import { loginUser, resendRegistrationOtp } from '@/api/auth.ts'
+import { loginUser, resendRegistrationOtp, verifyDormantOtp } from '@/api/auth.ts'
 import './login.css'
 
 interface LocationState {
@@ -23,6 +23,8 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(navState?.message ?? '')
   const [showResendVerification, setShowResendVerification] = useState(false)
+  const [awaitingDormantOtp, setAwaitingDormantOtp] = useState(false)
+  const [dormantOtp, setDormantOtp] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -74,6 +76,7 @@ export default function LoginPage() {
       if (err instanceof Error) {
         setError(err.message)
         setShowResendVerification(/email chưa xác minh/i.test(err.message))
+        setAwaitingDormantOtp(/tài khoản ngủ đông/i.test(err.message))
       } else {
         setError('Sai email hoặc mật khẩu. Vui lòng thử lại.')
       }
@@ -94,6 +97,49 @@ export default function LoginPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleVerifyDormant = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      const response = await verifyDormantOtp(email, password, dormantOtp)
+      localStorage.setItem('access_token', response.accessToken)
+      localStorage.setItem('refresh_token', response.refreshToken)
+      localStorage.setItem('user', JSON.stringify(response.user))
+      navigate('/dashboard', { replace: true })
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Mã xác minh không hợp lệ.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (awaitingDormantOtp) {
+    return <div className="lp-page">
+      <div className="lp-card">
+        <div className="lp-welcome">
+          <h1 className="lp-welcome-title">Khôi phục tài khoản</h1>
+          <p className="lp-welcome-sub">Tài khoản đã ngủ đông. Nhập OTP gửi tới email {email}.</p>
+        </div>
+        {error && <div role="alert" className="lp-alert lp-alert--error">{error}</div>}
+        <form className="lp-form" onSubmit={handleVerifyDormant}>
+          <div className="lp-field">
+            <label htmlFor="dormant-otp" className="lp-label">Mã xác minh 6 chữ số</label>
+            <input id="dormant-otp" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6}
+              required value={dormantOtp} onChange={(event) => setDormantOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
+              className="lp-input" />
+          </div>
+          <button type="submit" disabled={loading || dormantOtp.length !== 6} className="lp-submit-btn">
+            {loading ? 'Đang xác minh…' : 'Xác minh và khôi phục'}
+          </button>
+          <button type="button" className="lp-forgot" onClick={() => { setAwaitingDormantOtp(false); setError('') }}>
+            Quay lại đăng nhập
+          </button>
+        </form>
+      </div>
+    </div>
   }
 
   return (

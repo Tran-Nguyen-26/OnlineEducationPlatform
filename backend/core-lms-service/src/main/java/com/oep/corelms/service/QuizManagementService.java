@@ -4,6 +4,7 @@ import com.oep.corelms.dto.quiz.QuizDtos;
 import com.oep.corelms.repository.*;
 import com.oep.coremodel.entity.course.Course;
 import com.oep.coremodel.entity.course.CourseInstructor;
+import com.oep.coremodel.entity.course.LearningOutcome;
 import com.oep.coremodel.entity.course.Lesson;
 import com.oep.coremodel.entity.identity.User;
 import com.oep.coremodel.entity.quiz.*;
@@ -37,6 +38,7 @@ public class QuizManagementService {
     private final LessonRepository lessonRepository;
     private final UserRepository userRepository;
     private final CourseInstructorRepository courseInstructorRepository;
+    private final LearningOutcomeRepository learningOutcomeRepository;
 
     // ==========================================
     // QUIZ CRUD
@@ -77,6 +79,7 @@ public class QuizManagementService {
         quiz.setLesson(lesson);
         quiz.setTitle(req.title());
         quiz.setDescription(req.description());
+        if (req.assessmentKind() != null) quiz.setAssessmentKind(req.assessmentKind());
         quiz.setQuestionSource(req.questionSource() != null ? req.questionSource() : "FIXED");
         quiz.setTimeLimitSeconds(req.timeLimitSeconds());
         quiz.setDeadline(req.deadline());
@@ -117,6 +120,7 @@ public class QuizManagementService {
 
         if (req.title() != null) quiz.setTitle(req.title());
         if (req.description() != null) quiz.setDescription(req.description());
+        if (req.assessmentKind() != null) quiz.setAssessmentKind(req.assessmentKind());
         if (req.questionSource() != null) quiz.setQuestionSource(req.questionSource());
         if (req.timeLimitSeconds() != null) quiz.setTimeLimitSeconds(req.timeLimitSeconds());
         if (req.deadline() != null) quiz.setDeadline(req.deadline());
@@ -165,6 +169,15 @@ public class QuizManagementService {
         validatePage(page, pageSize);
         Page<QuestionBank> result = questionBankRepository.findByCourseId(courseId, PageRequest.of(page - 1, pageSize));
         return new QuizDtos.BankPage(result.getContent().stream().map(this::toBankResponse).toList(), pageInfo(result));
+    }
+
+    @Transactional(readOnly = true)
+    public List<QuizDtos.QuestionOutcomeResponse> listQuestionOutcomes(UUID actorId, UUID courseId) {
+        requireCourseManager(courseId, actorId);
+        return learningOutcomeRepository.findByCourseIdOrderByCode(courseId).stream()
+                .map(outcome -> new QuizDtos.QuestionOutcomeResponse(
+                        outcome.getId(), outcome.getCode(), outcome.getDescription(), outcome.getBloom()))
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -269,6 +282,11 @@ public class QuizManagementService {
 
         Question question = new Question();
         question.setQuestionBank(bank);
+        if (req.learningOutcomeId() != null) {
+            question.setLearningOutcome(learningOutcomeRepository.findByIdAndCourseId(req.learningOutcomeId(), courseId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Learning outcome not found in course")));
+        }
+        question.setBloomLevel(req.bloomLevel());
         question.setQuestionType(req.questionType());
         question.setQuestionText(req.questionText());
         question.setKeywordAnswer(req.keywordAnswer());
@@ -323,11 +341,18 @@ public class QuizManagementService {
         if (req.questionText() != null) question.setQuestionText(req.questionText());
         if (req.keywordAnswer() != null) question.setKeywordAnswer(req.keywordAnswer());
 
+        if (req.clearQuestionBank()) question.setQuestionBank(null);
         if (req.questionBankId() != null) {
             QuestionBank bank = questionBankRepository.findByIdAndCourseId(req.questionBankId(), courseId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.QUESTION_BANK_NOT_FOUND, "Question bank not found in course"));
             question.setQuestionBank(bank);
         }
+        if (req.clearLearningOutcome()) question.setLearningOutcome(null);
+        if (req.learningOutcomeId() != null) {
+            question.setLearningOutcome(learningOutcomeRepository.findByIdAndCourseId(req.learningOutcomeId(), courseId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Learning outcome not found in course")));
+        }
+        if (req.bloomLevel() != null) question.setBloomLevel(req.bloomLevel());
 
         if (req.points() != null) qq.setPoints(req.points());
         if (req.position() != null) qq.setPosition(req.position());
@@ -608,7 +633,8 @@ public class QuizManagementService {
                 q.isLocked(),
                 q.getCreatedBy() != null ? q.getCreatedBy().getId() : null,
                 q.getCreatedAt(),
-                q.getUpdatedAt()
+                q.getUpdatedAt(),
+                q.getAssessmentKind()
         );
     }
 
@@ -630,6 +656,8 @@ public class QuizManagementService {
         return new QuizDtos.QuestionResponse(
                 q.getId(),
                 q.getQuestionBank() != null ? q.getQuestionBank().getId() : null,
+                q.getLearningOutcome() != null ? q.getLearningOutcome().getId() : null,
+                q.getBloomLevel(),
                 q.getQuestionType(),
                 q.getQuestionText(),
                 q.getKeywordAnswer(),

@@ -3,10 +3,13 @@ package com.oep.corelms.controller;
 import com.oep.corelms.service.PrivatePlaybackService;
 import com.oep.coremodel.exception.BusinessException;
 import com.oep.coremodel.exception.ErrorCode;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -63,6 +66,15 @@ public class PrivatePlaybackController {
             @PathVariable UUID courseId, @PathVariable UUID videoId) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
                 .body(playback.open(UUID.fromString(jwt.getSubject()), courseId, videoId));
+    }
+
+    public record Rewind(@PositiveOrZero int fromSec, @PositiveOrZero int toSec) {}
+
+    @PostMapping("/{videoId}/rewinds")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void rewind(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId, @PathVariable UUID videoId,
+            @RequestHeader("X-Playback-Session") UUID token, @Valid @RequestBody Rewind request) {
+        playback.recordRewind(UUID.fromString(jwt.getSubject()), courseId, videoId, token, request.fromSec(), request.toSec());
     }
 
     @GetMapping("/{videoId}/{*asset}")

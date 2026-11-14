@@ -69,6 +69,9 @@ public class AuthService {
     private static final String REGISTRATION_OTP_PREFIX = "auth:otp:registration:";
     private static final String REGISTRATION_COOLDOWN_PREFIX = "auth:cooldown:registration:";
     private static final String REGISTRATION_RATE_PREFIX = "auth:rate-limit:registration:";
+    private static final String DORMANT_OTP_PREFIX = "auth:otp:dormant:";
+    private static final String DORMANT_COOLDOWN_PREFIX = "auth:cooldown:dormant:";
+    private static final String DORMANT_RATE_PREFIX = "auth:rate-limit:dormant:";
     private static final long REGISTRATION_OTP_TTL_SECONDS = 300;
     private static final String CONSENT_VERSION = "OEP-PRIVACY-1";
 
@@ -160,6 +163,8 @@ public class AuthService {
         }
         redisTemplate.delete(otpKey);
         user.setAccountStatus(AccountStatus.ACTIVE);
+        user.setLastLoginAt(Instant.now());
+        userRepository.save(user);
         String fullName = userProfileRepository.findById(user.getId()).map(UserProfile::getFullName).orElse(user.getEmail());
         return issueTokens(user, fullName, false, deviceInfo, deviceId);
     }
@@ -186,6 +191,28 @@ public class AuthService {
                 new ForgotPasswordEmailEvent(user.getId(), "REGISTRATION_OTP", email, fullName, otpCode, null, Instant.now()));
     }
 
+    private void sendDormantOtp(User user, String fullName) {
+        String email = user.getEmail();
+        String cooldownKey = DORMANT_COOLDOWN_PREFIX + email;
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(cooldownKey))) return;
+        String rateKey = DORMANT_RATE_PREFIX + email;
+        String countRaw = redisTemplate.opsForValue().get(rateKey);
+        int count = countRaw == null ? 0 : Integer.parseInt(countRaw);
+        if (count >= 10) throw new BusinessException(ErrorCode.TOO_MANY_REQUESTS, "Đã vượt quá số lần gửi mã xác minh trong một giờ.");
+
+        String otpCode = String.valueOf(100_000 + SECURE_RANDOM.nextInt(900_000));
+        String otpKey = DORMANT_OTP_PREFIX + email;
+        redisTemplate.opsForHash().put(otpKey, "otp_hash", sha256Hex(otpCode));
+        redisTemplate.opsForHash().put(otpKey, "user_id", user.getId().toString());
+        redisTemplate.opsForHash().put(otpKey, "failed_attempts", "0");
+        redisTemplate.expire(otpKey, Duration.ofSeconds(REGISTRATION_OTP_TTL_SECONDS));
+        redisTemplate.opsForValue().set(cooldownKey, "1", Duration.ofSeconds(60));
+        if (countRaw == null) redisTemplate.opsForValue().set(rateKey, "1", Duration.ofHours(1));
+        else redisTemplate.opsForValue().increment(rateKey);
+        rabbitTemplate.convertAndSend(MessagingConstants.EXCHANGE, MessagingConstants.RK_FORGOT_PASSWORD_EMAIL,
+                new ForgotPasswordEmailEvent(user.getId(), "DORMANT_REACTIVATION_OTP", email, fullName, otpCode, null, Instant.now()));
+    }
+
     private String maskEmail(String email) {
         int at = email.indexOf('@');
         if (at <= 1) return "***" + email.substring(Math.max(at, 0));
@@ -204,7 +231,7 @@ public class AuthService {
         User user = userRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BAD_CREDENTIALS, "Invalid email or password"));
 
-        if (user.getAccountStatus() == AccountStatus.DISABLED) {
+        if (user.getAccountStatus() == AccountStatus.DISABLED || user.getAccountStatus() == AccountStatus.LOCKED) {
             throw new BusinessException(ErrorCode.ACCOUNT_DISABLED, "Account is disabled");
         }
 
@@ -217,10 +244,19 @@ public class AuthService {
         if (user.getAccountStatus() == AccountStatus.PENDING_VERIFICATION) {
             throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED, "Hãy xác minh email trước khi đăng nhập");
         }
+        if (user.getAccountStatus() == AccountStatus.DORMANT) {
+            String name = userProfileRepository.findById(user.getId())
+                    .map(UserProfile::getFullName).orElse(user.getEmail());
+            sendDormantOtp(user, name);
+            throw new BusinessException(ErrorCode.DORMANT_OTP_REQUIRED,
+                    "Tài khoản ngủ đông. Mã OTP đã được gửi tới email đăng ký để kích hoạt lại.");
+        }
 
         String fullName = userProfileRepository.findById(user.getId())
                 .map(UserProfile::getFullName)
                 .orElse(user.getEmail());
+        user.setLastLoginAt(Instant.now());
+        userRepository.save(user);
 
         log.info("User logged in id={} email={}", user.getId(), normalizedEmail);
 
@@ -242,8 +278,13 @@ public class AuthService {
         }
 
         User user = refreshToken.getUser();
-        if (user.getAccountStatus() == AccountStatus.DISABLED) {
+        if (user.getAccountStatus() == AccountStatus.DISABLED || user.getAccountStatus() == AccountStatus.LOCKED) {
+            refreshToken.setRevoked(true);
+            refreshTokenRepository.save(refreshToken);
             throw new BusinessException(ErrorCode.ACCOUNT_DISABLED, "Account is disabled");
+        }
+        if (user.getAccountStatus() == AccountStatus.DORMANT) {
+            throw new BusinessException(ErrorCode.DORMANT_OTP_REQUIRED, "Tài khoản ngủ đông cần xác minh OTP trước khi tiếp tục");
         }
 
         // Token rotation: revoke old token
@@ -258,10 +299,64 @@ public class AuthService {
                 .findByUserIdAndProvider(user.getId(), AuthProvider.LOCAL)
                 .map(AuthIdentity::isMustChangePassword)
                 .orElse(false);
+        user.setLastLoginAt(Instant.now());
+        userRepository.save(user);
 
         log.info("Rotated refresh token for user id={}", user.getId());
 
         return issueTokens(user, fullName, mustChangePassword, deviceInfo, refreshToken.getDeviceId());
+    }
+
+    @Transactional
+    public AuthResponse verifyDormantOtp(String email, String password, String otpCode, String deviceInfo, UUID deviceId) {
+        String normalizedEmail = email.trim().toLowerCase();
+        User user = userRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BAD_CREDENTIALS, "Sai email hoặc mật khẩu"));
+        AuthIdentity identity = authIdentityRepository.findByUserIdAndProvider(user.getId(), AuthProvider.LOCAL)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BAD_CREDENTIALS, "Thông tin đăng nhập không hợp lệ"));
+        if (!passwordEncoder.matches(password, identity.getPasswordHash())) {
+            throw new BusinessException(ErrorCode.BAD_CREDENTIALS, "Sai email hoặc mật khẩu");
+        }
+        if (user.getAccountStatus() != AccountStatus.DORMANT) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "Tài khoản không còn ở trạng thái ngủ đông");
+        }
+
+        String otpKey = DORMANT_OTP_PREFIX + normalizedEmail;
+        if (!Boolean.TRUE.equals(redisTemplate.hasKey(otpKey))) {
+            throw new BusinessException(ErrorCode.OTP_EXPIRED, "Mã xác minh đã hết hạn. Hãy đăng nhập để yêu cầu mã mới.");
+        }
+        String storedHash = (String) redisTemplate.opsForHash().get(otpKey, "otp_hash");
+        String storedUserId = (String) redisTemplate.opsForHash().get(otpKey, "user_id");
+        String failedAttempts = (String) redisTemplate.opsForHash().get(otpKey, "failed_attempts");
+        int attempts = failedAttempts == null ? 0 : Integer.parseInt(failedAttempts);
+        if (!user.getId().toString().equals(storedUserId)) {
+            redisTemplate.delete(otpKey);
+            throw new BusinessException(ErrorCode.OTP_EXPIRED, "Mã xác minh không còn hợp lệ");
+        }
+        if (attempts >= 5) {
+            redisTemplate.delete(otpKey);
+            throw new BusinessException(ErrorCode.OTP_MAX_ATTEMPTS_EXCEEDED, "Bạn đã nhập sai mã quá 5 lần. Hãy yêu cầu mã mới.");
+        }
+        if (storedHash == null || !MessageDigest.isEqual(storedHash.getBytes(StandardCharsets.UTF_8), sha256Hex(otpCode).getBytes(StandardCharsets.UTF_8))) {
+            int next = attempts + 1;
+            if (next >= 5) redisTemplate.delete(otpKey);
+            else redisTemplate.opsForHash().put(otpKey, "failed_attempts", String.valueOf(next));
+            throw new BusinessException(next >= 5 ? ErrorCode.OTP_MAX_ATTEMPTS_EXCEEDED : ErrorCode.INVALID_OTP,
+                    next >= 5 ? "Bạn đã nhập sai mã quá 5 lần. Hãy yêu cầu mã mới." : "Mã xác minh không đúng.");
+        }
+
+        Instant now = Instant.now();
+        int changed = jdbc.update("update users set account_status = 'ACTIVE', last_login_at = ? where id = ? and account_status = 'DORMANT'", now, user.getId());
+        if (changed != 1) {
+            redisTemplate.delete(otpKey);
+            throw new BusinessException(ErrorCode.DORMANT_OTP_REQUIRED, "Tài khoản đã thay đổi trạng thái. Hãy đăng nhập lại.");
+        }
+        redisTemplate.delete(otpKey);
+        user.setAccountStatus(AccountStatus.ACTIVE);
+        user.setLastLoginAt(now);
+        userRepository.save(user);
+        String fullName = userProfileRepository.findById(user.getId()).map(UserProfile::getFullName).orElse(user.getEmail());
+        return issueTokens(user, fullName, identity.isMustChangePassword(), deviceInfo, deviceId);
     }
 
     @Transactional

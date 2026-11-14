@@ -5,7 +5,7 @@ export interface PageInfo {
   has_next: boolean
 }
 
-export type QuestionType = 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'TRUE_FALSE' | 'SHORT_ANSWER'
+export type QuestionType = 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'TRUE_FALSE' | 'KEYWORD_FILL'
 export type QuizGradingPolicy = 'HIGHEST' | 'LATEST' | 'AVERAGE'
 
 export interface QuizItem {
@@ -28,6 +28,7 @@ export interface QuizItem {
   show_score?: boolean | null
   show_correct_answers?: boolean | null
   is_locked: boolean
+  lock_reason?: string | null
   created_by?: string | null
   created_at: string
   updated_at: string
@@ -40,6 +41,7 @@ export interface QuizPageResponse {
 
 export interface CreateQuizPayload {
   title: string
+  assessment_kind?: 'PRE_TEST' | 'MINI_QUIZ' | 'POST_TEST' | 'MASS_EXAM'
   description?: string
   lesson_id?: string | null
   question_source?: string
@@ -55,6 +57,7 @@ export interface CreateQuizPayload {
 
 export interface UpdateQuizPayload {
   title?: string
+  assessment_kind?: 'PRE_TEST' | 'MINI_QUIZ' | 'POST_TEST' | 'MASS_EXAM'
   description?: string
   lesson_id?: string | null
   question_source?: string
@@ -84,6 +87,8 @@ export interface OptionPayload {
 export interface QuestionItem {
   id: string
   question_bank_id?: string | null
+  learning_outcome_id?: string | null
+  bloom_level?: 'REMEMBER' | 'UNDERSTAND' | 'APPLY' | null
   question_type: QuestionType
   question_text: string
   keyword_answer?: string | null
@@ -158,7 +163,7 @@ export function submitLearnerQuiz(courseId: string, attemptId: string, answers: 
 }
 
 export function syncExamDraft(courseId: string, attemptId: string, sequence: number, answers: Record<string, string[]>) {
-  return request<{ sequence: number }>(`/api/v1/courses/${courseId}/learner-assessments/attempts/${attemptId}/draft`,
+  return request<{ sequence: number; serverTime: string }>(`/api/v1/courses/${courseId}/learner-assessments/attempts/${attemptId}/draft`,
     { method: 'PUT', headers: examHeaders(), body: JSON.stringify({ sequence, answers }) })
 }
 
@@ -172,6 +177,8 @@ export interface CreateQuestionPayload {
   question_text: string
   keyword_answer?: string | null
   question_bank_id?: string | null
+  learning_outcome_id?: string | null
+  bloom_level?: 'REMEMBER' | 'UNDERSTAND' | 'APPLY' | null
   points: number
   position?: number
   options: OptionPayload[]
@@ -182,9 +189,13 @@ export interface UpdateQuestionPayload {
   question_text?: string
   keyword_answer?: string | null
   question_bank_id?: string | null
+  learning_outcome_id?: string | null
+  bloom_level?: 'REMEMBER' | 'UNDERSTAND' | 'APPLY' | null
   points?: number
   position?: number
   options?: OptionPayload[]
+  clear_question_bank?: boolean
+  clear_learning_outcome?: boolean
 }
 
 export interface QuestionBankItem {
@@ -198,6 +209,17 @@ export interface QuestionBankItem {
 export interface QuestionBankPageResponse {
   items: QuestionBankItem[]
   pagination: PageInfo
+}
+
+export interface QuestionOutcomeItem {
+  id: string
+  code: string
+  description: string
+  bloom: 'REMEMBER' | 'UNDERSTAND' | 'APPLY'
+}
+
+export function fetchQuestionOutcomes(courseId: string) {
+  return request<QuestionOutcomeItem[]>(`/api/v1/courses/${courseId}/learning-outcomes`)
 }
 
 export interface QuizResultItem {
@@ -352,6 +374,13 @@ export async function createQuestionBank(
 ): Promise<QuestionBankItem> {
   return request<QuestionBankItem>(`/api/v1/courses/${courseId}/question-banks`, {
     method: 'POST',
+    body: JSON.stringify({ name }),
+  })
+}
+
+export async function updateQuestionBank(courseId: string, bankId: string, name: string): Promise<QuestionBankItem> {
+  return request<QuestionBankItem>(`/api/v1/courses/${courseId}/question-banks/${bankId}`, {
+    method: 'PATCH',
     body: JSON.stringify({ name }),
   })
 }

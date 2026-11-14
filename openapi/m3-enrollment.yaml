@@ -16,6 +16,8 @@ tags:
     description: Student lesson activity and completion.
   - name: Instructor progress
     description: Course-level progress reporting.
+  - name: Adaptive learning
+    description: Low-mastery remediation playlists and spaced-repetition micro-drills.
 paths:
   /enrollments/redeem:
     post:
@@ -263,6 +265,81 @@ paths:
               example: { courseId: '11111111-1111-4111-8111-111111111111', activeCount: 20, completedCount: 5, completionRate: 20 }
         '403':
           $ref: '#/components/responses/Forbidden'
+  /courses/{courseId}/graduation/remediation:
+    get:
+      tags: [Adaptive learning]
+      operationId: getAdaptiveRemediationPlan
+      summary: Read the learner's low-mastery remediation playlist and due micro-drills
+      description: |
+        Student only with an active, unexpired enrollment. Returns outcomes below 70%,
+        available videos tagged to those outcomes in unlocked lessons, and at most five
+        due approved single-choice/true-false drills for each outcome. Correct answers
+        are omitted until a drill answer is submitted. Returns 423 during an official
+        exam and 503 while the exam panic circuit breaker has paused ancillary services.
+      parameters:
+        - $ref: '#/components/parameters/CourseId'
+      responses:
+        '200':
+          description: Current remediation plan
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdaptiveRemediationPlan' }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '423':
+          description: Official exam is in progress
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503':
+          description: Ancillary learning features are paused
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /courses/{courseId}/graduation/remediation/{questionId}/answer:
+    post:
+      tags: [Adaptive learning]
+      operationId: submitMicroDrillAnswer
+      summary: Answer a due micro-drill and update its FSRS review schedule
+      description: Student only. An incorrect answer is rated AGAIN regardless of the requested rating and enters a 10-minute relearning step. Returns 423 during an official exam and 503 while the exam panic circuit breaker has paused ancillary services.
+      parameters:
+        - $ref: '#/components/parameters/CourseId'
+        - name: questionId
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/Uuid' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MicroDrillAnswer' }
+      responses:
+        '200':
+          description: Answer evaluation and next review time
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MicroDrillReviewResult' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Drill is not due yet
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '423':
+          description: Official exam is in progress
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503':
+          description: Ancillary learning features are paused
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
@@ -353,6 +430,71 @@ components:
         completedRequiredLessons: { type: integer }
         completionPercentage: { type: number, minimum: 0, maximum: 100 }
         lessons: { type: array, items: { $ref: '#/components/schemas/LessonProgress' } }
+    AdaptiveRemediationPlan:
+      type: object
+      required: [outcomes]
+      properties:
+        outcomes:
+          type: array
+          items: { $ref: '#/components/schemas/RemediationOutcome' }
+    RemediationOutcome:
+      type: object
+      required: [code, description, percent, videos, drills]
+      properties:
+        code: { type: string }
+        description: { type: string }
+        percent: { type: number, minimum: 0, maximum: 69.99 }
+        videos:
+          type: array
+          items: { $ref: '#/components/schemas/RemediationVideo' }
+        drills:
+          type: array
+          maxItems: 5
+          items: { $ref: '#/components/schemas/MicroDrill' }
+    RemediationVideo:
+      type: object
+      required: [id, lessonId, lessonTitle, title, durationSeconds]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        lessonId: { $ref: '#/components/schemas/Uuid' }
+        lessonTitle: { type: string }
+        title: { type: string }
+        durationSeconds: { type: integer, minimum: 0 }
+    MicroDrill:
+      type: object
+      required: [questionId, question, learningOutcome, dueAt, options]
+      properties:
+        questionId: { $ref: '#/components/schemas/Uuid' }
+        question: { type: string }
+        learningOutcome: { type: string }
+        dueAt: { type: string, format: date-time }
+        options:
+          type: array
+          items:
+            type: object
+            required: [id, text]
+            properties:
+              id: { $ref: '#/components/schemas/Uuid' }
+              text: { type: string }
+    MicroDrillAnswer:
+      type: object
+      required: [selectedOptionId, rating]
+      properties:
+        selectedOptionId: { $ref: '#/components/schemas/Uuid' }
+        rating: { type: string, enum: [AGAIN, HARD, GOOD, EASY] }
+    MicroDrillReviewResult:
+      type: object
+      required: [questionId, correct, correctOptionIds, appliedRating, nextDueAt, stabilityDays, difficulty]
+      properties:
+        questionId: { $ref: '#/components/schemas/Uuid' }
+        correct: { type: boolean }
+        correctOptionIds:
+          type: array
+          items: { $ref: '#/components/schemas/Uuid' }
+        appliedRating: { type: string, enum: [AGAIN, HARD, GOOD, EASY] }
+        nextDueAt: { type: string, format: date-time }
+        stabilityDays: { type: number, exclusiveMinimum: 0 }
+        difficulty: { type: number, minimum: 1, maximum: 10 }
     Error:
       type: object
       required: [timestamp, status, error, message]

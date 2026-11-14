@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { submitLearnerQuiz, syncExamDraft, QuizRequestError, type QuizItem, type LearnerAttempt, type QuestionItem } from '@/api/quiz'
 import { readExamDraft, writeExamDraft } from '../examDraft'
+import { fetchMistakeExplanation, type MistakeExplanation } from '@/api/mistakeExplanations'
 
 interface StudentQuizPlayerProps {
   quiz: QuizItem
@@ -36,7 +37,9 @@ export function StudentQuizPlayer({
   // answers map: questionId -> array of selected optionIds (or string for text)
   const [answers, setAnswers] = useState<Record<string, string[]>>(attempt?.draft ?? {})
   const [restored, setRestored] = useState(!massExam)
-  const [syncState, setSyncState] = useState('')
+  const [localDraftState, setLocalDraftState] = useState('')
+  const [serverSyncState, setServerSyncState] = useState('')
+  const syncState = serverSyncState || localDraftState
   const [deviceRevoked, setDeviceRevoked] = useState(false)
   const sent = useRef(attempt?.draft ?? {})
   const sequence = useRef(attempt?.draftSequence ?? 0)
@@ -55,6 +58,10 @@ export function StudentQuizPlayer({
     : quiz.time_limit_seconds ?? 1800)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [mistakeExplanations, setMistakeExplanations] = useState<Record<string, MistakeExplanation>>({})
+  const [loadingExplanation, setLoadingExplanation] = useState<string | null>(null)
+  const [explanationError, setExplanationError] = useState('')
+  const [currentTime, setCurrentTime] = useState(Date.now())
   const inFlight = useRef(false)
   const autoSubmitted = useRef(false)
   const mounted = useRef(false)
@@ -99,15 +106,22 @@ export function StudentQuizPlayer({
     if (!massExam || !attempt) return
     let active = true
     void readExamDraft(attempt.attemptId).then((saved) => {
-      if (active && saved && remaining() > 0) setAnswers({ ...attempt.draft, ...saved })
-    }).catch(() => { if (active) setSyncState('Không đọc được bản nháp trên thiết bị.') })
+      if (active && saved && remaining() > 0) {
+        setAnswers({ ...attempt.draft, ...saved })
+        setLocalDraftState('Đã khôi phục bản nháp từ thiết bị.')
+      }
+    }).catch(() => { if (active) setLocalDraftState('Không đọc được bản nháp trên thiết bị.') })
       .finally(() => { if (active) setRestored(true) })
     return () => { active = false }
   }, [attempt, massExam, remaining])
 
   useEffect(() => {
     if (!massExam || !attempt || !restored || isSubmitted || remaining() === 0) return
-    void writeExamDraft(attempt.attemptId, answers).catch(() => setSyncState('Không lưu được bản nháp trên thiết bị.'))
+    setServerSyncState('')
+    setLocalDraftState('Đang lưu bản nháp trên thiết bị…')
+    void writeExamDraft(attempt.attemptId, answers)
+      .then(() => setLocalDraftState('Đã lưu Offline IndexedDB'))
+      .catch(() => setLocalDraftState('Không lưu được bản nháp trên thiết bị.'))
   }, [answers, attempt, isSubmitted, massExam, remaining, restored])
 
   const currentAnswers = useRef(answers)
@@ -125,10 +139,13 @@ export function StudentQuizPlayer({
         const result = await syncExamDraft(quiz.course_id, attempt.attemptId, ++sequence.current, delta)
         sequence.current = result.sequence
         sent.current = { ...sent.current, ...delta }
-        setSyncState('Đã đồng bộ bản nháp.')
+        const serverTime = new Date(result.serverTime).toLocaleTimeString('vi-VN', {
+          hour: '2-digit', minute: '2-digit', second: '2-digit',
+        })
+        setServerSyncState(`Đã đồng bộ Server ${serverTime}`)
       } catch (error) {
         if (error instanceof QuizRequestError && error.status === 423) setDeviceRevoked(true)
-        else setSyncState('Chưa đồng bộ. Bản nháp được giữ trên thiết bị.')
+        else setServerSyncState('Chưa đồng bộ. Bản nháp được giữ trên thiết bị.')
       } finally { syncInFlight.current = false }
     }
     const timer = window.setInterval(() => void sync(), nearEnd ? 5000 : 20000)
@@ -143,6 +160,12 @@ export function StudentQuizPlayer({
     const timer = window.setInterval(update, 1000)
     return () => window.clearInterval(timer)
   }, [attempt, isSubmitted, remaining])
+
+  useEffect(() => {
+    if (!isSubmitted || quiz.assessment_kind !== 'MASS_EXAM' || !quiz.deadline) return
+    const timer = window.setInterval(() => setCurrentTime(Date.now()), 10_000)
+    return () => window.clearInterval(timer)
+  }, [isSubmitted, quiz.assessment_kind, quiz.deadline])
 
   useEffect(() => {
     if (secondsLeft === 0 && !autoSubmitted.current) {
@@ -202,6 +225,21 @@ export function StudentQuizPlayer({
   const answeredCount = Object.keys(answers).filter(
     (k) => answers[k] && answers[k].length > 0
   ).length
+
+  async function explainOption(questionId: string, optionId: string) {
+    if (!attempt || loadingExplanation) return
+    const key = `${questionId}:${optionId}`
+    setLoadingExplanation(key)
+    setExplanationError('')
+    try {
+      const result = await fetchMistakeExplanation(quiz.course_id, attempt.attemptId, questionId, optionId)
+      setMistakeExplanations((current) => ({ ...current, [key]: result }))
+    } catch (error) {
+      setExplanationError(error instanceof Error ? error.message : 'Không tải được giải thích.')
+    } finally {
+      setLoadingExplanation(null)
+    }
+  }
 
   if (totalQuestions === 0) {
     return (
@@ -445,7 +483,7 @@ export function StudentQuizPlayer({
       ) : (
         /* ── Result Screen ── */
         <main className="flex-1 overflow-y-auto p-8 flex items-center justify-center">
-          <div className="w-full max-w-xl rounded-3xl border border-slate-800 bg-slate-950 p-8 text-center shadow-2xl">
+          <div className="w-full max-w-3xl rounded-3xl border border-slate-800 bg-slate-950 p-8 text-center shadow-2xl">
             <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
               <Trophy className="h-10 w-10" />
             </div>
@@ -473,6 +511,36 @@ export function StudentQuizPlayer({
                   />
                 </div>
               </div>
+            )}
+
+            {attempt && questions.some((question) => (answers[question.id] ?? []).some((answer) => question.options.some((option) => option.id === answer))) && (
+              <section className="mt-6 space-y-3 text-left" aria-label="Giải thích câu trả lời">
+                <h3 className="font-semibold text-slate-100">Xem lại lựa chọn</h3>
+                <p className="text-sm text-slate-400">Yêu cầu giải thích cho lựa chọn của bạn. Trong ca thi đồng loạt, phần này mở sau khi ca thi kết thúc.</p>
+                {explanationError && <p role="alert" className="rounded bg-rose-950 p-3 text-sm text-rose-200">{explanationError}</p>}
+                <div className="max-h-72 space-y-2 overflow-y-auto">
+                  {questions.flatMap((question) => (answers[question.id] ?? [])
+                    .filter((optionId) => question.options.some((option) => option.id === optionId))
+                    .map((optionId) => {
+                      const option = question.options.find((item) => item.id === optionId)!
+                      const key = `${question.id}:${optionId}`
+                      const explanation = mistakeExplanations[key]
+                      const examStillOpen = quiz.assessment_kind === 'MASS_EXAM' && quiz.deadline
+                        && currentTime < Date.parse(quiz.deadline)
+                      return <article key={key} className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+                        <p className="text-sm font-medium text-slate-100">{question.question_text}</p>
+                        <p className="mt-1 text-sm text-slate-400">Bạn đã chọn: {option.option_text}</p>
+                        {explanation ? <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-200">
+                          {explanation.selectedOptionCorrect ? 'Lựa chọn này đúng. ' : ''}{explanation.explanation}
+                        </p> : <button type="button" disabled={loadingExplanation !== null || !!examStillOpen}
+                          onClick={() => void explainOption(question.id, optionId)}
+                          className="mt-3 rounded-lg border border-teal-700 px-3 py-2 text-sm font-medium text-teal-300 disabled:opacity-50">
+                          {loadingExplanation === key ? 'Đang tạo giải thích…' : examStillOpen ? 'Mở sau khi ca thi kết thúc' : 'Tại sao tôi chọn sai?'}
+                        </button>}
+                      </article>
+                    }))}
+                </div>
+              </section>
             )}
 
             <div className="mt-8 flex gap-3">

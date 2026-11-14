@@ -9,6 +9,11 @@ import {
   GraduationCap,
   Shield,
   HelpCircle,
+  Sparkles,
+  BarChart3,
+  Flag,
+  Mail,
+  ClipboardList,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchInstructorApplicationStats } from '@/api/instructorApplications'
@@ -144,6 +149,76 @@ export function AdminLayout() {
               >
                 <HelpCircle className="h-4 w-4 text-[#00695c]" />
                 <span>Quản lý bài thi (Quiz)</span>
+              </NavLink>
+
+              <NavLink
+                to="/admin/ai-quiz"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-[#e6f4ea] text-[#00695c] font-semibold'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  }`
+                }
+              >
+                <Sparkles className="h-4 w-4 text-[#00695c]" />
+                <span>Duyệt câu hỏi AI</span>
+              </NavLink>
+
+              <NavLink
+                to="/admin/ai-metrics"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-[#e6f4ea] text-[#00695c] font-semibold'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  }`
+                }
+              >
+                <BarChart3 className="h-4 w-4 text-[#00695c]" />
+                <span>Chi phí &amp; độ trễ AI</span>
+              </NavLink>
+
+              <NavLink
+                to="/admin/regrade-audit"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-[#e6f4ea] text-[#00695c] font-semibold'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  }`
+                }
+              >
+                <ClipboardList className="h-4 w-4 text-[#00695c]" />
+                <span>Nhật ký phúc khảo</span>
+              </NavLink>
+
+              <NavLink
+                to="/admin/course-issues"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-[#e6f4ea] text-[#00695c] font-semibold'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  }`
+                }
+              >
+                <Flag className="h-4 w-4 text-[#00695c]" />
+                <span>Báo lỗi khóa học</span>
+              </NavLink>
+
+              <NavLink
+                to="/admin/email-deliveries"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-[#e6f4ea] text-[#00695c] font-semibold'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  }`
+                }
+              >
+                <Mail className="h-4 w-4 text-[#00695c]" />
+                <span>Email lỗi</span>
               </NavLink>
             </nav>
           </div>

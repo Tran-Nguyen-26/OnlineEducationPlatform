@@ -64,4 +64,21 @@ public class AssignmentSubmission extends BaseEntity {
     @Column(name = "appeal_reason", columnDefinition = "text")
     private String appealReason;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "viva_questions", columnDefinition = "jsonb")
+    private java.util.List<String> vivaQuestions;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "viva_answers", columnDefinition = "jsonb")
+    private java.util.List<String> vivaAnswers;
+
+    @Column(name = "viva_consistency_score", precision = 5, scale = 2)
+    private BigDecimal vivaConsistencyScore;
+
+    @Column(name = "viva_consistency_note", columnDefinition = "text")
+    private String vivaConsistencyNote;
+
+    @Column(name = "viva_completed_at")
+    private Instant vivaCompletedAt;
+
 }

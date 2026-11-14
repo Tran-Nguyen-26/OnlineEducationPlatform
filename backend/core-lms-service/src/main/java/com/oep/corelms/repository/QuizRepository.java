@@ -16,7 +16,8 @@ public interface QuizRepository extends JpaRepository<Quiz, UUID> {
 
     Page<Quiz> findByCourseId(UUID courseId, Pageable pageable);
 
-    java.util.List<Quiz> findByCourseIdAndAssessmentKindInOrderByTitle(UUID courseId, java.util.Collection<Quiz.Kind> kinds);
+    @Query("SELECT q FROM Quiz q WHERE q.course.id = :courseId AND (q.assessmentKind IS NULL OR q.assessmentKind IN :kinds) ORDER BY q.title")
+    java.util.List<Quiz> findLearnerAssessments(@Param("courseId") UUID courseId, @Param("kinds") java.util.Collection<Quiz.Kind> kinds);
 
     Optional<Quiz> findByIdAndCourseId(UUID id, UUID courseId);
 

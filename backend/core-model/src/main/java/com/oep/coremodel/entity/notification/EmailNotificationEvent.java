@@ -32,6 +32,21 @@ public class EmailNotificationEvent extends BaseEntity {
     @Column(name = "recipient_email", nullable = true, length = 255)
     private String recipientEmail;
 
+    @Column(name = "subject", nullable = true, length = 255)
+    private String subject;
+
+    @Column(name = "message", nullable = true, columnDefinition = "text")
+    private String message;
+
+    @Column(name = "action_url", nullable = true, length = 500)
+    private String actionUrl;
+
+    @Column(name = "locale", nullable = false, length = 10)
+    private String locale = "vi-VN";
+
+    @Column(name = "last_error", nullable = true, length = 1000)
+    private String lastError;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 40)
     private NotificationDeliveryStatus status = NotificationDeliveryStatus.PENDING;

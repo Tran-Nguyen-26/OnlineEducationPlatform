@@ -72,6 +72,8 @@ export function AdminUserFilters({
           >
             <option value="ALL">Tất cả trạng thái</option>
             <option value="ACTIVE">Đang hoạt động</option>
+            <option value="DORMANT">Ngủ đông</option>
+            <option value="PENDING_VERIFICATION">Chờ xác minh email</option>
             <option value="LOCKED">Đã khóa</option>
           </select>
           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">

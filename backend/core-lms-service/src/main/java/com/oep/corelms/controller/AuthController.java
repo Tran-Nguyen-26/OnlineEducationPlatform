@@ -12,6 +12,7 @@ import com.oep.corelms.dto.auth.RegisterRequest;
 import com.oep.corelms.dto.auth.RegistrationEmailRequest;
 import com.oep.corelms.dto.auth.RegistrationPendingResponse;
 import com.oep.corelms.dto.auth.VerifyRegistrationRequest;
+import com.oep.corelms.dto.auth.VerifyDormantRequest;
 import com.oep.corelms.dto.auth.ResetPasswordRequest;
 import com.oep.corelms.service.AuthService;
 import com.oep.corelms.service.ForgotPasswordService;
@@ -53,6 +54,15 @@ public class AuthController {
             HttpServletRequest servletRequest
     ) {
         return ResponseEntity.ok(authService.verifyRegistration(request.email(), request.otpCode(),
+                servletRequest.getHeader(HttpHeaders.USER_AGENT), deviceId(servletRequest)));
+    }
+
+    @PostMapping("/api/auth/dormant/verify-otp")
+    public ResponseEntity<AuthResponse> verifyDormantAccount(
+            @Valid @RequestBody VerifyDormantRequest request,
+            HttpServletRequest servletRequest
+    ) {
+        return ResponseEntity.ok(authService.verifyDormantOtp(request.email(), request.password(), request.otpCode(),
                 servletRequest.getHeader(HttpHeaders.USER_AGENT), deviceId(servletRequest)));
     }
 

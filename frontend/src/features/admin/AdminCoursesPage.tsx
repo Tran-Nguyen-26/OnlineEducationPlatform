@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Trash2 } from 'lucide-react'
 import CurriculumSettings from './CurriculumSettings'
 import ExamScheduleForm from './ExamScheduleForm'
 import GraduationThresholdForm from './GraduationThresholdForm'
@@ -25,11 +26,18 @@ const courseStatuses: Record<string, string> = {
   DRAFT: 'Bản nháp', PUBLISHED: 'Đã xuất bản', ARCHIVED: 'Đã lưu trữ', DISABLED: 'Đã khóa',
 }
 
-function BuilderList({ level, items, selected, onSelect }: {
+function mutationError(error: unknown, fallback: string) {
+  if (axios.isAxiosError<{ message?: string }>(error)) return error.response?.data?.message ?? fallback
+  return error instanceof Error ? error.message : fallback
+}
+
+function BuilderList({ level, items, selected, onSelect, onDelete, canDelete = false }: {
   level: Level
   items?: Item[]
   selected?: string
   onSelect: (item: Item) => void
+  onDelete?: (item: Item) => void
+  canDelete?: boolean
 }) {
   return (
     <section className="min-w-0 rounded-xl border border-slate-200 bg-white p-4">
@@ -37,12 +45,16 @@ function BuilderList({ level, items, selected, onSelect }: {
       {items?.length === 0 && <p className="text-sm text-slate-600">Chưa có mục nào.</p>}
       <ul className="space-y-1">
         {items?.map((item) => (
-          <li key={item.id}>
+          <li key={item.id} className="flex items-center gap-1">
             <button type="button" onClick={() => onSelect(item)} aria-pressed={selected === item.id}
-              className="w-full rounded-lg p-2 text-left text-sm hover:bg-slate-50 aria-pressed:bg-teal-50 aria-pressed:text-teal-900">
+              className="min-w-0 flex-1 rounded-lg p-2 text-left text-sm hover:bg-slate-50 aria-pressed:bg-teal-50 aria-pressed:text-teal-900">
               <span className="block break-words font-medium">{item.title}</span>
               {item.lifecycle_status && <span className="text-slate-600">{courseStatuses[item.lifecycle_status] ?? item.lifecycle_status}</span>}
             </button>
+            {canDelete && onDelete && <button type="button" aria-label={`Xóa ${labels[level].toLowerCase()} ${item.title}`}
+              onClick={() => onDelete(item)} className="rounded-lg p-2 text-rose-700 hover:bg-rose-50">
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+            </button>}
           </li>
         ))}
       </ul>
@@ -56,6 +68,7 @@ export default function AdminCoursesPage() {
   const [moduleId, setModuleId] = useState('')
   const [level, setLevel] = useState<Level>('course')
   const [editing, setEditing] = useState<Item>()
+  const [deleteTarget, setDeleteTarget] = useState<{ level: 'module' | 'lesson'; item: Item; courseId: string; moduleId?: string }>()
   const coursePath = '/api/v1/courses'
   const modulePath = `${coursePath}/${courseId}/modules`
   const lessonPath = `${modulePath}/${moduleId}/lessons`
@@ -68,6 +81,20 @@ export default function AdminCoursesPage() {
       await axios.request({ ...request, url: request.path, headers: requestHeaders() })
     },
     onSuccess: () => cache.invalidateQueries({ queryKey: ['course-builder'] }),
+  })
+  const remove = useMutation({
+    mutationFn: async (target: { level: 'module' | 'lesson'; item: Item; courseId: string; moduleId?: string }) => {
+      const path = target.level === 'module'
+        ? `${coursePath}/${target.courseId}/modules`
+        : `${coursePath}/${target.courseId}/modules/${target.moduleId}/lessons`
+      await axios.delete(`${path}/${target.item.id}`, { headers: requestHeaders() })
+    },
+    onSuccess: async (_, target) => {
+      if (target.level === 'module' && moduleId === target.item.id) setModuleId('')
+      if (level === 'lesson' && editing?.id === target.item.id) setEditing(undefined)
+      setDeleteTarget(undefined)
+      await cache.invalidateQueries({ queryKey: ['course-builder'] })
+    },
   })
   const errorMessage = axios.isAxiosError<{ message?: string }>(update.error)
     ? update.error.response?.data?.message : undefined
@@ -107,10 +134,11 @@ export default function AdminCoursesPage() {
         <BuilderList level="course" items={courses.data} selected={courseId} onSelect={(item) => {
           setCourseId(item.id); setModuleId(''); startEdit('course', item)
         }} />
-        <BuilderList level="module" items={modules.data} selected={moduleId} onSelect={(item) => {
+        <BuilderList level="module" items={modules.data} selected={moduleId} canDelete={selectedCourse?.lifecycle_status === 'DRAFT'} onDelete={(item) => { remove.reset(); setDeleteTarget({ level: 'module', item, courseId }) }} onSelect={(item) => {
           setModuleId(item.id); startEdit('module', item)
         }} />
         <BuilderList level="lesson" items={lessons.data} selected={level === 'lesson' ? editing?.id : undefined}
+          canDelete={selectedCourse?.lifecycle_status === 'DRAFT'} onDelete={(item) => { remove.reset(); setDeleteTarget({ level: 'lesson', item, courseId, moduleId }) }}
           onSelect={(item) => startEdit('lesson', item)} />
       </div>
       <div className="flex flex-wrap gap-2">
@@ -134,6 +162,13 @@ export default function AdminCoursesPage() {
         moduleId={moduleId} lessonId={level === 'lesson' ? editing?.id : undefined} />}
       {selectedCourse && <ExamScheduleForm key={courseId} courseId={courseId} />}
       {selectedCourse && <GraduationThresholdForm key={courseId} courseId={courseId} />}
+      {deleteTarget && <section role="alertdialog" aria-labelledby="delete-course-item-title" className="space-y-3 rounded-xl border border-rose-200 bg-rose-50 p-4">
+        <h2 id="delete-course-item-title" className="font-semibold text-rose-900">Xóa {labels[deleteTarget.level].toLowerCase()} “{deleteTarget.item.title}”?</h2>
+        <p className="text-sm text-rose-800">Chỉ xóa được khi không còn nội dung hoặc dữ liệu học tập tham chiếu. Thao tác này không thể hoàn tác.</p>
+        {remove.isError && <p role="alert" className="text-sm text-rose-900">{mutationError(remove.error, 'Không thể xóa mục này.')}</p>}
+        <div className="flex justify-end gap-2"><button type="button" onClick={() => { setDeleteTarget(undefined); remove.reset() }} className="rounded-lg border bg-white px-3 py-2 text-sm">Hủy</button>
+          <button type="button" disabled={remove.isPending} onClick={() => remove.mutate(deleteTarget)} className="rounded-lg bg-rose-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">{remove.isPending ? 'Đang xóa…' : 'Xóa mục'}</button></div>
+      </section>}
     </section>
   )
 }

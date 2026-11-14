@@ -15,9 +15,12 @@ public class LessonDiscussionService {
     private final JdbcTemplate jdbc;
     private final LessonMasteryService mastery;
     private final NotificationPublisher notifications;
+    private final AiEmbeddingService embeddings;
 
     public record Question(UUID id, UUID videoId, int timestampSec, String body, Instant createdAt) {}
     public record Reply(UUID id, String body, Instant createdAt, boolean verified) {}
+    public record VerifiedSuggestion(UUID id, UUID questionId, String question, String answer,
+                                     UUID videoId, int timestampSec, double similarity) {}
     public record LessonLink(UUID id, String title) {}
     public record ThreadPage(List<Question> questions, boolean canAsk, boolean canReply, boolean canVerify, boolean hasMore) {}
     private record Access(boolean student, boolean archived, boolean instructor) {}
@@ -60,6 +63,44 @@ public class LessonDiscussionService {
                 row.getTimestamp(3).toInstant(), row.getBoolean(4)), question, (long) page * 30);
     }
 
+    @Transactional(readOnly = true)
+    public List<VerifiedSuggestion> suggestions(UUID actor, UUID course, UUID lesson, String query) {
+        authorize(actor, course, lesson, false);
+        String text = query == null ? "" : query.strip();
+        if (text.length() > 500) throw new BusinessException(ErrorCode.VALIDATION_FAILED, "Câu hỏi gợi ý không được dài quá 500 ký tự");
+        if (text.length() < 4) return List.of();
+        if (embeddings.isConfigured()) {
+            try {
+                float[] vector = embeddings.embed(List.of(text)).getFirst();
+                List<VerifiedSuggestion> matches = jdbc.query("""
+                        select s.id, s.question_id, s.question_text, s.answer_text, q.video_id, q.timestamp_sec,
+                               1 - (s.embedding <=> cast(? as vector)) as similarity
+                        from ai_verified_qa_sources s join lesson_questions q on q.id = s.question_id
+                        where s.course_id = ? and s.lesson_id = ? and s.embedding is not null
+                          and (s.embedding <=> cast(? as vector)) <= 0.45
+                        order by s.embedding <=> cast(? as vector) limit 3
+                        """, (rs, row) -> new VerifiedSuggestion(rs.getObject(1, UUID.class),
+                        rs.getObject(2, UUID.class), rs.getString(3), rs.getString(4),
+                        rs.getObject(5, UUID.class), rs.getInt(6), rs.getDouble(7)),
+                        AiEmbeddingService.toPgVector(vector), course, lesson,
+                        AiEmbeddingService.toPgVector(vector), AiEmbeddingService.toPgVector(vector));
+                if (!matches.isEmpty()) return matches;
+            } catch (RuntimeException ex) {
+                // Keep deflection available while an embedding provider or index is unavailable.
+            }
+        }
+        return jdbc.query("""
+                select s.id, s.question_id, s.question_text, s.answer_text, q.video_id, q.timestamp_sec,
+                       ts_rank(to_tsvector('simple', s.question_text || ' ' || s.answer_text), plainto_tsquery('simple', ?)) as similarity
+                from ai_verified_qa_sources s join lesson_questions q on q.id = s.question_id
+                where s.course_id = ? and s.lesson_id = ?
+                  and to_tsvector('simple', s.question_text || ' ' || s.answer_text) @@ plainto_tsquery('simple', ?)
+                order by similarity desc, s.verified_at desc limit 3
+                """, (rs, row) -> new VerifiedSuggestion(rs.getObject(1, UUID.class),
+                rs.getObject(2, UUID.class), rs.getString(3), rs.getString(4),
+                rs.getObject(5, UUID.class), rs.getInt(6), rs.getDouble(7)), text, course, lesson, text);
+    }
+
     @Transactional
     public UUID ask(UUID actor, UUID course, UUID lesson, UUID video, int timestamp, String body) {
         if (!authorize(actor, course, lesson, true).student()) throw forbidden();
@@ -95,6 +136,16 @@ public class LessonDiscussionService {
                 Boolean.class, reply, question))) throw missing();
         jdbc.update("update lesson_replies set verified = false where question_id = ? and verified and id <> ?", question, reply);
         jdbc.update("update lesson_replies set verified = true where id = ?", reply);
+        jdbc.update("""
+                insert into ai_verified_qa_sources(id, course_id, lesson_id, question_id, reply_id, question_text, answer_text, verified_at)
+                select gen_random_uuid(), m.course_id, q.lesson_id, q.id, r.id, q.body, r.body, now()
+                from lesson_questions q join lessons l on l.id = q.lesson_id
+                join course_modules m on m.id = l.module_id join lesson_replies r on r.id = ?
+                where q.id = ?
+                on conflict (question_id) do update set reply_id = excluded.reply_id,
+                  question_text = excluded.question_text, answer_text = excluded.answer_text,
+                  embedding = null, verified_at = now()
+                """, reply, question);
     }
 
     private UUID requireQuestion(UUID lesson, UUID question, boolean lock) {

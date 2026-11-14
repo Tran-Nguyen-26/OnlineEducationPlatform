@@ -75,6 +75,14 @@ public class QuizManagementController {
     // QUESTION BANK ENDPOINTS
     // ==========================================
 
+    @GetMapping("/learning-outcomes")
+    public java.util.List<QuizDtos.QuestionOutcomeResponse> listQuestionOutcomes(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID courseId
+    ) {
+        return quizService.listQuestionOutcomes(userId(jwt), courseId);
+    }
+
     @GetMapping("/question-banks")
     public QuizDtos.BankPage listQuestionBanks(
             @AuthenticationPrincipal Jwt jwt,

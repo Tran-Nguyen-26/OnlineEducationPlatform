@@ -38,6 +38,7 @@ public class EnrollmentService {
     private final UserRepository users;
     private final CourseInstructorRepository instructors;
     private final AccessCodeRepository accessCodes;
+    private final NotificationPublisher notifications;
     private final SecureRandom random = new SecureRandom();
 
     public AccessCodeDtos.Batch issueBatch(AccessCodeDtos.CreateBatch request) {
@@ -121,7 +122,12 @@ public class EnrollmentService {
         enrollment.setAccessExpiresAt(start.plus(code.getAccessDays(), ChronoUnit.DAYS));
         code.setUsedBy(studentId);
         code.setUsedAt(now);
-        return EnrollmentResponse.from(enrollments.save(enrollment));
+        Enrollment saved = enrollments.save(enrollment);
+        notifications.publishNotificationEvent("COURSE_ACTIVATED", "ENROLLMENT", saved.getId(), studentId,
+                "Quyền học đã được kích hoạt", "Bạn đã có quyền truy cập khóa học “" + course.getTitle() + "”.",
+                "/learner/courses/" + course.getId(),
+                java.util.Map.of("courseId", course.getId(), "accessExpiresAt", saved.getAccessExpiresAt().toString()));
+        return EnrollmentResponse.from(saved);
     }
 
     private BusinessException invalidCode() {
@@ -160,7 +166,11 @@ public class EnrollmentService {
         enrollment.setStatus(EnrollmentStatus.ACTIVE);
         enrollment.setWithdrawnAt(null);
         // Preserve original enrolledAt and all lesson progress on reactivation.
-        return EnrollmentResponse.from(enrollments.save(enrollment));
+        Enrollment saved = enrollments.save(enrollment);
+        notifications.publishNotificationEvent("COURSE_ACTIVATED", "ENROLLMENT", saved.getId(), studentId,
+                "Đã ghi danh khóa học", "Bạn đã được ghi danh vào khóa học “" + course.getTitle() + "”.",
+                "/learner/courses/" + course.getId(), java.util.Map.of("courseId", course.getId()));
+        return EnrollmentResponse.from(saved);
     }
 
     public EnrollmentResponse withdraw(UUID id, UUID studentId) {

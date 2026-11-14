@@ -20,6 +20,7 @@ public class CourseCredentialService {
     private final GraduationService graduation;
     private final BadgeSigner signer;
     private final JdbcTemplate jdbc;
+    private final NotificationPublisher notifications;
 
     public record Credential(UUID id, String verificationUrl, String signedCredential) {}
     public record Verification(UUID id, String courseTitle, String issuedAt, String issuer) {}
@@ -37,6 +38,9 @@ public class CourseCredentialService {
         String signed = signer.sign(id, course, enrollment.getCourse().getTitle(), Instant.now());
         jdbc.update("insert into course_credentials(id, enrollment_id, signed_credential) values (?, ?, ?)",
                 id, enrollment.getId(), signed);
+        notifications.publishNotificationEvent("COURSE_CERTIFICATE_ISSUED", "COURSE_CREDENTIAL", id, actor,
+                "Chứng chỉ khóa học đã sẵn sàng", "Bạn đã hoàn thành khóa học “" + enrollment.getCourse().getTitle() + "”.",
+                "/learner/courses/" + course + "/certificate", Map.of("courseId", course));
         return new Credential(id, signer.verificationUrl(id), signed);
     }
 

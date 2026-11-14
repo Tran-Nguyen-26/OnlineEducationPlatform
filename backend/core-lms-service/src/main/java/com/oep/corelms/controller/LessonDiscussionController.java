@@ -40,6 +40,11 @@ public class LessonDiscussionController {
             @PathVariable UUID lesson, @PathVariable UUID question, @RequestParam(defaultValue = "0") @Min(0) int page) {
         return service.replies(UUID.fromString(jwt.getSubject()), course, lesson, question, page);
     }
+    @GetMapping("/lessons/{lesson}/discussion/suggestions")
+    public List<LessonDiscussionService.VerifiedSuggestion> suggestions(@AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID course, @PathVariable UUID lesson, @RequestParam String query) {
+        return service.suggestions(UUID.fromString(jwt.getSubject()), course, lesson, query);
+    }
     @PostMapping("/lessons/{lesson}/discussion/{question}/replies")
     public Map<String, UUID> reply(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID course, @PathVariable UUID lesson,
             @PathVariable UUID question, @Valid @RequestBody Answer request) {

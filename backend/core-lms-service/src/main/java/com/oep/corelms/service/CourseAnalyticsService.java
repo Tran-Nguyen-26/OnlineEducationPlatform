@@ -24,16 +24,22 @@ public class CourseAnalyticsService {
     private final CourseInstructorRepository instructors;
     private final UserRepository users;
     private final NotificationPublisher notifications;
+    private final ExamPanicCircuitBreaker examPanicCircuitBreaker;
 
     public enum IssueCategory { CONTENT, RUBRIC }
 
     public record LessonMetrics(UUID id, String title, long started, long completed) {}
+    public record RewindBucket(UUID videoId, String videoTitle, UUID lessonId, String lessonTitle,
+                               int bucketStartSec, long rewinds) {}
+    public record Misconception(UUID questionId, String question, String learningOutcome,
+                                String distractor, long wrongSelections) {}
     public record ScoreBand(int from, int to, long learners) {}
     public record AssessmentMetrics(long pairedLearners, BigDecimal learningGain, List<ScoreBand> postTestScores) {}
     public record Analytics(long learners, long completed, List<LessonMetrics> lessons, AssessmentMetrics assessments) {}
 
     @Transactional(readOnly = true)
     public Analytics analytics(UUID actor, UUID course) {
+        examPanicCircuitBreaker.requireAncillaryServicesAvailable();
         requireViewer(actor, course);
         long[] counts = jdbc.queryForObject("""
                 select count(*), count(*) filter (where completed_at is not null or status = 'COMPLETED')
@@ -60,6 +66,42 @@ public class CourseAnalyticsService {
                 """, (rs, row) -> new LessonMetrics(rs.getObject(1, UUID.class), rs.getString(2),
                 rs.getLong(3), rs.getLong(4)), course, course);
         return new Analytics(counts[0], counts[1], lessons, assessmentMetrics(course));
+    }
+
+    @Transactional(readOnly = true)
+    public List<RewindBucket> rewindHeatmap(UUID actor, UUID course) {
+        examPanicCircuitBreaker.requireAncillaryServicesAvailable();
+        requireViewer(actor, course);
+        return jdbc.query("""
+                select h.video_id, v.title, h.lesson_id, l.title, h.bucket_start_sec, h.rewind_count
+                from video_rewind_heatmap h join lesson_contents v on v.id = h.video_id
+                join lessons l on l.id = h.lesson_id
+                where h.course_id = ?
+                order by h.rewind_count desc, h.bucket_start_sec, h.video_id
+                limit 100
+                """, (rs, row) -> new RewindBucket(rs.getObject(1, UUID.class), rs.getString(2),
+                rs.getObject(3, UUID.class), rs.getString(4), rs.getInt(5), rs.getLong(6)), course);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Misconception> misconceptionRadar(UUID actor, UUID course) {
+        examPanicCircuitBreaker.requireAncillaryServicesAvailable();
+        requireViewer(actor, course);
+        return jdbc.query("""
+                select q.id, q.question_text, lo.code, o.option_text, count(*) as wrong_selections
+                from quiz_answers a join quiz_attempts at on at.id = a.attempt_id
+                join quizzes z on z.id = at.quiz_id and z.course_id = ?
+                join questions q on q.id = a.question_id
+                left join learning_outcomes lo on lo.id = q.lo_id
+                join lateral jsonb_array_elements_text(case when jsonb_typeof(a.selected_option_data) = 'array'
+                    then a.selected_option_data else '[]'::jsonb end) selected(option_id) on true
+                join question_options o on o.id::text = selected.option_id and o.question_id = q.id and not o.is_correct
+                where at.status = 'GRADED' and a.correct = false
+                group by q.id, q.question_text, lo.code, o.id, o.option_text
+                order by wrong_selections desc, q.id
+                limit 100
+                """, (rs, row) -> new Misconception(rs.getObject(1, UUID.class), rs.getString(2),
+                rs.getString(3), rs.getString(4), rs.getLong(5)), course);
     }
 
     private AssessmentMetrics assessmentMetrics(UUID course) {
@@ -122,6 +164,10 @@ public class CourseAnalyticsService {
             throw new BusinessException(ErrorCode.NOT_FOUND, "No active administrator can receive this issue");
         }
         UUID issue = UUID.randomUUID();
+        jdbc.update("""
+                insert into course_issue_flags (id, course_id, instructor_id, category, detail, status, created_at, updated_at)
+                values (?, ?, ?, ?, ?, 'OPEN', now(), now())
+                """, issue, course, actor, category.name(), detail.strip());
         for (var admin : admins) {
             notifications.publishNotificationEvent("COURSE_ISSUE_FLAGGED", "COURSE_ISSUE", issue,
                     admin.getId(), "Báo lỗi khóa học", detail.strip(), null,

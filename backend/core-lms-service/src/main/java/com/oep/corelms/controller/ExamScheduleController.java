@@ -2,6 +2,7 @@ package com.oep.corelms.controller;
 
 import com.oep.corelms.repository.QuizAttemptRepository;
 import com.oep.corelms.repository.QuizRepository;
+import com.oep.corelms.service.NotificationPublisher;
 import com.oep.coremodel.entity.quiz.Quiz;
 import com.oep.coremodel.exception.BusinessException;
 import com.oep.coremodel.exception.ErrorCode;
@@ -12,9 +13,11 @@ import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -24,6 +27,8 @@ import java.util.UUID;
 public class ExamScheduleController {
     private final QuizRepository quizzes;
     private final QuizAttemptRepository attempts;
+    private final JdbcTemplate jdbc;
+    private final NotificationPublisher notifications;
 
     public record Schedule(@NotNull Instant startsAt, @NotNull Instant endsAt, @Min(0) @Max(60) int lateEntryMinutes) {}
 
@@ -49,6 +54,17 @@ public class ExamScheduleController {
         quiz.setExamStartsAt(schedule.startsAt());
         quiz.setExamEndsAt(schedule.endsAt());
         quiz.setLateEntryMinutes(schedule.lateEntryMinutes());
+        var recipients = jdbc.queryForList("""
+                select student_id from enrollments
+                where course_id = ? and status in ('ACTIVE', 'COMPLETED')
+                """, UUID.class, courseId);
+        for (UUID recipient : recipients) {
+            notifications.publishNotificationEvent("MASS_EXAM_SCHEDULED", "QUIZ", quizId, recipient,
+                    "Đã lên lịch kỳ thi", "Kỳ thi “" + quiz.getTitle() + "” bắt đầu lúc " + schedule.startsAt(),
+                    "/learner/courses/" + courseId + "/assessments",
+                    Map.of("courseId", courseId, "startsAt", schedule.startsAt().toString(),
+                            "endsAt", schedule.endsAt().toString()));
+        }
         return schedule;
     }
 }

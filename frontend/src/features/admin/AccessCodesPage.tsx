@@ -4,6 +4,7 @@ import { toDataURL } from 'qrcode'
 import {
   accessCodeError, fetchCodeBatch, issueCodeBatch, revokeAccessCode, type CodeKind,
 } from '@/api/accessCodes'
+import { request, type TeachingCourse } from '@/api/quiz'
 
 const statusLabels = { AVAILABLE: 'Khả dụng', USED: 'Đã dùng', REVOKED: 'Đã thu hồi', EXPIRED: 'Hết hạn' }
 const inputClass = 'rounded-lg border border-slate-300 bg-white px-3 py-2'
@@ -14,6 +15,10 @@ export default function AccessCodesPage() {
   const [batchId, setBatchId] = useState('')
   const [lookup, setLookup] = useState('')
   const [qrError, setQrError] = useState('')
+  const courses = useQuery({
+    queryKey: ['admin-access-code-courses'],
+    queryFn: () => request<{ items: TeachingCourse[] }>('/api/v1/my/courses?page=1&page_size=100'),
+  })
   const issue = useMutation({
     mutationFn: issueCodeBatch,
     onSuccess: (batch) => {
@@ -75,8 +80,11 @@ export default function AccessCodesPage() {
       <form onSubmit={handleIssue} className="space-y-4 rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="font-semibold">Phát hành lô mã</h2>
         <div className="grid gap-3 md:grid-cols-2">
-          <label className="grid gap-1 text-sm">ID khóa học
-            <input name="courseId" className={inputClass} required />
+          <label className="grid gap-1 text-sm">Khóa học
+            <select name="courseId" className={inputClass} required defaultValue="" disabled={courses.isPending || !courses.data?.items.length}>
+              <option value="" disabled>{courses.isPending ? 'Đang tải khóa học…' : 'Chọn khóa học'}</option>
+              {courses.data?.items.map((course) => <option key={course.id} value={course.id}>{course.title} · {course.lifecycle_status}</option>)}
+            </select>
           </label>
           <label className="grid gap-1 text-sm">Loại mã
             <select name="kind" className={inputClass}>
@@ -97,7 +105,9 @@ export default function AccessCodesPage() {
             <input name="expiresAt" type="datetime-local" className={inputClass} required />
           </label>
         </div>
-        <button className={buttonClass} disabled={issue.isPending}>Phát hành mã</button>
+        {courses.isError && <p role="alert" className="text-sm text-red-700">Không tải được danh sách khóa học để phát hành mã.</p>}
+        {courses.data?.items.length === 0 && <p className="text-sm text-slate-600">Chưa có khóa học để phát hành mã.</p>}
+        <button className={buttonClass} disabled={issue.isPending || courses.isPending || !courses.data?.items.length}>Phát hành mã</button>
         {issue.isError && <p role="alert" className="text-sm text-red-700">{accessCodeError(issue.error, 'Không thể phát hành mã.')}</p>}
         {issue.data && (
           <div className="flex flex-wrap items-center gap-3">

@@ -7,6 +7,8 @@ import com.oep.corelms.dto.course.ModuleDtos;
 import com.oep.corelms.service.CourseManagementService;
 import com.oep.coremodel.enums.UploadStatus;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -21,6 +23,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class CourseManagementController {
     private final CourseManagementService service;
+
+    public record DisableCourseRequest(@NotBlank @Size(max = 1000) String reason) {}
 
     @GetMapping("/courses")
     public CourseDtos.CoursePage listVisibleCourses(@AuthenticationPrincipal Jwt jwt, @RequestParam(defaultValue = "1") int page,
@@ -82,8 +86,9 @@ public class CourseManagementController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/courses/{courseId}/disable")
-    public CourseDtos.CourseResponse disableCourse(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
-        return service.disableCourse(userId(jwt), courseId);
+    public CourseDtos.CourseResponse disableCourse(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
+                                                    @Valid @RequestBody DisableCourseRequest request) {
+        return service.disableCourse(userId(jwt), courseId, request.reason());
     }
 
     @PreAuthorize("hasRole('ADMIN')")
@@ -143,6 +148,13 @@ public class CourseManagementController {
     }
 
     @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/courses/{courseId}/modules/{moduleId}")
+    public ModuleDtos.DeleteResponse deleteModule(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
+                                                  @PathVariable UUID moduleId) {
+        return service.deleteModule(userId(jwt), courseId, moduleId);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/courses/{courseId}/module-order")
     public ModuleDtos.ReorderResponse reorderModules(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
                                                        @Valid @RequestBody ModuleDtos.ReorderRequest request) {
@@ -178,6 +190,13 @@ public class CourseManagementController {
                                             @PathVariable UUID moduleId, @PathVariable UUID lessonId,
                                             @Valid @RequestBody LessonDtos.UpdateRequest request) {
         return service.updateLesson(userId(jwt), courseId, moduleId, lessonId, request);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/courses/{courseId}/modules/{moduleId}/lessons/{lessonId}")
+    public LessonDtos.DeleteResponse deleteLesson(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
+                                                   @PathVariable UUID moduleId, @PathVariable UUID lessonId) {
+        return service.deleteLesson(userId(jwt), courseId, moduleId, lessonId);
     }
 
     @PreAuthorize("hasRole('ADMIN')")

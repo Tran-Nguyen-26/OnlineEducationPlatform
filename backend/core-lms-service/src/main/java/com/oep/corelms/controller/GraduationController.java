@@ -17,12 +17,32 @@ import java.util.UUID;
 public class GraduationController {
     private final GraduationService graduation;
     private final com.oep.corelms.service.OutcomeMasteryService outcomes;
+    private final com.oep.corelms.service.AdaptiveRemediationService remediation;
+
+    public record DrillAnswer(@jakarta.validation.constraints.NotNull UUID selectedOptionId,
+                              @jakarta.validation.constraints.NotNull com.oep.corelms.service.AdaptiveRemediationService.Rating rating) {}
 
     @GetMapping("/outcomes")
     @PreAuthorize("hasRole('STUDENT')")
     public java.util.List<com.oep.corelms.service.OutcomeMasteryService.Outcome> outcomes(
             @AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
         return outcomes.forLearner(UUID.fromString(jwt.getSubject()), courseId);
+    }
+
+    @GetMapping("/remediation")
+    @PreAuthorize("hasRole('STUDENT')")
+    public com.oep.corelms.service.AdaptiveRemediationService.Plan remediation(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
+        return remediation.plan(UUID.fromString(jwt.getSubject()), courseId);
+    }
+
+    @PostMapping("/remediation/{questionId}/answer")
+    @PreAuthorize("hasRole('STUDENT')")
+    public com.oep.corelms.service.AdaptiveRemediationService.ReviewResult answerDrill(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId, @PathVariable UUID questionId,
+            @Valid @RequestBody DrillAnswer request) {
+        return remediation.answer(UUID.fromString(jwt.getSubject()), courseId, questionId,
+                request.selectedOptionId(), request.rating());
     }
 
     @GetMapping

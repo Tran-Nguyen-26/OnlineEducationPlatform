@@ -21,6 +21,7 @@ import java.util.UUID;
 public class LearnerAssignmentController {
     private final LearnerAssignmentService assignments;
     public record TextSubmission(@NotBlank @Size(max = 100000) String text) {}
+    public record VivaAnswers(@NotEmpty @Size(min = 2, max = 2) List<@NotBlank @Size(max = 5000) String> answers) {}
 
     @GetMapping
     public List<LearnerAssignmentService.Item> list(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID course) {
@@ -39,6 +40,18 @@ public class LearnerAssignmentController {
         UUID actor = UUID.fromString(jwt.getSubject());
         assignments.checkFileAccess(actor, course, id);
         return assignments.submit(actor, course, id, LearnerAssignmentService.extract(file), true);
+    }
+
+    @GetMapping("/{id}/viva")
+    public LearnerAssignmentService.VivaResult viva(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID course,
+                                                     @PathVariable UUID id) {
+        return assignments.viva(UUID.fromString(jwt.getSubject()), course, id);
+    }
+
+    @PostMapping("/{id}/viva/answers")
+    public LearnerAssignmentService.VivaResult answerViva(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID course,
+            @PathVariable UUID id, @Valid @RequestBody VivaAnswers request) {
+        return assignments.answerViva(UUID.fromString(jwt.getSubject()), course, id, request.answers());
     }
 
     @ExceptionHandler(org.springframework.dao.OptimisticLockingFailureException.class)

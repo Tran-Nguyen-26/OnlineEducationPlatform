@@ -16,6 +16,17 @@ interface Claim {
   rubric: { code: string; description: string; maxScore: number }[] | null
   appealCriterion: string | null
   appealReason: string | null
+  vivaQuestions?: string[] | null
+  vivaAnswers?: string[] | null
+  vivaConsistencyScore?: number | null
+  vivaConsistencyNote?: string | null
+}
+
+interface AiRubricSuggestion {
+  criterionCode: string
+  suggestedScore: number
+  evidence: string
+  rationale: string
 }
 
 export default function BlindGradingPage() {
@@ -26,6 +37,7 @@ export default function BlindGradingPage() {
   const [claim, setClaim] = useState<Claim | null>(null)
   const [scores, setScores] = useState<Record<string, string>>({})
   const [feedback, setFeedback] = useState('')
+  const [aiSuggestions, setAiSuggestions] = useState<AiRubricSuggestion[]>([])
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [refresh, setRefresh] = useState(0)
@@ -84,9 +96,27 @@ export default function BlindGradingPage() {
       setClaim(await request<Claim>(url + '/' + item.id + '/claim', { method: 'POST' }))
       setScores({})
       setFeedback('')
+      setAiSuggestions([])
     } catch (error) {
       setMessage((error as Error).message)
       setRefresh((value) => value + 1)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function requestAiSuggestions() {
+    if (!claim) return
+    setBusy(true)
+    setMessage('')
+    try {
+      const suggestions = await request<AiRubricSuggestion[]>(url + '/' + claim.item.id + '/ai-pregrade', {
+        method: 'POST', body: JSON.stringify({ token: claim.token }),
+      })
+      setAiSuggestions(suggestions)
+      setMessage('AI đã tạo điểm nháp và dẫn chứng. Hãy kiểm tra trước khi dùng; giảng viên chịu trách nhiệm chấm cuối cùng.')
+    } catch (error) {
+      setMessage((error as Error).message)
     } finally {
       setBusy(false)
     }
@@ -177,12 +207,31 @@ export default function BlindGradingPage() {
             {claim.item.title} · {claim.item.code}
           </h2>
           <p>Giữ bài đến {new Date(claim.expiresAt).toLocaleString('vi-VN')}</p>
+          <button type="button" className="rounded border border-indigo-300 px-3 py-2 text-sm text-indigo-800 disabled:opacity-50" disabled={busy} onClick={() => void requestAiSuggestions()}>
+            {busy ? 'Đang tạo gợi ý…' : 'Tạo gợi ý chấm bằng AI'}
+          </button>
+          {!!aiSuggestions.length && <section className="space-y-3 rounded-lg border border-indigo-200 bg-indigo-50/50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold text-indigo-950">Điểm nháp để giảng viên tham khảo</h3>
+              <button type="button" className="rounded border bg-white px-3 py-1.5 text-sm" onClick={() => setScores(Object.fromEntries(aiSuggestions.map((item) => [item.criterionCode, String(item.suggestedScore)])))}>Điền điểm nháp</button>
+            </div>
+            <ul className="space-y-2">{aiSuggestions.map((item) => <li key={item.criterionCode} className="rounded bg-white p-3 text-sm">
+              <p className="font-medium">{item.criterionCode} · {item.suggestedScore}</p>
+              {item.evidence && <blockquote className="mt-1 border-l-2 border-indigo-300 pl-2 text-slate-700">“{item.evidence}”</blockquote>}
+              <p className="mt-1 text-slate-600">{item.rationale}</p>
+            </li>)}</ul>
+          </section>}
           {claim.appealCriterion && (
             <p>
               Phúc khảo {claim.appealCriterion} · {claim.appealReason}
             </p>
           )}
           <p className="rounded bg-slate-50 p-4 whitespace-pre-wrap">{claim.text}</p>
+          {!!claim.vivaQuestions?.length && <section className="space-y-2 rounded border border-amber-200 bg-amber-50 p-4 text-sm">
+            <h3 className="font-semibold">AI Viva Voce · chỉ số tham khảo</h3>
+            {claim.vivaQuestions.map((question, index) => <div key={index}><p className="font-medium">{index + 1}. {question}</p><p className="whitespace-pre-wrap text-slate-700">{claim.vivaAnswers?.[index] || 'Học viên chưa trả lời câu hỏi này.'}</p></div>)}
+            <p>{claim.vivaConsistencyScore == null ? 'Chưa có đánh giá nhất quán tự động.' : `Chỉ số nhất quán: ${claim.vivaConsistencyScore}/100`}</p>
+            {claim.vivaConsistencyNote && <p className="text-slate-600">{claim.vivaConsistencyNote}</p>}
+          </section>}
           {claim.rubric?.map((criterion) => (
             <label className="flex items-center gap-3" key={criterion.code}>
               {criterion.description} (tối đa {criterion.maxScore})
@@ -221,6 +270,7 @@ export default function BlindGradingPage() {
               disabled={busy}
               onClick={() => {
                 setClaim(null)
+                setAiSuggestions([])
                 setRefresh((value) => value + 1)
               }}
             >

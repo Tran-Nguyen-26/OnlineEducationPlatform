@@ -4,9 +4,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.oep.coremodel.entity.identity.User;
 import com.oep.coremodel.entity.notification.Notification;
+import com.oep.coremodel.entity.notification.EmailNotificationEvent;
+import com.oep.coremodel.entity.notification.NotificationPreference;
+import com.oep.coremodel.enums.NotificationDeliveryStatus;
 import com.oep.worker.config.OutboxWorkerProperties;
 import com.oep.worker.config.SqsConfig;
 import com.oep.worker.repository.NotificationRepository;
+import com.oep.worker.repository.EmailNotificationEventRepository;
+import com.oep.worker.repository.NotificationPreferenceRepository;
 import com.oep.worker.repository.UserRepository;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -42,6 +47,8 @@ public class NotificationSqsConsumer {
     private final SqsConfig sqsConfig;
     private final OutboxWorkerProperties properties;
     private final NotificationRepository notificationRepository;
+    private final EmailNotificationEventRepository emailEvents;
+    private final NotificationPreferenceRepository notificationPreferences;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
 
@@ -205,21 +212,13 @@ public class NotificationSqsConsumer {
                         recipientUserId);
             }
 
-            // 1. Idempotency Check: if dedupe_key already exists, acknowledge and discard
-            if (notificationRepository.existsByDedupeKey(dedupeKey)) {
-                log.info("Duplicate notification suppressed for dedupe_key: {}", dedupeKey);
-                acknowledgeMessage(message);
-                return true;
-            }
+            boolean notificationExists = notificationRepository.existsByDedupeKey(dedupeKey);
 
             // 2. Fetch or reference Recipient User
             User user = userRepository.findById(recipientUserId)
-                    .orElseGet(() -> {
-                        User fallbackUser = new User();
-                        fallbackUser.setId(recipientUserId);
-                        fallbackUser.setEmail("user-" + recipientUserId + "@oep.invalid");
-                        return userRepository.save(fallbackUser);
-                    });
+                    .orElseThrow(() -> new IllegalStateException("Notification recipient does not exist: " + recipientUserId));
+            NotificationPreference preference = notificationPreferences.findByUser_IdAndEventType(user.getId(), eventType)
+                    .or(() -> notificationPreferences.findByUser_IdAndEventType(user.getId(), "*")).orElse(null);
 
             // Extract or build metadata JSON
             String metadataJson = null;
@@ -238,36 +237,89 @@ public class NotificationSqsConsumer {
                 }
             }
 
-            // 3. Create Notification
-            Notification notification = new Notification();
-            notification.setUser(user);
-            notification.setEventType(eventType);
-            notification.setTitle(title);
-            notification.setMessage(messageText);
-            notification.setDedupeKey(dedupeKey);
-            notification.setTargetType(targetType);
-            notification.setTargetId(targetId);
-            notification.setActionUrl(actionUrl);
-            notification.setMetadata(metadataJson);
-            notification.setIsRead(false);
-
-            try {
-                notificationRepository.save(notification);
-                log.debug("Created notification [id={}, dedupeKey={}]", notification.getId(), dedupeKey);
-                acknowledgeMessage(message);
-                return true;
-            } catch (DataIntegrityViolationException ex) {
-                // Concurrent insert with duplicate dedupe_key caught at DB level
-                log.info("Duplicate notification suppressed via DB constraint for dedupeKey: {}", dedupeKey);
-                acknowledgeMessage(message);
-                return true;
+            // Persist the inbox card once, but keep processing duplicates so a failed email enqueue can recover.
+            if (!notificationExists && (preference == null || preference.isInAppEnabled())) {
+                Notification notification = new Notification();
+                notification.setUser(user);
+                notification.setEventType(eventType);
+                notification.setTitle(title);
+                notification.setMessage(messageText);
+                notification.setDedupeKey(dedupeKey);
+                notification.setTargetType(targetType);
+                notification.setTargetId(targetId);
+                notification.setActionUrl(actionUrl);
+                notification.setMetadata(metadataJson);
+                notification.setIsRead(false);
+                try {
+                    notificationRepository.saveAndFlush(notification);
+                    log.debug("Created notification [id={}, dedupeKey={}]", notification.getId(), dedupeKey);
+                } catch (DataIntegrityViolationException ex) {
+                    log.info("Duplicate notification suppressed via DB constraint for dedupeKey: {}", dedupeKey);
+                }
             }
+
+            if (preference == null || preference.isEmailEnabled()) {
+                String locale = requestedLocale(root);
+                enqueueEmailIfEnabled(user, eventType, localizedTitle(eventType, title, locale), messageText,
+                        actionUrl, dedupeKey, locale);
+            }
+            acknowledgeMessage(message);
+            return true;
 
         } catch (Exception e) {
             log.error("Failed to process message [id={}]: {}", message.messageId(), e.getMessage());
             handleMessageFailure(message, e);
             return false;
         }
+    }
+
+    private void enqueueEmailIfEnabled(User user, String eventType, String title, String body,
+                                       String actionUrl, String dedupeKey, String locale) {
+        if (user.getEmail() == null || user.getEmail().isBlank()) return;
+        String emailDedupeKey = dedupeKey.length() <= 248 ? dedupeKey + ":email"
+                : "email:" + UUID.nameUUIDFromBytes(dedupeKey.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        if (emailEvents.existsByDedupeKey(emailDedupeKey)) return;
+        EmailNotificationEvent event = new EmailNotificationEvent();
+        event.setUser(user);
+        event.setEventType(eventType);
+        event.setRecipientEmail(user.getEmail());
+        event.setSubject(title);
+        event.setMessage(body);
+        event.setActionUrl(actionUrl);
+        event.setLocale(locale);
+        event.setStatus(NotificationDeliveryStatus.PENDING);
+        event.setScheduledAt(Instant.now());
+        event.setDedupeKey(emailDedupeKey);
+        try {
+            emailEvents.saveAndFlush(event);
+        } catch (DataIntegrityViolationException duplicate) {
+            log.debug("Duplicate email notification enqueue suppressed for {}", emailDedupeKey);
+        }
+    }
+
+    private String requestedLocale(JsonNode root) {
+        JsonNode metadata = root.path("metadata");
+        if (metadata.isObject() && metadata.hasNonNull("locale")) {
+            String requested = metadata.path("locale").asText();
+            if (requested.matches("(?i)vi(?:-VN)?|en(?:-US)?")) {
+                return requested.toLowerCase(java.util.Locale.ROOT).startsWith("en") ? "en-US" : "vi-VN";
+            }
+        }
+        return "vi-VN";
+    }
+
+    private String localizedTitle(String eventType, String title, String locale) {
+        if (!locale.startsWith("en")) return title;
+        return switch (eventType) {
+            case "ASSIGNMENT_GRADED" -> "Assignment graded";
+            case "ASSIGNMENT_REGRADE_DISCREPANCY" -> "Assignment regrade needs review";
+            case "COURSE_ISSUE_FLAGGED" -> "Course issue reported";
+            case "COURSE_ISSUE_REVIEWED" -> "Course issue reviewed";
+            case "QA_REPLY" -> "New reply to your discussion";
+            case "QUIZ_PUBLISHED" -> "New quiz available";
+            case "COURSE_PUBLISHED" -> "Course published";
+            default -> title;
+        };
     }
 
     private void handleMessageFailure(Message message, Exception ex) {

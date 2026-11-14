@@ -45,10 +45,13 @@ public class BlindGradingService {
     private final AuditLogRepository auditLogs;
     private final NotificationPublisher notifications;
     private final ObjectMapper json;
+    private final AiTutorService aiTutor;
 
     public record QueueItem(UUID id, String code, String title, boolean appeal) {}
     public record Claim(QueueItem item, UUID token, Instant expiresAt, String text,
-                        List<RubricCriterion> rubric, String appealCriterion, String appealReason) {}
+                        List<RubricCriterion> rubric, String appealCriterion, String appealReason,
+                        List<String> vivaQuestions, List<String> vivaAnswers,
+                        BigDecimal vivaConsistencyScore, String vivaConsistencyNote) {}
     public record Result(BigDecimal score, Map<String, BigDecimal> scores, String feedback,
                          Instant gradedAt, boolean regraded, Instant appealUntil) {}
 
@@ -151,6 +154,20 @@ public class BlindGradingService {
                 grade.getRegradedAt() != null, until);
     }
 
+    public List<AiTutorService.RubricSuggestion> aiPregrade(UUID actor, UUID course, UUID id, UUID token) {
+        requireInstructor(actor, course);
+        AssignmentSubmission submission = get(course, id);
+        Instant now = Instant.now();
+        requireLease(submission, actor, token, now);
+        requireGradable(submission, actor);
+        var learner = submission.getEnrollment().getStudent();
+        String anonymizedText = submission.getTextContent()
+                .replace(learner.getFullName(), "[LEARNER]")
+                .replace(learner.getEmail(), "[EMAIL]")
+                .replace(learner.getId().toString(), "[LEARNER_ID]");
+        return aiTutor.suggestRubricScores(course, anonymizedText, submission.getAssignment().getRubric());
+    }
+
     public void appeal(UUID actor, UUID course, UUID id, String criterion, String reason) {
         AssignmentSubmission submission = get(course, id);
         requireOwner(submission, actor);
@@ -215,7 +232,8 @@ public class BlindGradingService {
         submissions.flush();
         return new Claim(item(submission), submission.getLockToken(), submission.getLockExpiresAt(),
                 submission.getTextContent(), submission.getAssignment().getRubric(),
-                submission.getAppealCriterion(), submission.getAppealReason());
+                submission.getAppealCriterion(), submission.getAppealReason(), submission.getVivaQuestions(),
+                submission.getVivaAnswers(), submission.getVivaConsistencyScore(), submission.getVivaConsistencyNote());
     }
 
     private boolean leaseActive(AssignmentSubmission submission, Instant now) {

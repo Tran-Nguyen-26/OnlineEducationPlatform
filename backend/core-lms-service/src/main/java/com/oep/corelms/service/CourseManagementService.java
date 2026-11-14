@@ -11,6 +11,7 @@ import com.oep.corelms.repository.LessonRepository;
 import com.oep.corelms.repository.LessonContentRepository;
 import com.oep.corelms.repository.LessonContentReferenceRepository;
 import com.oep.corelms.repository.UserRepository;
+import com.oep.corelms.service.AuditService;
 import com.oep.coremodel.entity.course.Course;
 import com.oep.coremodel.entity.course.CourseInstructor;
 import com.oep.coremodel.entity.course.CourseInstructorId;
@@ -26,6 +27,7 @@ import com.oep.coremodel.enums.LearningMode;
 import com.oep.coremodel.enums.UploadStatus;
 import com.oep.coremodel.enums.UserRole;
 import com.oep.coremodel.enums.AccountStatus;
+import com.oep.coremodel.enums.AuditAction;
 import com.oep.coremodel.exception.BusinessException;
 import com.oep.coremodel.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +43,7 @@ import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -53,6 +56,7 @@ public class CourseManagementService {
     private final CourseInstructorRepository courseInstructors;
     private final UserRepository users;
     private final CoursePublishValidator publishValidator;
+    private final AuditService auditService;
 
     @Transactional
     public CourseDtos.CourseResponse createCourse(UUID actorId, CourseDtos.CreateCourseRequest request) {
@@ -180,12 +184,16 @@ public class CourseManagementService {
     }
 
     @Transactional
-    public CourseDtos.CourseResponse disableCourse(UUID actorId, UUID courseId) {
+    public CourseDtos.CourseResponse disableCourse(UUID actorId, UUID courseId, String reason) {
         Course course = requireCourseForUpdate(courseId);
         requireAdmin(actorId);
         requireLifecycle(course, Set.of(CourseLifecycleStatus.DRAFT, CourseLifecycleStatus.PUBLISHED));
+        CourseLifecycleStatus previousStatus = course.getLifecycleStatus();
         course.setLifecycleStatus(CourseLifecycleStatus.DISABLED);
-        return toCourse(courses.saveAndFlush(course));
+        CourseDtos.CourseResponse disabled = toCourse(courses.saveAndFlush(course));
+        auditService.record(actorId, AuditAction.DISABLE_COURSE, "COURSE", courseId,
+                Map.of("reason", reason.strip(), "previousStatus", previousStatus.name()));
+        return disabled;
     }
 
     @Transactional
@@ -338,6 +346,20 @@ public class CourseManagementService {
     }
 
     @Transactional
+    public ModuleDtos.DeleteResponse deleteModule(UUID actorId, UUID courseId, UUID moduleId) {
+        requireCourseManager(courseId, actorId);
+        Course course = requireCourseForUpdate(courseId);
+        ensureCourseEditable(course);
+        CourseModule module = modules.findByIdAndCourseIdForUpdate(moduleId, courseId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_COURSE_MODULE, "Module not found in course"));
+        if (lessons.existsByModuleId(moduleId)) {
+            throw new BusinessException(ErrorCode.MODULE_IN_USE, "Delete the module lessons before deleting this module");
+        }
+        modules.deleteAndFlush(module);
+        return new ModuleDtos.DeleteResponse(true, moduleId);
+    }
+
+    @Transactional
     public ModuleDtos.ReorderResponse reorderModules(UUID actorId, UUID courseId, ModuleDtos.ReorderRequest request) {
         requireInstructorCourseManager(courseId, actorId);
         Course course = courses.findByIdForUpdate(courseId)
@@ -403,6 +425,23 @@ public class CourseManagementService {
         if (request.description() != null) lesson.setDescription(request.description());
         if (request.isRequired() != null) lesson.setRequired(request.isRequired());
         return toLesson(lessons.saveAndFlush(lesson));
+    }
+
+    @Transactional
+    public LessonDtos.DeleteResponse deleteLesson(UUID actorId, UUID courseId, UUID moduleId, UUID lessonId) {
+        requireCourseManager(courseId, actorId);
+        Course course = requireCourseForUpdate(courseId);
+        ensureCourseEditable(course);
+        modules.findByIdAndCourseIdForUpdate(moduleId, courseId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_COURSE_MODULE, "Module not found in course"));
+        Lesson lesson = lessons.findByIdAndModuleIdForUpdate(lessonId, moduleId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_COURSE_LESSON, "Lesson not found in module"));
+        if (contents.existsByLessonId(lessonId) || contentReferences.isLessonReferenced(lessonId)) {
+            throw new BusinessException(ErrorCode.LESSON_IN_USE,
+                    "Lesson is referenced by content, progress, quizzes, assignments, discussions or AI history");
+        }
+        lessons.deleteAndFlush(lesson);
+        return new LessonDtos.DeleteResponse(true, lessonId);
     }
 
     @Transactional(readOnly = true)

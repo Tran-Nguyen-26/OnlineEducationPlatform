@@ -1,0 +1,34 @@
+BEGIN;
+
+CREATE TABLE IF NOT EXISTS course_issue_flags (
+    id uuid PRIMARY KEY,
+    course_id uuid NOT NULL REFERENCES courses(id),
+    instructor_id uuid NOT NULL REFERENCES users(id),
+    category varchar(20) NOT NULL CHECK (category IN ('CONTENT', 'RUBRIC')),
+    detail text NOT NULL CHECK (length(trim(detail)) > 0),
+    status varchar(20) NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'RESOLVED', 'REJECTED')),
+    resolution text,
+    resolved_by uuid REFERENCES users(id),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_course_issue_flags_status_created
+    ON course_issue_flags (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_course_issue_flags_course_created
+    ON course_issue_flags (course_id, created_at DESC);
+
+ALTER TABLE audit_logs DROP CONSTRAINT IF EXISTS audit_logs_action_check;
+ALTER TABLE audit_logs ADD CONSTRAINT audit_logs_action_check CHECK (action IN (
+    'DISABLE_USER', 'ENABLE_USER', 'CHANGE_USER_ROLE', 'REVOKE_ALL_SESSIONS', 'ADMIN_RESET_PASSWORD',
+    'DISABLE_COURSE', 'ENABLE_COURSE', 'PUBLISH_COURSE', 'UNPUBLISH_COURSE', 'ARCHIVE_COURSE',
+    'RESTORE_COURSE', 'APPROVE_COURSE', 'REJECT_COURSE', 'TRANSFER_COURSE_OWNERSHIP',
+    'ASSIGN_CO_INSTRUCTOR', 'REMOVE_CO_INSTRUCTOR', 'FORCE_REMOVE_ENROLLMENT', 'ADMIN_MANUAL_ENROLL',
+    'RESTORE_ENROLLMENT', 'RESET_QUIZ_ATTEMPT', 'ADJUST_QUIZ_SCORE', 'UNLOCK_QUIZ_CONTENT',
+    'REGRADE', 'ADJUST_SCORE', 'EXTEND_ASSIGNMENT_DEADLINE', 'UPDATE_SYSTEM_SETTING',
+    'BROADCAST_SYSTEM_ALERT', 'RETRY_FAILED_OUTBOX', 'MODERATE_HIDE_REVIEW', 'UNHIDE_REVIEW',
+    'MUTE_CHANNEL_MEMBER', 'APPROVE_INSTRUCTOR_APPLICATION', 'REJECT_INSTRUCTOR_APPLICATION',
+    'REVOKE_INVITE_CODE', 'TOGGLE_COURSE_AI_TUTOR', 'PURGE_AI_KNOWLEDGE_BASE', 'RESOLVE_COURSE_ISSUE'
+));
+
+COMMIT;

@@ -16,11 +16,17 @@ const CourseDetailPage = lazy(() => import('@/features/courses/CourseDetailPage'
 const EnrollmentPage = lazy(() => import('@/features/enrollment/EnrollmentPage'))
 const AssessmentPage = lazy(() => import('@/features/assessment/AssessmentPage'))
 const DashboardPage = lazy(() => import('@/features/dashboard/DashboardPage'))
+const MyProfilePage = lazy(() => import('@/features/profile/MyProfilePage'))
 const AdminUsersPage = lazy(() => import('@/features/admin/users/AdminUsersPage'))
 const InstructorApplicationsPage = lazy(() => import('@/features/admin/instructorApplications/InstructorApplicationsPage'))
 const AdminDashboardPage = lazy(() => import('@/features/admin/AdminPlaceholders').then(m => ({ default: m.AdminDashboardPage })))
 const AdminCoursesPage = lazy(() => import('@/features/admin/AdminCoursesPage'))
 const AdminQuizzesPage = lazy(() => import('@/features/admin/quizzes/AdminQuizzesPage'))
+const AdminAiQuizPage = lazy(() => import('@/features/admin/quizzes/AdminAiQuizPage'))
+const AdminAiMetricsPage = lazy(() => import('@/features/admin/AdminAiMetricsPage'))
+const AdminCourseIssuesPage = lazy(() => import('@/features/admin/AdminCourseIssuesPage'))
+const AdminRegradeAuditPage = lazy(() => import('@/features/admin/AdminRegradeAuditPage'))
+const AdminEmailDeliveriesPage = lazy(() => import('@/features/admin/AdminEmailDeliveriesPage'))
 const AccessCodesPage = lazy(() => import('@/features/admin/AccessCodesPage'))
 const AdminSettingsPage = lazy(() => import('@/features/admin/AdminPlaceholders').then(m => ({ default: m.AdminSettingsPage })))
 
@@ -46,6 +52,7 @@ export const router = createBrowserRouter([
     element: <RootLayout />,
     children: [
       { path: 'dashboard', element: withSuspense(DashboardPage) },
+      { path: 'profile', element: withSuspense(MyProfilePage) },
       { path: 'dashboard/analytics', element: withSuspense(lazy(() => import('@/features/dashboard/CourseAnalyticsPage'))) },
       { path: 'courses', element: <Navigate to="/enrollment" replace /> },
       { path: 'courses/:id', element: withSuspense(CourseDetailPage) },
@@ -83,6 +90,11 @@ export const router = createBrowserRouter([
       { path: 'dashboard', element: withSuspense(AdminDashboardPage) },
       { path: 'courses', element: withSuspense(AdminCoursesPage) },
       { path: 'quizzes', element: withSuspense(AdminQuizzesPage) },
+      { path: 'ai-quiz', element: withSuspense(AdminAiQuizPage) },
+      { path: 'ai-metrics', element: withSuspense(AdminAiMetricsPage) },
+      { path: 'course-issues', element: withSuspense(AdminCourseIssuesPage) },
+      { path: 'regrade-audit', element: withSuspense(AdminRegradeAuditPage) },
+      { path: 'email-deliveries', element: withSuspense(AdminEmailDeliveriesPage) },
       { path: 'access-codes', element: withSuspense(AccessCodesPage) },
       { path: 'settings', element: withSuspense(AdminSettingsPage) },
     ],

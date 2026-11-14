@@ -134,6 +134,18 @@ export function resendRegistrationOtp(email: string) {
   return registrationRequest<RegistrationPendingResponse>('resend-otp', { email: email.trim() })
 }
 
+export function verifyDormantOtp(email: string, password: string, otpCode: string) {
+  return fetch('/api/auth/dormant/verify-otp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...deviceHeaders() },
+    body: JSON.stringify({ email: email.trim(), password, otpCode: otpCode.trim() }),
+  }).then(async (response) => {
+    const data = await response.json().catch(() => null) as ApiErrorResponse & AuthResponse | null
+    if (!response.ok) throw new Error(data?.message || 'Không thể khôi phục tài khoản. Vui lòng thử lại.')
+    return data as AuthResponse
+  })
+}
+
 /**
  * Authenticate a user with email and password.
  * Calls POST /api/auth/login
@@ -157,6 +169,9 @@ export async function loginUser(payload: LoginRequest): Promise<AuthResponse> {
         )
       }
       const errData = error as ApiErrorResponse | undefined
+      if (errData?.error === 'DORMANT_OTP_REQUIRED') {
+        throw new Error('Tài khoản ngủ đông. Mã OTP đã được gửi tới email đăng ký để kích hoạt lại.')
+      }
       if (errData?.error === 'EMAIL_NOT_VERIFIED') {
         throw new Error('Email chưa xác minh. Hãy đăng ký lại hoặc yêu cầu gửi mã xác minh mới.')
       }

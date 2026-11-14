@@ -84,6 +84,11 @@ function renderRoleBadge(role: UserRole) {
 function renderStatusBadge(status: AccountStatus) {
   const isLocked = status === 'LOCKED' || status === 'SUSPENDED'
 
+  if (status === 'DORMANT' || status === 'PENDING_VERIFICATION' || status === 'DISABLED') {
+    const label = status === 'DORMANT' ? 'Ngủ đông' : status === 'PENDING_VERIFICATION' ? 'Chờ xác minh email' : 'Đã vô hiệu hóa'
+    return <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">{label}</span>
+  }
+
   if (isLocked) {
     return (
       <div className="inline-flex items-center gap-1.5 rounded-full bg-[#fee2e2] px-3 py-1 text-xs font-semibold text-[#991b1b]">
@@ -163,7 +168,8 @@ export function AdminUserTable({
         <tbody className="divide-y divide-slate-100">
           {users.map((user) => {
             const avatar = getAvatarStyle(user.fullName, user.role)
-            const isLocked = user.accountStatus === 'LOCKED' || user.accountStatus === 'SUSPENDED'
+            const isLocked = user.accountStatus === 'LOCKED' || user.accountStatus === 'DISABLED'
+            const canManageStatus = user.accountStatus === 'ACTIVE' || isLocked
             const isAdmin = user.role === 'ADMIN'
 
             return (
@@ -224,7 +230,7 @@ export function AdminUserTable({
                     </button>
 
                     {/* Khóa / Mở khóa button (hidden for ADMIN accounts) */}
-                    {!isAdmin && (
+                    {!isAdmin && canManageStatus && (
                       <>
                         {isLocked ? (
                           <button

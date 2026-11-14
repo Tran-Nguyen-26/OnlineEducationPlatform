@@ -28,16 +28,23 @@ public class EmailService {
 
     public void sendForgotPasswordOtp(String to, String fullName, String otpCode) {
         String subject = "[Online Education Platform] Mã xác thực đặt lại mật khẩu của bạn";
-        String html    = buildOtpEmailHtml(fullName, otpCode, false);
+        String html    = buildOtpEmailHtml(fullName, otpCode, "forgot-password");
         sendHtmlEmail(to, subject, html);
         log.info("OTP email sent to {}", to);
     }
 
     public void sendRegistrationOtp(String to, String fullName, String otpCode) {
         String subject = "[Online Education Platform] Xác minh email đăng ký của bạn";
-        String html = buildOtpEmailHtml(fullName, otpCode, true);
+        String html = buildOtpEmailHtml(fullName, otpCode, "registration");
         sendHtmlEmail(to, subject, html);
         log.info("Registration verification email sent to {}", to);
+    }
+
+    public void sendDormantReactivationOtp(String to, String fullName, String otpCode) {
+        String subject = "[Online Education Platform] Mã xác minh khôi phục tài khoản";
+        String html = buildOtpEmailHtml(fullName, otpCode, "dormant");
+        sendHtmlEmail(to, subject, html);
+        log.info("Dormant-account reactivation email sent to {}", to);
     }
 
     public void sendPasswordResetSuccessAlert(String to, String fullName, String actionTime) {
@@ -61,7 +68,30 @@ public class EmailService {
         log.info("Instructor application rejected email sent to {}", to);
     }
 
-    private String buildOtpEmailHtml(String fullName, String otpCode, boolean registration) {
+    public void sendNotificationEmail(String to, String title, String body, String actionUrl, String locale) {
+        boolean english = locale != null && locale.toLowerCase(java.util.Locale.ROOT).startsWith("en");
+        String safeTitle = escapeHtml(title);
+        String safeBody = escapeHtml(body).replace("\n", "<br>");
+        String safeAction = actionUrl != null && actionUrl.matches("(?i)^https?://[^\\s<>\\\"]{1,480}$")
+                ? escapeHtml(actionUrl) : null;
+        String subject = (english ? "[OEP] " : "[OEP] ") + title;
+        String greeting = english ? "You have a new notification" : "Bạn có thông báo mới";
+        String openLabel = english ? "Open EduPlatform" : "Mở EduPlatform";
+        String footer = english ? "This message was sent automatically. Please do not reply." : "Email được gửi tự động, vui lòng không trả lời.";
+        String html = "<!doctype html><html lang='" + (english ? "en" : "vi") + "'><meta charset='utf-8'>"
+                + "<body style='margin:0;background:#f1f5f9;font-family:Arial,sans-serif;color:#0f172a;padding:32px'>"
+                + "<main style='max-width:560px;margin:auto;background:#fff;border-radius:12px;padding:28px'>"
+                + "<p style='color:#0f766e;font-weight:700'>Online Education Platform</p>"
+                + "<p style='color:#64748b'>" + greeting + "</p><h1 style='font-size:22px'>" + safeTitle + "</h1>"
+                + "<p style='line-height:1.6'>" + safeBody + "</p>"
+                + (safeAction == null ? "" : "<p><a href='" + safeAction + "' style='display:inline-block;background:#0f766e;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none'>" + openLabel + "</a></p>")
+                + "<hr style='border:0;border-top:1px solid #e2e8f0;margin:24px 0'><small style='color:#64748b'>" + footer + "</small>"
+                + "</main></body></html>";
+        sendHtmlEmail(to, subject, html);
+        log.info("Notification email queued delivery sent to {}", to);
+    }
+
+    private String buildOtpEmailHtml(String fullName, String otpCode, String purpose) {
         // Format OTP with spaces for readability: "842915" → "8 4 2 9 1 5"
         String otpFormatted = String.join(" ", otpCode.split(""));
 
@@ -88,10 +118,12 @@ public class EmailService {
                "        <tr><td style='padding:40px 40px 32px;'>" +
                "          <p style='color:#374151;font-size:16px;margin:0 0 16px;'>Xin chào <strong>" + escapeHtml(fullName) + "</strong>,</p>" +
                "          <p style='color:#6b7280;font-size:15px;line-height:1.6;margin:0 0 28px;'>" +
-               (registration
+               ("registration".equals(purpose)
                        ? "            Cảm ơn bạn đã đăng ký tài khoản. Nhập mã xác thực dưới đây để kích hoạt tài khoản:"
-                       : "            Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản liên kết với email này.") +
-               (registration ? "</p>" : "            Vui lòng sử dụng mã xác thực dưới đây để hoàn tất xác minh:</p>") +
+                       : "dormant".equals(purpose)
+                           ? "            Tài khoản của bạn đã ngủ đông do không đăng nhập trong thời gian dài. Nhập mã xác thực để kích hoạt lại tài khoản:"
+                           : "            Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản liên kết với email này.") +
+               ("forgot-password".equals(purpose) ? "            Vui lòng sử dụng mã xác thực dưới đây để hoàn tất xác minh:</p>" : "</p>") +
                "          <!-- OTP Box -->" +
                "          <div style='background:linear-gradient(135deg,#f0f4ff 0%,#faf0ff 100%);" +
                "               border:2px solid #e0e7ff;border-radius:12px;padding:28px;text-align:center;margin:0 0 28px;'>" +
@@ -105,9 +137,11 @@ public class EmailService {
                "          <!-- Security warning -->" +
                "          <div style='background:#fef3c7;border-left:4px solid #f59e0b;border-radius:6px;padding:16px;margin:0 0 24px;'>" +
                "            <p style='color:#92400e;font-size:14px;margin:0;line-height:1.5;'>" +
-               (registration
+               ("registration".equals(purpose)
                        ? "              ⚠️ <strong>Lưu ý bảo mật:</strong> Nếu bạn không đăng ký tài khoản, hãy bỏ qua email này."
-                       : "              ⚠️ <strong>Lưu ý bảo mật:</strong> Nếu bạn không yêu cầu đặt lại mật khẩu, xin hãy bỏ qua email này.") +
+                       : "dormant".equals(purpose)
+                           ? "              ⚠️ <strong>Lưu ý bảo mật:</strong> Nếu bạn không yêu cầu kích hoạt lại tài khoản, hãy bỏ qua email này."
+                           : "              ⚠️ <strong>Lưu ý bảo mật:</strong> Nếu bạn không yêu cầu đặt lại mật khẩu, xin hãy bỏ qua email này.") +
                "              <strong>Tuyệt đối không chia sẻ mã này cho bất kỳ ai.</strong></p>" +
                "          </div>" +
                "        </td></tr>" +

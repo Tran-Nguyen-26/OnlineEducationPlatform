@@ -280,6 +280,7 @@ export default function AssessmentPage() {
                           {quiz.retry_after && ` Lượt học bù mở sớm nhất lúc ${new Date(quiz.retry_after).toLocaleString('vi-VN')}.`}
                         </p>
                       )}
+                      {quiz.lock_reason && <p className="mt-2 text-xs font-medium text-amber-800">{quiz.lock_reason}</p>}
                       {quiz.effective_percent != null && (
                         <p className="mt-2 text-xs font-semibold text-slate-700">
                           Điểm theo chính sách của bài thi {Number(quiz.effective_percent).toLocaleString('vi-VN', { maximumFractionDigits: 2 })}%

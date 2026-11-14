@@ -65,6 +65,20 @@ public class PrivatePlaybackService {
                 authorized.email() + " · " + actor, authorized.archived());
     }
 
+    public void recordRewind(UUID actor, UUID course, UUID videoId, UUID token, int fromSecond, int toSecond) {
+        if (fromSecond < 0 || toSecond < 0 || toSecond >= fromSecond || fromSecond - toSecond < 10) return;
+        AuthorizedVideo authorized = requireVideo(actor, course, videoId);
+        heartbeat.requirePlaybackStream(actor, authorized.video().enrollmentId(), authorized.video().lessonId(), videoId, token);
+        if (authorized.archived()) return;
+        int bucket = (toSecond / 30) * 30;
+        jdbc.update("""
+                insert into video_rewind_heatmap(course_id, lesson_id, video_id, bucket_start_sec, rewind_count, updated_at)
+                values (?, ?, ?, ?, 1, now())
+                on conflict (course_id, lesson_id, video_id, bucket_start_sec)
+                do update set rewind_count = video_rewind_heatmap.rewind_count + 1, updated_at = now()
+                """, course, authorized.video().lessonId(), videoId, bucket);
+    }
+
     public ResponseInputStream<GetObjectResponse> read(UUID actor, UUID course, UUID videoId, UUID token, String path) {
         if (!HLS_PATH.matcher(path).matches()) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "Không tìm thấy học liệu");

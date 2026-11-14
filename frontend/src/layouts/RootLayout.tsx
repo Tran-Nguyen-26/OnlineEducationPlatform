@@ -3,6 +3,7 @@ import NotificationBell from '@/features/notifications/NotificationBell'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: '📊' },
+  { to: '/profile', label: 'Hồ sơ cá nhân', icon: '👤' },
   { to: '/enrollment', label: 'Khóa học của tôi', icon: '📚' },
   { to: '/assessment', label: 'Kiểm tra', icon: '📝' },
 ]

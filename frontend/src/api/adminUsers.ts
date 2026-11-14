@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 export type UserRole = 'STUDENT' | 'INSTRUCTOR' | 'ADMIN'
-export type AccountStatus = 'ACTIVE' | 'LOCKED' | 'SUSPENDED' | 'DISABLED'
+export type AccountStatus = 'PENDING_VERIFICATION' | 'ACTIVE' | 'DORMANT' | 'LOCKED' | 'SUSPENDED' | 'DISABLED'
 
 export interface AdminUserItem {
   id: string

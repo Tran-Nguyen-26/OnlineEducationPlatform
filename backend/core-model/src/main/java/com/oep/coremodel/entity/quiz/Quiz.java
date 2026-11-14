@@ -27,7 +27,7 @@ public class Quiz extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "assessment_kind", length = 16)
-    private Kind assessmentKind;
+    private Kind assessmentKind = Kind.MINI_QUIZ;
 
     @Column(name = "exam_starts_at")
     private Instant examStartsAt;

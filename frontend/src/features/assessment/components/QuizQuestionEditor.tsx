@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import {
   X,
   Plus,
@@ -17,6 +17,8 @@ import type {
   QuestionType,
   CreateQuestionPayload,
   OptionPayload,
+  QuestionBankItem,
+  QuestionOutcomeItem,
 } from '@/api/quiz'
 import {
   createQuestion,
@@ -24,11 +26,14 @@ import {
   deleteQuestion,
   reorderQuestions,
 } from '@/api/quiz'
+import { exportQuestionBank, importQuestionBank, type TransferFormat } from '../questionBankTransfer'
 
 interface QuizQuestionEditorProps {
   courseId: string
   quiz: QuizItem
   questions: QuestionItem[]
+  banks: QuestionBankItem[]
+  outcomes: QuestionOutcomeItem[]
   onClose: () => void
   onRefresh: () => void
 }
@@ -37,6 +42,8 @@ export function QuizQuestionEditor({
   courseId,
   quiz,
   questions,
+  banks,
+  outcomes,
   onClose,
   onRefresh,
 }: QuizQuestionEditorProps) {
@@ -44,10 +51,16 @@ export function QuizQuestionEditor({
   const [isCreating, setIsCreating] = useState(false)
   const [loading, setLoading] = useState(false)
   const [actionError, setActionError] = useState('')
+  const [selectedBankId, setSelectedBankId] = useState('')
+  const [selectedOutcomeId, setSelectedOutcomeId] = useState('')
+  const [bloomLevel, setBloomLevel] = useState<'REMEMBER' | 'UNDERSTAND' | 'APPLY'>('UNDERSTAND')
+  const [transferMessage, setTransferMessage] = useState('')
+  const importInput = useRef<HTMLInputElement>(null)
 
   // Form states
   const [qType, setQType] = useState<QuestionType>('SINGLE_CHOICE')
   const [qText, setQText] = useState('')
+  const [keywordAnswer, setKeywordAnswer] = useState('')
   const [qPoints, setQPoints] = useState(1.0)
   const [options, setOptions] = useState<OptionPayload[]>([
     { option_text: '', is_correct: false },
@@ -58,6 +71,9 @@ export function QuizQuestionEditor({
     setEditingQ(null)
     setQType('SINGLE_CHOICE')
     setQText('')
+    setKeywordAnswer('')
+    setSelectedOutcomeId('')
+    setBloomLevel('UNDERSTAND')
     setQPoints(1.0)
     setOptions([
       { option_text: '', is_correct: true },
@@ -66,6 +82,7 @@ export function QuizQuestionEditor({
       { option_text: '', is_correct: false },
     ])
     setActionError('')
+    setTransferMessage('')
     setIsCreating(true)
   }
 
@@ -73,7 +90,11 @@ export function QuizQuestionEditor({
     setEditingQ(q)
     setQType(q.question_type)
     setQText(q.question_text)
+    setKeywordAnswer(q.keyword_answer ?? '')
     setQPoints(Number(q.points) || 1.0)
+    setSelectedBankId(q.question_bank_id ?? '')
+    setSelectedOutcomeId(q.learning_outcome_id ?? '')
+    setBloomLevel(q.bloom_level ?? 'UNDERSTAND')
     setOptions(
       q.options.map((o) => ({
         option_text: o.option_text,
@@ -87,7 +108,9 @@ export function QuizQuestionEditor({
 
   const handleTypeChange = (newType: QuestionType) => {
     setQType(newType)
-    if (newType === 'TRUE_FALSE') {
+    if (newType === 'KEYWORD_FILL') {
+      setOptions([])
+    } else if (newType === 'TRUE_FALSE') {
       setOptions([
         { option_text: 'Đúng', is_correct: true, position: 0 },
         { option_text: 'Sai', is_correct: false, position: 1 },
@@ -140,7 +163,12 @@ export function QuizQuestionEditor({
     }
 
     // Validate options
-    if (qType === 'TRUE_FALSE') {
+    if (qType === 'KEYWORD_FILL') {
+      if (!keywordAnswer.trim()) {
+        setActionError('Vui lòng nhập đáp án từ khóa.')
+        return
+      }
+    } else if (qType === 'TRUE_FALSE') {
       if (options.length !== 2) {
         setActionError('Câu hỏi Đúng/Sai phải có chính xác 2 phương án.')
         return
@@ -184,7 +212,11 @@ export function QuizQuestionEditor({
       const payload: CreateQuestionPayload = {
         question_type: qType,
         question_text: qText.trim(),
+        keyword_answer: qType === 'KEYWORD_FILL' ? keywordAnswer.trim() : undefined,
         points: qPoints,
+        question_bank_id: selectedBankId || undefined,
+        learning_outcome_id: selectedOutcomeId || undefined,
+        bloom_level: bloomLevel,
         options: options.map((opt, idx) => ({
           option_text: opt.option_text.trim(),
           is_correct: opt.is_correct,
@@ -193,7 +225,11 @@ export function QuizQuestionEditor({
       }
 
       if (editingQ) {
-        await updateQuestion(courseId, quiz.id, editingQ.id, payload)
+        await updateQuestion(courseId, quiz.id, editingQ.id, {
+          ...payload,
+          clear_question_bank: !selectedBankId,
+          clear_learning_outcome: !selectedOutcomeId,
+        })
       } else {
         await createQuestion(courseId, quiz.id, payload)
       }
@@ -210,6 +246,53 @@ export function QuizQuestionEditor({
     } finally {
       setLoading(false)
     }
+  }
+
+  const downloadTransferFile = (format: TransferFormat) => {
+    const bankQuestions = selectedBankId
+      ? questions.filter((question) => question.question_bank_id === selectedBankId)
+      : questions
+    const contents = exportQuestionBank(bankQuestions, format)
+    const blob = new Blob([contents], { type: format === 'json' ? 'application/json;charset=utf-8' : 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    const safeName = quiz.title.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '') || 'quiz'
+    anchor.href = url
+    anchor.download = `${safeName}-question-bank.${format}`
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) {
+      setActionError('Tệp nhập không được vượt quá 5 MB.')
+      event.target.value = ''
+      return
+    }
+    setLoading(true)
+    setActionError('')
+    setTransferMessage('')
+    let imported = 0
+    try {
+      const format: TransferFormat = file.name.toLowerCase().endsWith('.csv') ? 'csv' : 'json'
+      const payloads = importQuestionBank(await file.text(), format)
+      for (const payload of payloads) {
+        await createQuestion(courseId, quiz.id, { ...payload, question_bank_id: selectedBankId || undefined })
+        imported++
+      }
+      setTransferMessage(`Đã nhập ${imported} câu hỏi${selectedBankId ? ' vào ngân hàng đã chọn' : ''}.`)
+    } catch (err) {
+      if (imported > 0) {
+        setTransferMessage(`Đã nhập ${imported} câu trước khi gặp lỗi.`)
+      }
+      setActionError(err instanceof Error ? err.message : 'Không thể nhập tệp câu hỏi.')
+    } finally {
+      setLoading(false)
+      event.target.value = ''
+    }
+    if (imported > 0) await onRefresh()
   }
 
   const handleDeleteQuestion = async (qId: string) => {
@@ -251,7 +334,7 @@ export function QuizQuestionEditor({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fadeIn">
       <div className="flex h-[90vh] w-full max-w-5xl flex-col rounded-3xl bg-white shadow-2xl overflow-hidden">
         {/* Header */}
-        <header className="flex h-16 items-center justify-between border-b px-6 bg-slate-50">
+        <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b bg-slate-50 px-6 py-3">
           <div>
             <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
               <span>Soạn câu hỏi đề thi:</span>
@@ -263,15 +346,33 @@ export function QuizQuestionEditor({
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {!isCreating && (
-              <button
-                onClick={openCreateForm}
-                className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 transition"
-              >
-                <Plus className="h-4 w-4" />
-                Thêm câu hỏi mới
-              </button>
+              <>
+                <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                  Ngân hàng
+                  <select value={selectedBankId} onChange={(event) => setSelectedBankId(event.target.value)}
+                    className="max-w-44 rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs">
+                    <option value="">{editingQ ? 'Giữ hiện trạng' : 'Không gắn'}</option>
+                    {banks.map((bank) => <option key={bank.id} value={bank.id}>{bank.name}</option>)}
+                  </select>
+                </label>
+                <button type="button" disabled={!(selectedBankId ? questions.some((question) => question.question_bank_id === selectedBankId) : questions.length) || loading} onClick={() => downloadTransferFile('csv')}
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50">Xuất CSV</button>
+                <button type="button" disabled={!(selectedBankId ? questions.some((question) => question.question_bank_id === selectedBankId) : questions.length) || loading} onClick={() => downloadTransferFile('json')}
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50">Xuất JSON</button>
+                <input ref={importInput} type="file" accept=".csv,.json,application/json,text/csv" className="hidden" onChange={(event) => void handleImportFile(event)} />
+                <button type="button" disabled={loading} onClick={() => importInput.current?.click()}
+                  className="rounded-lg border border-teal-700 px-3 py-2 text-xs font-semibold text-teal-800 disabled:opacity-50">Nhập CSV/JSON</button>
+                <button
+                  type="button"
+                  onClick={openCreateForm}
+                  className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 transition"
+                >
+                  <Plus className="h-4 w-4" />
+                  Thêm câu hỏi mới
+                </button>
+              </>
             )}
             <button
               onClick={onClose}
@@ -281,6 +382,9 @@ export function QuizQuestionEditor({
             </button>
           </div>
         </header>
+
+        {transferMessage && <p role="status" className="border-b bg-emerald-50 px-6 py-2 text-xs text-emerald-800">{transferMessage}</p>}
+        {actionError && !isCreating && <p role="alert" className="border-b bg-rose-50 px-6 py-2 text-xs text-rose-800">{actionError}</p>}
 
         {/* Content Body */}
         <div className="flex flex-1 overflow-hidden">
@@ -309,6 +413,31 @@ export function QuizQuestionEditor({
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Ngân hàng câu hỏi</label>
+                  <select value={selectedBankId} onChange={(event) => setSelectedBankId(event.target.value)}
+                    className="w-full rounded-xl border border-gray-300 p-2.5 text-sm focus:border-blue-500 focus:outline-none">
+                    <option value="">Không gắn ngân hàng</option>
+                    {banks.map((bank) => <option key={bank.id} value={bank.id}>{bank.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Learning Outcome</label>
+                  <select value={selectedOutcomeId} onChange={(event) => setSelectedOutcomeId(event.target.value)}
+                    className="w-full rounded-xl border border-gray-300 p-2.5 text-sm focus:border-blue-500 focus:outline-none">
+                    <option value="">Chưa gắn outcome</option>
+                    {outcomes.map((outcome) => <option key={outcome.id} value={outcome.id}>{outcome.code} · {outcome.description}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Mức Bloom</label>
+                  <select value={bloomLevel} onChange={(event) => setBloomLevel(event.target.value as typeof bloomLevel)}
+                    className="w-full rounded-xl border border-gray-300 p-2.5 text-sm focus:border-blue-500 focus:outline-none">
+                    <option value="REMEMBER">REMEMBER · Nhớ</option>
+                    <option value="UNDERSTAND">UNDERSTAND · Hiểu</option>
+                    <option value="APPLY">APPLY · Vận dụng</option>
+                  </select>
+                </div>
+                <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1">
                     Loại câu hỏi
                   </label>
@@ -320,6 +449,7 @@ export function QuizQuestionEditor({
                     <option value="SINGLE_CHOICE">Trắc nghiệm chọn 1 đáp án</option>
                     <option value="MULTIPLE_CHOICE">Trắc nghiệm chọn nhiều đáp án</option>
                     <option value="TRUE_FALSE">Đúng / Sai</option>
+                    <option value="KEYWORD_FILL">Điền từ khóa</option>
                   </select>
                 </div>
 
@@ -352,8 +482,14 @@ export function QuizQuestionEditor({
                 />
               </div>
 
+              {qType === 'KEYWORD_FILL' && <label className="grid gap-1 text-xs font-semibold text-gray-700">
+                Đáp án từ khóa <span className="text-red-500">*</span>
+                <input value={keywordAnswer} onChange={(event) => setKeywordAnswer(event.target.value)} maxLength={255} required
+                  className="w-full rounded-xl border border-gray-300 p-2.5 text-sm font-normal focus:border-blue-500 focus:outline-none" />
+              </label>}
+
               {/* Options Section */}
-              <div className="space-y-3">
+              {qType !== 'KEYWORD_FILL' && <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="block text-xs font-bold text-gray-800 uppercase tracking-wider">
                     Các phương án trả lời ({options.length})
@@ -420,7 +556,7 @@ export function QuizQuestionEditor({
                     </div>
                   ))}
                 </div>
-              </div>
+              </div>}
 
               {/* Form Buttons */}
               <div className="flex justify-end gap-3 pt-6 border-t">
@@ -469,11 +605,18 @@ export function QuizQuestionEditor({
                                 ? 'Trắc nghiệm 1 đáp án'
                                 : q.question_type === 'TRUE_FALSE'
                                   ? 'Đúng/Sai'
-                                  : 'Nhiều đáp án'}
+                                  : q.question_type === 'KEYWORD_FILL'
+                                    ? 'Điền từ khóa'
+                                    : 'Nhiều đáp án'}
                             </span>
                             <span>•</span>
                             <span>{q.points} điểm</span>
                           </div>
+                          {(q.learning_outcome_id || q.bloom_level) && <p className="mt-1 text-xs text-slate-500">
+                            {q.learning_outcome_id && outcomes.find((outcome) => outcome.id === q.learning_outcome_id)?.code}
+                            {q.learning_outcome_id && q.bloom_level && ' · '}
+                            {q.bloom_level && `Bloom ${q.bloom_level}`}
+                          </p>}
                         </div>
                       </div>
 

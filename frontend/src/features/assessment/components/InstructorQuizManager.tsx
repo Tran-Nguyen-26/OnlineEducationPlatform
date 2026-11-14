@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import {
   Plus,
+  Edit2,
   BookOpen,
   Clock,
   HelpCircle,
@@ -21,6 +22,7 @@ import type {
   QuizItem,
   TeachingCourse,
   QuestionBankItem,
+  QuestionOutcomeItem,
   CreateQuizPayload,
   QuizGradingPolicy,
 } from '@/api/quiz'
@@ -32,7 +34,9 @@ import {
   deleteQuiz,
   fetchQuestions,
   fetchQuestionBanks,
+  fetchQuestionOutcomes,
   createQuestionBank,
+  updateQuestionBank,
   deleteQuestionBank,
 } from '@/api/quiz'
 import { QuizQuestionEditor } from './QuizQuestionEditor'
@@ -56,10 +60,12 @@ export function InstructorQuizManager() {
   // New Question Bank modal
   const [showCreateBankModal, setShowCreateBankModal] = useState(false)
   const [bankName, setBankName] = useState('')
+  const [editingBank, setEditingBank] = useState<QuestionBankItem | null>(null)
 
   // Form state for Quiz
   const [quizForm, setQuizForm] = useState<CreateQuizPayload>({
     title: '',
+    assessment_kind: 'MINI_QUIZ',
     description: '',
     question_source: 'FIXED',
     time_limit_seconds: 1800,
@@ -107,8 +113,16 @@ export function InstructorQuizManager() {
     staleTime: 10 * 1000,
   })
 
+  const { data: outcomeData } = useQuery({
+    queryKey: ['instructorQuestionOutcomes', activeCourseId],
+    queryFn: () => fetchQuestionOutcomes(activeCourseId),
+    enabled: Boolean(activeCourseId),
+    staleTime: 60 * 1000,
+  })
+
   const quizzes: QuizItem[] = quizData?.items || []
   const banks: QuestionBankItem[] = bankData?.items || []
+  const outcomes: QuestionOutcomeItem[] = outcomeData || []
   const loading = loadingQuizzes
   const error = quizQueryError instanceof Error ? quizQueryError.message : ''
 
@@ -116,6 +130,7 @@ export function InstructorQuizManager() {
     setEditingQuiz(null)
     setQuizForm({
       title: '',
+      assessment_kind: 'MINI_QUIZ',
       description: '',
       question_source: 'FIXED',
       time_limit_seconds: 1800,
@@ -134,6 +149,7 @@ export function InstructorQuizManager() {
     setEditingQuiz(q)
     setQuizForm({
       title: q.title,
+      assessment_kind: q.assessment_kind || 'MINI_QUIZ',
       description: q.description || '',
       question_source: q.question_source || 'FIXED',
       time_limit_seconds: q.time_limit_seconds || 1800,
@@ -206,8 +222,10 @@ export function InstructorQuizManager() {
     e.preventDefault()
     if (!bankName.trim()) return
     try {
-      await createQuestionBank(selectedCourseId, bankName.trim())
+      if (editingBank) await updateQuestionBank(selectedCourseId, editingBank.id, bankName.trim())
+      else await createQuestionBank(selectedCourseId, bankName.trim())
       setBankName('')
+      setEditingBank(null)
       setShowCreateBankModal(false)
       refetchBanks()
     } catch (err: unknown) {
@@ -483,14 +501,19 @@ export function InstructorQuizManager() {
                       </span>
                     </div>
                   </div>
-
-                  <button
-                    onClick={() => handleDeleteBank(b.id)}
-                    className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
-                    title="Xóa ngân hàng"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button type="button" onClick={() => { setEditingBank(b); setBankName(b.name); setShowCreateBankModal(true) }}
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-blue-50 hover:text-blue-600" title="Sửa ngân hàng">
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteBank(b.id)}
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                      title="Xóa ngân hàng"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -526,6 +549,18 @@ export function InstructorQuizManager() {
                   className="w-full rounded-xl border border-slate-300 p-2.5 text-sm focus:border-blue-500 focus:outline-none"
                   required
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Loại đánh giá</label>
+                <select value={quizForm.assessment_kind || 'MINI_QUIZ'}
+                  onChange={(event) => setQuizForm({ ...quizForm, assessment_kind: event.target.value as NonNullable<CreateQuizPayload['assessment_kind']> })}
+                  className="w-full rounded-xl border border-slate-300 p-2.5 text-sm focus:border-blue-500 focus:outline-none">
+                  <option value="PRE_TEST">Pre-test · Kiểm tra đầu vào</option>
+                  <option value="MINI_QUIZ">Mini-quiz · Kiểm tra bài học</option>
+                  <option value="POST_TEST">Post-test · Kiểm tra cuối khóa</option>
+                  <option value="MASS_EXAM">Mass exam · Kỳ thi đồng loạt</option>
+                </select>
               </div>
 
               <div>
@@ -669,7 +704,7 @@ export function InstructorQuizManager() {
       {showCreateBankModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <h3 className="text-base font-bold text-slate-900">Thêm ngân hàng câu hỏi mới</h3>
+            <h3 className="text-base font-bold text-slate-900">{editingBank ? 'Đổi tên ngân hàng câu hỏi' : 'Thêm ngân hàng câu hỏi mới'}</h3>
             <form onSubmit={handleCreateBank} className="mt-4 space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -688,7 +723,7 @@ export function InstructorQuizManager() {
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowCreateBankModal(false)}
+                  onClick={() => { setShowCreateBankModal(false); setEditingBank(null); setBankName('') }}
                   className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100"
                 >
                   Hủy
@@ -697,7 +732,7 @@ export function InstructorQuizManager() {
                   type="submit"
                   className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white hover:bg-emerald-700"
                 >
-                  Lưu ngân hàng
+                  {editingBank ? 'Lưu thay đổi' : 'Lưu ngân hàng'}
                 </button>
               </div>
             </form>
@@ -711,6 +746,8 @@ export function InstructorQuizManager() {
           courseId={selectedCourseId}
           quiz={activeEditorQuiz}
           questions={activeEditorQuestions}
+          banks={banks}
+          outcomes={outcomes}
           onClose={() => setActiveEditorQuiz(null)}
           onRefresh={async () => {
             const res = await fetchQuestions(selectedCourseId, activeEditorQuiz.id)

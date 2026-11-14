@@ -1478,10 +1478,10 @@ erDiagram
        predicates:
          - Path=/api/auth/**,/api/users/**,/api/courses/**,/api/enrollments/**,/api/notifications/**,/api/audit-logs/**
      ```
-2. **Message Broker Abstraction (RabbitMQ & AWS SQS)**:
-   - **Local Development / Docker Compose**: Outbox publisher pushes to RabbitMQ exchange `oep.events` with routing key `notification.requested`. Queue `oep.worker.notification` is bound to `notification.*`.
-   - **Dead Letter Queue (DLQ) & Poisoned Messages**: Unprocessable messages (failing after 5 retries) are rejected (`basicNack(requeue = false)`) and routed to Dead Letter Exchange `oep.dlx` and queue `oep.dlq.notification` to prevent blocking the worker consumer.
-   - **Production AWS Cloud**: Uses AWS SQS standard queue with deduplication or FIFO depending on throughput constraints. The worker listener interface remains identical via Spring Cloud Stream / Messaging abstraction.
+2. **Message Broker Delivery**:
+   - The outbox relay publishes to the configured AWS SQS-compatible queue (LocalStack in local development), with an SQS dead-letter queue configured by `SqsConfig`.
+   - `NotificationSqsConsumer` acknowledges valid notifications after persistence and email enqueue. Failures remain unacknowledged and follow SQS redrive policy; after five receives, the queue routes the message to its DLQ.
+   - RabbitMQ remains configured for legacy event listeners, including the `NotificationRequestedEvent` compatibility path, but is not the current outbox relay transport.
 3. **Table Partitioning & Retention Policy**:
    - `notifications`: Rows marked `is_read = true` older than 90 days are archived or purged by a nightly scheduled maintenance job:
      ```sql
@@ -1496,4 +1496,10 @@ erDiagram
      ```
    - `audit_logs`: Legally immutable. When reaching high volume (>10 million rows), partition table by RANGE on `created_at` (monthly partitions) to preserve query performance.
 4. **Email Delivery Idempotency**:
-   - Bảng `email_notification_events` được bổ sung ràng buộc `UNIQUE(dedupe_key)` để đảm bảo khi worker bị sự cố mạng và RabbitMQ redeliver thông điệp, hệ thống không bao giờ gửi 2 email giống hệt nhau cho cùng một sự kiện.
+   - Bảng `email_notification_events` được bổ sung ràng buộc `UNIQUE(dedupe_key)` để bảo vệ việc enqueue trước các lần broker giao lại thông điệp; job gửi email quản lý trạng thái và retry riêng.
+
+## 9. Repository implementation alignment (2026-11-14)
+
+The current implementation dispatches `outbox_events` to the configured SQS notification queue using `OutboxPollingWorker`; it does not use the RabbitMQ exchange described in sections 1 and 3. The SQS queue has a configured dead-letter queue. `NotificationSqsConsumer` applies recipient preferences, persists one inbox notification per dedupe key, and creates a durable `email_notification_events` row when email delivery is enabled. `NotificationEmailDeliveryJob` sends those rows with retries. The Rabbit `NotificationRequestedEvent` listener is a separate compatibility path and now persists the same inbox/email records idempotently.
+
+Both notification ingestion paths require an existing recipient. They retry or route an invalid recipient through their broker failure handling instead of inserting a synthetic user. Channel preferences default to enabled when the recipient has no stored preference for the event type or wildcard.

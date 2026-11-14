@@ -45,4 +45,7 @@ public class User extends BaseEntity {
 
     @Column(name = "consent_version", length = 64)
     private String consentVersion;
+
+    @Column(name = "last_login_at")
+    private Instant lastLoginAt;
 }
