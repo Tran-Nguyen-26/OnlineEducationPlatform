@@ -10,6 +10,7 @@ A full Flyway baseline and switching Hibernate to `validate` are a separate task
 - `V3__enrollments_and_lesson_progress.sql`: M3 enrollment lifecycle and lesson progress tables & indexes. Creates missing enrollment/progress tables and adds indexes on existing Hibernate-created tables without deleting data.
 - `V6__notifications_outbox_audit_logs.sql`: M6 notifications, outbox_events, audit_logs, and notification_preferences.
 - `V9__access_codes.sql`: Active and Extension Codes plus enrollment expiry. Existing rows keep their access until an explicit expiry is assigned.
+- `V18__registration_consent.sql`: explicit privacy consent metadata for newly registered learners.
 
 ## Execution
 
@@ -24,6 +25,9 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/core-model/src/main/resources
 
 # M6: Notifications, Transactional Outbox, and System Audit Trail
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/core-model/src/main/resources/db/migration/V6__notifications_outbox_audit_logs.sql
+
+# IAM: Explicit consent metadata for learner registration
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/core-model/src/main/resources/db/migration/V18__registration_consent.sql
 ```
 
 ### Notes on V3 (M3 SQL Migration)

@@ -5,6 +5,7 @@ import com.oep.corelms.dto.auth.ChangePasswordRequest;
 import com.oep.corelms.dto.auth.LoginRequest;
 import com.oep.corelms.dto.auth.RefreshTokenRequest;
 import com.oep.corelms.dto.auth.RegisterRequest;
+import com.oep.corelms.dto.auth.RegistrationPendingResponse;
 import com.oep.corelms.service.AuthService;
 import com.oep.corelms.service.JwtService;
 import com.oep.coremodel.enums.UserRole;
@@ -61,14 +62,15 @@ class AuthControllerTest {
 
     @Test
     void register_shouldReturnCreated() {
-        RegisterRequest req = new RegisterRequest("student@oep.edu.vn", "Secret123!", "Nguyen Van A", null, null, null, null);
+        RegisterRequest req = new RegisterRequest("student@oep.edu.vn", "Secret123!", "Nguyen Van A", null, null, null, null, true);
 
-        when(authService.register(eq(req), any())).thenReturn(sampleResponse);
+        RegistrationPendingResponse pending = new RegistrationPendingResponse("OTP sent", "st***@oep.edu.vn", 300);
+        when(authService.register(eq(req), any())).thenReturn(pending);
 
-        ResponseEntity<AuthResponse> res = authController.register(req, servletRequest);
+        ResponseEntity<RegistrationPendingResponse> res = authController.register(req, servletRequest);
 
-        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        assertThat(res.getBody()).isEqualTo(sampleResponse);
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        assertThat(res.getBody()).isEqualTo(pending);
         verify(authService).register(eq(req), eq("Mozilla/5.0 TestBrowser"));
     }
 

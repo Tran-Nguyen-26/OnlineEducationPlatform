@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
-import { loginUser } from '@/api/auth.ts'
+import { loginUser, resendRegistrationOtp } from '@/api/auth.ts'
 import './login.css'
 
 interface LocationState {
@@ -22,6 +22,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(navState?.message ?? '')
+  const [showResendVerification, setShowResendVerification] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -72,9 +73,24 @@ export default function LoginPage() {
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message)
+        setShowResendVerification(/email chưa xác minh/i.test(err.message))
       } else {
         setError('Sai email hoặc mật khẩu. Vui lòng thử lại.')
       }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleResendVerification = async () => {
+    setError('')
+    setSuccess('')
+    setLoading(true)
+    try {
+      const result = await resendRegistrationOtp(email)
+      setSuccess(result.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Không gửi được mã xác minh.')
     } finally {
       setLoading(false)
     }
@@ -136,6 +152,11 @@ export default function LoginPage() {
               </svg>
               {error}
             </div>
+          )}
+          {showResendVerification && (
+            <button type="button" disabled={loading} onClick={() => void handleResendVerification()} className="lp-forgot">
+              Gửi lại mã xác minh email
+            </button>
           )}
 
           {/* Email */}

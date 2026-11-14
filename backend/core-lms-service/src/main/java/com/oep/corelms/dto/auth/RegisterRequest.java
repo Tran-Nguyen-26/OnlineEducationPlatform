@@ -3,6 +3,7 @@ package com.oep.corelms.dto.auth;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.AssertTrue;
 
 import java.time.LocalDate;
 
@@ -27,5 +28,8 @@ public record RegisterRequest(
         @Size(max = 255, message = "Organization must be at most 255 characters")
         String organization,
 
-        String bio
+        String bio,
+
+        @AssertTrue(message = "Bạn cần đồng ý với thông báo quyền riêng tư để đăng ký")
+        boolean explicitConsent
 ) {}

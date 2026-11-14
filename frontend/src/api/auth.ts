@@ -13,6 +13,13 @@ export interface RegisterRequest {
   dateOfBirth?: string | null // 'YYYY-MM-DD'
   organization?: string | null
   bio?: string | null
+  explicitConsent: boolean
+}
+
+export interface RegistrationPendingResponse {
+  message: string
+  maskedEmail: string
+  otpTtlSeconds: number
 }
 
 export interface AuthUserSummary {
@@ -43,7 +50,7 @@ export interface ApiErrorResponse {
  * Register a new student account.
  * Calls POST /api/auth/register
  */
-export async function registerUser(payload: RegisterRequest): Promise<AuthResponse> {
+export async function registerUser(payload: RegisterRequest): Promise<RegistrationPendingResponse> {
   const body = {
     email: payload.email.trim(),
     password: payload.password,
@@ -52,6 +59,7 @@ export async function registerUser(payload: RegisterRequest): Promise<AuthRespon
     dateOfBirth: payload.dateOfBirth?.trim() || null,
     organization: payload.organization?.trim() || null,
     bio: payload.bio?.trim() || null,
+    explicitConsent: payload.explicitConsent,
   }
 
   try {
@@ -79,7 +87,7 @@ export async function registerUser(payload: RegisterRequest): Promise<AuthRespon
       throw new Error(`Đăng ký không thành công (Mã lỗi: ${response.status}). Vui lòng thử lại.`)
     }
 
-    return data as unknown as AuthResponse
+    return data as unknown as RegistrationPendingResponse
   } catch (err: unknown) {
     if (err instanceof Error) {
       if (
@@ -93,6 +101,27 @@ export async function registerUser(payload: RegisterRequest): Promise<AuthRespon
     }
     throw new Error('Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.')
   }
+}
+
+async function registrationRequest<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(`/api/auth/register/${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const data = await response.json().catch(() => null) as ApiErrorResponse & T | null
+  if (!response.ok) {
+    throw new Error(data?.message || 'Không thể xác minh email. Vui lòng thử lại.')
+  }
+  return data as T
+}
+
+export function verifyRegistrationOtp(email: string, otpCode: string) {
+  return registrationRequest<AuthResponse>('verify-otp', { email: email.trim(), otpCode: otpCode.trim() })
+}
+
+export function resendRegistrationOtp(email: string) {
+  return registrationRequest<RegistrationPendingResponse>('resend-otp', { email: email.trim() })
 }
 
 /**
@@ -117,6 +146,9 @@ export async function loginUser(payload: LoginRequest): Promise<AuthResponse> {
         )
       }
       const errData = error as ApiErrorResponse | undefined
+      if (errData?.error === 'EMAIL_NOT_VERIFIED') {
+        throw new Error('Email chưa xác minh. Hãy đăng ký lại hoặc yêu cầu gửi mã xác minh mới.')
+      }
       if (errData?.error === 'BAD_CREDENTIALS' || response.status === 401) {
         throw new Error('Sai email hoặc mật khẩu. Vui lòng kiểm tra lại thông tin đăng nhập.')
       }

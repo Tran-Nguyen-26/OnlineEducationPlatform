@@ -28,9 +28,16 @@ public class EmailService {
 
     public void sendForgotPasswordOtp(String to, String fullName, String otpCode) {
         String subject = "[Online Education Platform] Mã xác thực đặt lại mật khẩu của bạn";
-        String html    = buildOtpEmailHtml(fullName, otpCode);
+        String html    = buildOtpEmailHtml(fullName, otpCode, false);
         sendHtmlEmail(to, subject, html);
         log.info("OTP email sent to {}", to);
+    }
+
+    public void sendRegistrationOtp(String to, String fullName, String otpCode) {
+        String subject = "[Online Education Platform] Xác minh email đăng ký của bạn";
+        String html = buildOtpEmailHtml(fullName, otpCode, true);
+        sendHtmlEmail(to, subject, html);
+        log.info("Registration verification email sent to {}", to);
     }
 
     public void sendPasswordResetSuccessAlert(String to, String fullName, String actionTime) {
@@ -54,7 +61,7 @@ public class EmailService {
         log.info("Instructor application rejected email sent to {}", to);
     }
 
-    private String buildOtpEmailHtml(String fullName, String otpCode) {
+    private String buildOtpEmailHtml(String fullName, String otpCode, boolean registration) {
         // Format OTP with spaces for readability: "842915" → "8 4 2 9 1 5"
         String otpFormatted = String.join(" ", otpCode.split(""));
 
@@ -81,8 +88,10 @@ public class EmailService {
                "        <tr><td style='padding:40px 40px 32px;'>" +
                "          <p style='color:#374151;font-size:16px;margin:0 0 16px;'>Xin chào <strong>" + escapeHtml(fullName) + "</strong>,</p>" +
                "          <p style='color:#6b7280;font-size:15px;line-height:1.6;margin:0 0 28px;'>" +
-               "            Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản liên kết với email này." +
-               "            Vui lòng sử dụng mã xác thực dưới đây để hoàn tất xác minh:</p>" +
+               (registration
+                       ? "            Cảm ơn bạn đã đăng ký tài khoản. Nhập mã xác thực dưới đây để kích hoạt tài khoản:"
+                       : "            Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản liên kết với email này.") +
+               (registration ? "</p>" : "            Vui lòng sử dụng mã xác thực dưới đây để hoàn tất xác minh:</p>") +
                "          <!-- OTP Box -->" +
                "          <div style='background:linear-gradient(135deg,#f0f4ff 0%,#faf0ff 100%);" +
                "               border:2px solid #e0e7ff;border-radius:12px;padding:28px;text-align:center;margin:0 0 28px;'>" +
@@ -96,7 +105,9 @@ public class EmailService {
                "          <!-- Security warning -->" +
                "          <div style='background:#fef3c7;border-left:4px solid #f59e0b;border-radius:6px;padding:16px;margin:0 0 24px;'>" +
                "            <p style='color:#92400e;font-size:14px;margin:0;line-height:1.5;'>" +
-               "              ⚠️ <strong>Lưu ý bảo mật:</strong> Nếu bạn không yêu cầu đặt lại mật khẩu, xin hãy bỏ qua email này." +
+               (registration
+                       ? "              ⚠️ <strong>Lưu ý bảo mật:</strong> Nếu bạn không đăng ký tài khoản, hãy bỏ qua email này."
+                       : "              ⚠️ <strong>Lưu ý bảo mật:</strong> Nếu bạn không yêu cầu đặt lại mật khẩu, xin hãy bỏ qua email này.") +
                "              <strong>Tuyệt đối không chia sẻ mã này cho bất kỳ ai.</strong></p>" +
                "          </div>" +
                "        </td></tr>" +

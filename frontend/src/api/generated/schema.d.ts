@@ -17,24 +17,17 @@ export interface paths {
             dateOfBirth?: string | null
             organization?: string | null
             bio?: string | null
+            explicitConsent: boolean
           }
         }
       }
       responses: {
-        201: {
+        202: {
           content: {
             'application/json': {
-              accessToken: string
-              refreshToken: string
-              tokenType: string
-              expiresIn: number
-              user: {
-                id: string
-                email: string
-                fullName: string
-                role: string
-                mustChangePassword: boolean
-              }
+              message: string
+              maskedEmail: string
+              otpTtlSeconds: number
             }
           }
         }

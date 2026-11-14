@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { registerUser } from '@/api/auth.ts'
+import { registerUser, resendRegistrationOtp, verifyRegistrationOtp } from '@/api/auth.ts'
 import './register-student.css'
 
 function getPasswordStrength(password: string): { level: number; label: string } {
@@ -40,6 +40,11 @@ export default function RegisterStudentPage() {
   const [dob, setDob] = useState('')
   const [school, setSchool] = useState('')
   const [about, setAbout] = useState('')
+  const [explicitConsent, setExplicitConsent] = useState(false)
+  const [awaitingVerification, setAwaitingVerification] = useState(false)
+  const [otpCode, setOtpCode] = useState('')
+  const [resendMessage, setResendMessage] = useState('')
+  const [maskedEmail, setMaskedEmail] = useState('')
 
   const strength = getPasswordStrength(password)
   const passwordsMatch = confirmPassword.length > 0 && password === confirmPassword
@@ -63,9 +68,14 @@ export default function RegisterStudentPage() {
       return
     }
 
+    if (!explicitConsent) {
+      setError('Vui lòng xác nhận đồng ý với thông báo quyền riêng tư để đăng ký.')
+      return
+    }
+
     setLoading(true)
     try {
-      await registerUser({
+      const pending = await registerUser({
         email,
         password,
         fullName,
@@ -73,14 +83,10 @@ export default function RegisterStudentPage() {
         dateOfBirth: dob,
         organization: school,
         bio: about,
+        explicitConsent,
       })
-
-      navigate('/login', {
-        state: {
-          registeredEmail: email,
-          message: 'Đăng ký tài khoản học viên thành công! Vui lòng đăng nhập.',
-        },
-      })
+      setMaskedEmail(pending.maskedEmail)
+      setAwaitingVerification(true)
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message)
@@ -90,6 +96,60 @@ export default function RegisterStudentPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleVerifyRegistration = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      const response = await verifyRegistrationOtp(email, otpCode)
+      localStorage.setItem('access_token', response.accessToken)
+      localStorage.setItem('refresh_token', response.refreshToken)
+      localStorage.setItem('user', JSON.stringify(response.user))
+      navigate('/dashboard', { replace: true })
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Mã xác minh không hợp lệ.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleResendOtp = async () => {
+    setError('')
+    setResendMessage('')
+    setLoading(true)
+    try {
+      const response = await resendRegistrationOtp(email)
+      setResendMessage(response.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Không thể gửi lại mã xác minh.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (awaitingVerification) {
+    return <section className="reg-form-header" aria-labelledby="verify-email-title">
+      <h2 id="verify-email-title" className="reg-form-title">Xác minh email</h2>
+      <p className="reg-form-subtitle">Nhập mã 6 chữ số đã gửi tới {maskedEmail || 'email của bạn'} để kích hoạt tài khoản.</p>
+      {error && <p role="alert" className="reg-alert-error">{error}</p>}
+      {resendMessage && <p role="status" className="reg-privacy-note">{resendMessage}</p>}
+      <form className="reg-form-body" onSubmit={handleVerifyRegistration}>
+        <label className="reg-label" htmlFor="registrationOtp">Mã xác minh</label>
+        <input id="registrationOtp" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6}
+          required value={otpCode} onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+          className="reg-input" aria-describedby="registrationOtpHelp" />
+        <p id="registrationOtpHelp" className="reg-section-desc">Mã có hiệu lực trong 5 phút.</p>
+        <button type="submit" disabled={loading || otpCode.length !== 6} className="reg-submit-btn">
+          {loading ? 'Đang xác minh…' : 'Xác minh và kích hoạt tài khoản'}
+        </button>
+        <button type="button" disabled={loading} onClick={() => void handleResendOtp()} className="reg-signin-link-a">
+          Gửi lại mã xác minh
+        </button>
+        <p className="reg-signin-link"><button type="button" onClick={() => setAwaitingVerification(false)} className="reg-signin-link-a">Quay lại biểu mẫu</button></p>
+      </form>
+    </section>
   }
 
   return (
@@ -406,6 +466,18 @@ export default function RegisterStudentPage() {
             placeholder="Tôi quan tâm đến phát triển web full-stack và kỹ thuật phần mềm đám mây."
             className="reg-input reg-textarea"
           />
+        </div>
+
+        <div className="reg-privacy-note">
+          <details className="mb-3 text-sm text-slate-700">
+            <summary className="cursor-pointer font-semibold">Thông báo quyền riêng tư</summary>
+            <p className="mt-2 leading-6">OEP xử lý thông tin hồ sơ và dữ liệu phát sinh khi bạn học, làm bài kiểm tra, xem video và tương tác trong khóa học để vận hành nền tảng, ghi nhận tiến độ và cung cấp kết quả học tập. Dữ liệu cần thiết có thể được xử lý bởi các dịch vụ lưu trữ, gửi email và vận hành mà OEP sử dụng.</p>
+          </details>
+          <label className="flex cursor-pointer items-start gap-3 text-sm leading-6 text-slate-700">
+            <input type="checkbox" required checked={explicitConsent} onChange={(event) => setExplicitConsent(event.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-slate-300 accent-teal-700" />
+            <span>Tôi đã đọc thông báo quyền riêng tư và đồng ý để OEP xử lý các dữ liệu nêu trên nhằm cung cấp dịch vụ học tập.</span>
+          </label>
         </div>
 
         {/* Submit */}

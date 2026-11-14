@@ -9,6 +9,9 @@ import com.oep.corelms.dto.auth.ForgotPasswordVerifyOtpResponse;
 import com.oep.corelms.dto.auth.LoginRequest;
 import com.oep.corelms.dto.auth.RefreshTokenRequest;
 import com.oep.corelms.dto.auth.RegisterRequest;
+import com.oep.corelms.dto.auth.RegistrationEmailRequest;
+import com.oep.corelms.dto.auth.RegistrationPendingResponse;
+import com.oep.corelms.dto.auth.VerifyRegistrationRequest;
 import com.oep.corelms.dto.auth.ResetPasswordRequest;
 import com.oep.corelms.service.AuthService;
 import com.oep.corelms.service.ForgotPasswordService;
@@ -35,13 +38,29 @@ public class AuthController {
     private final ForgotPasswordService forgotPasswordService;
 
     @PostMapping("/api/auth/register")
-    public ResponseEntity<AuthResponse> register(
+    public ResponseEntity<RegistrationPendingResponse> register(
             @Valid @RequestBody RegisterRequest request,
             HttpServletRequest servletRequest
     ) {
         String deviceInfo = servletRequest.getHeader(HttpHeaders.USER_AGENT);
-        AuthResponse response = authService.register(request, deviceInfo);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        RegistrationPendingResponse response = authService.register(request, deviceInfo);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+    }
+
+    @PostMapping("/api/auth/register/verify-otp")
+    public ResponseEntity<AuthResponse> verifyRegistration(
+            @Valid @RequestBody VerifyRegistrationRequest request,
+            HttpServletRequest servletRequest
+    ) {
+        return ResponseEntity.ok(authService.verifyRegistration(request.email(), request.otpCode(),
+                servletRequest.getHeader(HttpHeaders.USER_AGENT)));
+    }
+
+    @PostMapping("/api/auth/register/resend-otp")
+    public ResponseEntity<RegistrationPendingResponse> resendRegistrationOtp(
+            @Valid @RequestBody RegistrationEmailRequest request
+    ) {
+        return ResponseEntity.accepted().body(authService.resendRegistrationOtp(request.email()));
     }
 
     @PostMapping("/api/auth/login")

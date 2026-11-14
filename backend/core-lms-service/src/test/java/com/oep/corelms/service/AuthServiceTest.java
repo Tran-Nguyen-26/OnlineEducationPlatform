@@ -5,6 +5,7 @@ import com.oep.corelms.dto.auth.ChangePasswordRequest;
 import com.oep.corelms.dto.auth.LoginRequest;
 import com.oep.corelms.dto.auth.RefreshTokenRequest;
 import com.oep.corelms.dto.auth.RegisterRequest;
+import com.oep.corelms.dto.auth.RegistrationPendingResponse;
 import com.oep.corelms.repository.AuthIdentityRepository;
 import com.oep.corelms.repository.RefreshTokenRepository;
 import com.oep.corelms.repository.UserProfileRepository;
@@ -29,6 +30,11 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.HashOperations;
+import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.nio.charset.StandardCharsets;
@@ -66,6 +72,12 @@ class AuthServiceTest {
     @Mock
     private JwtService jwtService;
 
+    @Mock private RedisTemplate<String, String> redisTemplate;
+    @Mock private HashOperations<String, Object, Object> hashOperations;
+    @Mock private ValueOperations<String, String> valueOperations;
+    @Mock private RabbitTemplate rabbitTemplate;
+    @Mock private JdbcTemplate jdbc;
+
     @InjectMocks
     private AuthService authService;
 
@@ -76,6 +88,9 @@ class AuthServiceTest {
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(authService, "refreshTokenValidityDays", 14L);
+        lenient().when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        lenient().when(redisTemplate.expire(anyString(), any(java.time.Duration.class))).thenReturn(true);
 
         sampleUser = new User();
         sampleUser.setId(UUID.randomUUID());
@@ -101,32 +116,33 @@ class AuthServiceTest {
     class RegisterTests {
 
         @Test
-        @DisplayName("Register with valid data succeeds and issues tokens")
+        @DisplayName("Register with valid data requires email verification before issuing tokens")
         void register_validData_succeeds() {
             RegisterRequest req = new RegisterRequest(
                     "student@oep.edu.vn",
                     "P@ssword123",
                     "Nguyen Van A",
-                    null, null, null, null
+                    null, null, null, null, true
             );
 
             when(userRepository.findByEmail("student@oep.edu.vn")).thenReturn(Optional.empty());
-            when(userRepository.save(any(User.class))).thenReturn(sampleUser);
+            when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+                User saved = invocation.getArgument(0);
+                saved.setId(sampleUser.getId());
+                return saved;
+            });
             when(passwordEncoder.encode("P@ssword123")).thenReturn("hashed_pwd");
-            when(jwtService.generateAccessToken(any(User.class))).thenReturn("access_token_jwt");
-            when(jwtService.getAccessTokenValiditySeconds()).thenReturn(900L);
 
-            AuthResponse resp = authService.register(req, "Mozilla/5.0");
+            RegistrationPendingResponse resp = authService.register(req, "Mozilla/5.0");
 
             assertNotNull(resp);
-            assertEquals("access_token_jwt", resp.accessToken());
-            assertEquals("Nguyen Van A", resp.user().fullName());
-            assertEquals(UserRole.STUDENT, resp.user().role());
+            assertEquals("st***@oep.edu.vn", resp.maskedEmail());
+            assertEquals(300, resp.otpTtlSeconds());
 
             verify(userRepository).save(any(User.class));
             verify(userProfileRepository).save(any(UserProfile.class));
             verify(authIdentityRepository).save(any(AuthIdentity.class));
-            verify(refreshTokenRepository).save(any(RefreshToken.class));
+            verify(refreshTokenRepository, never()).save(any(RefreshToken.class));
         }
 
         @Test
@@ -136,7 +152,7 @@ class AuthServiceTest {
                     "student@oep.edu.vn",
                     "P@ssword123",
                     "Nguyen Van A",
-                    null, null, null, null
+                    null, null, null, null, true
             );
 
             when(userRepository.findByEmail("student@oep.edu.vn")).thenReturn(Optional.of(sampleUser));

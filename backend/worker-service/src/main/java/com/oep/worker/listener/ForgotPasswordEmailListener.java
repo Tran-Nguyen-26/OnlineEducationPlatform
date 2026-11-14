@@ -20,6 +20,13 @@ public class ForgotPasswordEmailListener {
         log.info("Received ForgotPasswordEmailEvent: type={} userId={}", event.eventType(), event.userId());
 
         switch (event.eventType()) {
+            case "REGISTRATION_OTP" -> {
+                if (event.otpCode() == null || event.otpCode().isBlank()) {
+                    log.error("REGISTRATION_OTP event missing otpCode for userId={}", event.userId());
+                    return;
+                }
+                emailService.sendRegistrationOtp(event.recipientEmail(), event.fullName(), event.otpCode());
+            }
             case "FORGOT_PASSWORD_OTP" -> {
                 if (event.otpCode() == null || event.otpCode().isBlank()) {
                     log.error("FORGOT_PASSWORD_OTP event missing otpCode for userId={}", event.userId());

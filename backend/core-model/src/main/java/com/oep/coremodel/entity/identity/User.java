@@ -39,4 +39,10 @@ public class User extends BaseEntity {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    @Column(name = "consent_at")
+    private Instant consentAt;
+
+    @Column(name = "consent_version", length = 64)
+    private String consentVersion;
 }
