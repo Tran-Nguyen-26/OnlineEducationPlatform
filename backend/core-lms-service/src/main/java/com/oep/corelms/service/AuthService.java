@@ -40,6 +40,10 @@ import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -126,7 +130,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse verifyRegistration(String email, String otpCode, String deviceInfo) {
+    public AuthResponse verifyRegistration(String email, String otpCode, String deviceInfo, UUID deviceId) {
         String normalizedEmail = email.trim().toLowerCase();
         String otpKey = REGISTRATION_OTP_PREFIX + normalizedEmail;
         if (!Boolean.TRUE.equals(redisTemplate.hasKey(otpKey))) {
@@ -157,7 +161,7 @@ public class AuthService {
         redisTemplate.delete(otpKey);
         user.setAccountStatus(AccountStatus.ACTIVE);
         String fullName = userProfileRepository.findById(user.getId()).map(UserProfile::getFullName).orElse(user.getEmail());
-        return issueTokens(user, fullName, false, deviceInfo);
+        return issueTokens(user, fullName, false, deviceInfo, deviceId);
     }
 
     private void sendRegistrationOtp(User user, String fullName, boolean initial) {
@@ -190,6 +194,11 @@ public class AuthService {
 
     @Transactional
     public AuthResponse login(LoginRequest request, String deviceInfo) {
+        return login(request, deviceInfo, null);
+    }
+
+    @Transactional
+    public AuthResponse login(LoginRequest request, String deviceInfo, UUID deviceId) {
         String normalizedEmail = request.email().trim().toLowerCase();
 
         User user = userRepository.findByEmail(normalizedEmail)
@@ -215,7 +224,7 @@ public class AuthService {
 
         log.info("User logged in id={} email={}", user.getId(), normalizedEmail);
 
-        return issueTokens(user, fullName, identity.isMustChangePassword(), deviceInfo);
+        return issueTokens(user, fullName, identity.isMustChangePassword(), deviceInfo, deviceId);
     }
 
     @Transactional
@@ -252,7 +261,7 @@ public class AuthService {
 
         log.info("Rotated refresh token for user id={}", user.getId());
 
-        return issueTokens(user, fullName, mustChangePassword, deviceInfo);
+        return issueTokens(user, fullName, mustChangePassword, deviceInfo, refreshToken.getDeviceId());
     }
 
     @Transactional
@@ -289,7 +298,11 @@ public class AuthService {
         log.info("Changed password and revoked all sessions for user id={}", userId);
     }
 
-    private AuthResponse issueTokens(User user, String fullName, boolean mustChangePassword, String deviceInfo) {
+    private AuthResponse issueTokens(User user, String fullName, boolean mustChangePassword, String deviceInfo, UUID deviceId) {
+        UUID stableDeviceId = deviceId == null ? UUID.randomUUID() : deviceId;
+        if (user.getRole() == UserRole.STUDENT) {
+            enforceLearnerSessionLimit(user.getId(), stableDeviceId);
+        }
         String accessToken = jwtService.generateAccessToken(user);
 
         // Generate raw opaque refresh token (64 hex characters)
@@ -303,6 +316,7 @@ public class AuthService {
         refreshToken.setUser(user);
         refreshToken.setTokenHash(tokenHash);
         refreshToken.setDeviceInfo(deviceInfo);
+        refreshToken.setDeviceId(stableDeviceId);
         refreshToken.setExpiresAt(Instant.now().plus(refreshTokenValidityDays, ChronoUnit.DAYS));
         refreshToken.setRevoked(false);
         refreshTokenRepository.save(refreshToken);
@@ -316,6 +330,53 @@ public class AuthService {
         );
 
         return AuthResponse.of(accessToken, rawRefreshToken, jwtService.getAccessTokenValiditySeconds(), userSummary);
+    }
+
+    private void enforceLearnerSessionLimit(UUID userId, UUID currentDeviceId) {
+        userRepository.lockById(userId);
+        Instant now = Instant.now();
+        List<RefreshToken> tokens = refreshTokenRepository.findByUserIdAndRevokedFalseOrderByCreatedAtAsc(userId);
+        List<RefreshToken> live = new ArrayList<>();
+        for (RefreshToken token : tokens) {
+            if (!token.getExpiresAt().isAfter(now)) {
+                token.setRevoked(true);
+                refreshTokenRepository.save(token);
+            } else if (currentDeviceId.equals(token.getDeviceId())) {
+                token.setRevoked(true);
+                refreshTokenRepository.save(token);
+            } else {
+                live.add(token);
+            }
+        }
+
+        int maxDevices = isArchivedOnly(userId) ? 1 : 3;
+        Map<String, List<RefreshToken>> devices = new LinkedHashMap<>();
+        for (RefreshToken token : live) {
+            String key = token.getDeviceId() == null ? "legacy:" + token.getId() : "device:" + token.getDeviceId();
+            devices.computeIfAbsent(key, ignored -> new ArrayList<>()).add(token);
+        }
+        while (devices.size() >= maxDevices) {
+            var oldest = devices.entrySet().iterator().next();
+            oldest.getValue().forEach(token -> {
+                token.setRevoked(true);
+                refreshTokenRepository.save(token);
+            });
+            devices.remove(oldest.getKey());
+        }
+    }
+
+    private boolean isArchivedOnly(UUID userId) {
+        Boolean hasExpiredEnrollment = jdbc.queryForObject("""
+                select exists(select 1 from enrollments
+                    where student_id = ? and status in ('ACTIVE', 'COMPLETED')
+                      and access_expires_at is not null and access_expires_at < now())
+                """, Boolean.class, userId);
+        Boolean hasCurrentEnrollment = jdbc.queryForObject("""
+                select exists(select 1 from enrollments
+                    where student_id = ? and status in ('ACTIVE', 'COMPLETED')
+                      and (access_expires_at is null or access_expires_at >= now()))
+                """, Boolean.class, userId);
+        return Boolean.TRUE.equals(hasExpiredEnrollment) && !Boolean.TRUE.equals(hasCurrentEnrollment);
     }
 
     private String sha256Hex(String input) {

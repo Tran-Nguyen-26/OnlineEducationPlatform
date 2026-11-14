@@ -46,6 +46,15 @@ export interface ApiErrorResponse {
   details?: Record<string, string>
 }
 
+function deviceHeaders(): Record<string, string> {
+  let id = localStorage.getItem('oep-device-id')
+  if (!id) {
+    id = globalThis.crypto.randomUUID()
+    localStorage.setItem('oep-device-id', id)
+  }
+  return { 'X-OEP-Device-ID': id }
+}
+
 /**
  * Register a new student account.
  * Calls POST /api/auth/register
@@ -65,6 +74,7 @@ export async function registerUser(payload: RegisterRequest): Promise<Registrati
   try {
     const { data, error, response } = await apiClient.POST('/auth/register', {
       body,
+      headers: deviceHeaders(),
     })
 
     if (!response.ok || error) {
@@ -106,7 +116,7 @@ export async function registerUser(payload: RegisterRequest): Promise<Registrati
 async function registrationRequest<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(`/api/auth/register/${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...deviceHeaders() },
     body: JSON.stringify(body),
   })
   const data = await response.json().catch(() => null) as ApiErrorResponse & T | null
@@ -137,6 +147,7 @@ export async function loginUser(payload: LoginRequest): Promise<AuthResponse> {
   try {
     const { data, error, response } = await apiClient.POST('/auth/login', {
       body,
+      headers: deviceHeaders(),
     })
 
     if (!response.ok || error) {

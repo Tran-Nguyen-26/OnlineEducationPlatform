@@ -31,6 +31,9 @@ public class RefreshToken extends BaseEntity {
     @Column(name = "device_info", nullable = true, length = 255)
     private String deviceInfo;
 
+    @Column(name = "device_id")
+    private UUID deviceId;
+
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
 

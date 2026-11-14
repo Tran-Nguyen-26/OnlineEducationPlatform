@@ -78,7 +78,7 @@ class AuthControllerTest {
     void login_shouldReturnOk() {
         LoginRequest req = new LoginRequest("student@oep.edu.vn", "Secret123!");
 
-        when(authService.login(eq(req), any())).thenReturn(sampleResponse);
+        when(authService.login(eq(req), any(), org.mockito.ArgumentMatchers.isNull())).thenReturn(sampleResponse);
 
         ResponseEntity<AuthResponse> res = authController.login(req, servletRequest);
 

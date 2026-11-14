@@ -53,7 +53,7 @@ public class AuthController {
             HttpServletRequest servletRequest
     ) {
         return ResponseEntity.ok(authService.verifyRegistration(request.email(), request.otpCode(),
-                servletRequest.getHeader(HttpHeaders.USER_AGENT)));
+                servletRequest.getHeader(HttpHeaders.USER_AGENT), deviceId(servletRequest)));
     }
 
     @PostMapping("/api/auth/register/resend-otp")
@@ -69,7 +69,7 @@ public class AuthController {
             HttpServletRequest servletRequest
     ) {
         String deviceInfo = servletRequest.getHeader(HttpHeaders.USER_AGENT);
-        AuthResponse response = authService.login(request, deviceInfo);
+        AuthResponse response = authService.login(request, deviceInfo, deviceId(servletRequest));
         return ResponseEntity.ok(response);
     }
 
@@ -128,5 +128,17 @@ public class AuthController {
     @GetMapping(value = {"/.well-known/jwks.json", "/api/auth/jwks.json"}, produces = "application/json")
     public Map<String, Object> jwks() {
         return jwtService.getJwkSetJson();
+    }
+
+    private UUID deviceId(HttpServletRequest request) {
+        String raw = request.getHeader("X-OEP-Device-ID");
+        if (raw == null || raw.isBlank()) return null;
+        try {
+            return UUID.fromString(raw);
+        } catch (IllegalArgumentException ex) {
+            throw new com.oep.coremodel.exception.BusinessException(
+                    com.oep.coremodel.exception.ErrorCode.VALIDATION_FAILED,
+                    "X-OEP-Device-ID phải là UUID hợp lệ");
+        }
     }
 }
