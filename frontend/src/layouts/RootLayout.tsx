@@ -1,4 +1,5 @@
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import NotificationBell from '@/features/notifications/NotificationBell'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: '📊' },
@@ -81,6 +82,9 @@ export function RootLayout() {
       {/* Main content */}
       <main className="flex-1 pl-64">
         <div className="p-8">
+          <div className="mb-4 flex justify-end">
+            <NotificationBell />
+          </div>
           <Outlet />
         </div>
       </main>
