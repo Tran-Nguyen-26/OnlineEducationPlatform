@@ -320,7 +320,8 @@ class LearnerQuizPostgresTest {
         try {
             var signer = new com.oep.corelms.service.BadgeSigner(new com.nimbusds.jose.jwk.gen.RSAKeyGenerator(2048).generate(),
                     "https://example.test", "Issuer");
-            var target = new com.oep.corelms.service.CourseCredentialService(enrollments, graduation, signer, jdbc);
+            var target = new com.oep.corelms.service.CourseCredentialService(enrollments, graduation, signer, jdbc,
+                    org.mockito.Mockito.mock(com.oep.corelms.service.NotificationPublisher.class));
             var proxy = new org.springframework.aop.framework.ProxyFactory(target);
             proxy.addAdvice(new org.springframework.transaction.interceptor.TransactionInterceptor(transactionManager,
                     new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()));

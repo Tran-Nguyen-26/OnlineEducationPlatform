@@ -52,7 +52,7 @@ class CourseManagementServiceReorderTest {
 
     @BeforeEach
     void setUp() {
-        service = new CourseManagementService(courses, modules, lessons, contents, contentReferences, courseInstructors, users, mock(CoursePublishValidator.class));
+        service = new CourseManagementService(courses, modules, lessons, contents, contentReferences, courseInstructors, users, mock(CoursePublishValidator.class), mock(AuditService.class));
         course = new Course();
         course.setLifecycleStatus(CourseLifecycleStatus.DRAFT);
         lenient().when(courses.findById(courseId)).thenReturn(Optional.of(course));

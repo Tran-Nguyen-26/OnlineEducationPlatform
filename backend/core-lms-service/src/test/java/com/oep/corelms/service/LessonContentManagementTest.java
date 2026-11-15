@@ -62,7 +62,7 @@ class LessonContentManagementTest {
 
     @BeforeEach
     void setUp() {
-        service = new CourseManagementService(courses, modules, lessons, contents, contentReferences, courseInstructors, users, mock(CoursePublishValidator.class));
+        service = new CourseManagementService(courses, modules, lessons, contents, contentReferences, courseInstructors, users, mock(CoursePublishValidator.class), mock(AuditService.class));
         course.setId(courseId);
         course.setLifecycleStatus(CourseLifecycleStatus.DRAFT);
         module.setId(moduleId);

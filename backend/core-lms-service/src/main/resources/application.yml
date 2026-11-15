@@ -43,10 +43,12 @@ oep:
       url: ${DB_URL:jdbc:postgresql://localhost:5434/oep}
       username: ${DB_USER:oep}
       password: ${DB_PASSWORD:oep}
+      driver-class-name: org.postgresql.Driver
     replica:
       url: ${DB_REPLICA_URL:jdbc:postgresql://localhost:5435/oep}
       username: ${DB_REPLICA_USER:oep}
       password: ${DB_REPLICA_PASSWORD:oep}
+      driver-class-name: org.postgresql.Driver
 jwt:
   issuer: ${JWT_ISSUER:http://localhost:8081}
   access-token-validity-minutes: ${JWT_ACCESS_TOKEN_VALIDITY_MINUTES:60}

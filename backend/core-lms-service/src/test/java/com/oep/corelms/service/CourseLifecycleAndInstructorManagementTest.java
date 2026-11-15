@@ -56,7 +56,7 @@ class CourseLifecycleAndInstructorManagementTest {
 
     @BeforeEach
     void setUp() {
-        service = new CourseManagementService(courses, modules, lessons, contents, contentReferences, courseInstructors, users, mock(CoursePublishValidator.class));
+        service = new CourseManagementService(courses, modules, lessons, contents, contentReferences, courseInstructors, users, mock(CoursePublishValidator.class), mock(AuditService.class));
         course = new Course();
         course.setId(courseId);
         course.setTitle("Test course");
@@ -130,10 +130,10 @@ class CourseLifecycleAndInstructorManagementTest {
         User admin = user(adminId, UserRole.ADMIN);
         when(users.findById(adminId)).thenReturn(Optional.of(admin));
 
-        assertEquals(CourseLifecycleStatus.DISABLED, service.disableCourse(adminId, courseId).lifecycleStatus());
+        assertEquals(CourseLifecycleStatus.DISABLED, service.disableCourse(adminId, courseId, "Policy violation").lifecycleStatus());
         assertEquals(CourseLifecycleStatus.DRAFT, service.enableCourse(adminId, courseId).lifecycleStatus());
 
-        BusinessException error = assertThrows(BusinessException.class, () -> service.disableCourse(ownerId, courseId));
+        BusinessException error = assertThrows(BusinessException.class, () -> service.disableCourse(ownerId, courseId, "Policy violation"));
         assertEquals(ErrorCode.ADMIN_ROLE_REQUIRED, error.getCode());
     }
 

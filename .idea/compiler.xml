@@ -6,13 +6,21 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
+        <module name="api-gateway" />
+        <module name="worker-service" />
+        <module name="assessment-service" />
         <module name="core-lms-service" />
+        <module name="core-model" />
       </profile>
     </annotationProcessing>
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="api-gateway" options="-parameters" />
+      <module name="assessment-service" options="-parameters" />
       <module name="core-lms-service" options="-parameters" />
+      <module name="core-model" options="-parameters" />
+      <module name="worker-service" options="-parameters" />
     </option>
   </component>
 </project>

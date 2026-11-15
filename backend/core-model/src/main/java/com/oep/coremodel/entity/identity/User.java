@@ -48,4 +48,20 @@ public class User extends BaseEntity {
 
     @Column(name = "last_login_at")
     private Instant lastLoginAt;
+
+    @OneToOne(mappedBy = "user", fetch = FetchType.LAZY)
+    private UserProfile profile;
+
+    @Transient
+    private String customFullName;
+
+    @Transient
+    public String getFullName() {
+        if (customFullName != null) return customFullName;
+        return profile != null ? profile.getFullName() : null;
+    }
+
+    public void setFullName(String fullName) {
+        this.customFullName = fullName;
+    }
 }

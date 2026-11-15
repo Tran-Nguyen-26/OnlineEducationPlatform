@@ -355,7 +355,8 @@ public class CourseManagementService {
         if (lessons.existsByModuleId(moduleId)) {
             throw new BusinessException(ErrorCode.MODULE_IN_USE, "Delete the module lessons before deleting this module");
         }
-        modules.deleteAndFlush(module);
+        modules.delete(module);
+        modules.flush();
         return new ModuleDtos.DeleteResponse(true, moduleId);
     }
 
@@ -440,7 +441,8 @@ public class CourseManagementService {
             throw new BusinessException(ErrorCode.LESSON_IN_USE,
                     "Lesson is referenced by content, progress, quizzes, assignments, discussions or AI history");
         }
-        lessons.deleteAndFlush(lesson);
+        lessons.delete(lesson);
+        lessons.flush();
         return new LessonDtos.DeleteResponse(true, lessonId);
     }
 

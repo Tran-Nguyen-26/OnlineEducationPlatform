@@ -161,10 +161,17 @@ public class BlindGradingService {
         requireLease(submission, actor, token, now);
         requireGradable(submission, actor);
         var learner = submission.getEnrollment().getStudent();
-        String anonymizedText = submission.getTextContent()
-                .replace(learner.getFullName(), "[LEARNER]")
-                .replace(learner.getEmail(), "[EMAIL]")
-                .replace(learner.getId().toString(), "[LEARNER_ID]");
+        String learnerName = learner.getFullName();
+        String anonymizedText = submission.getTextContent();
+        if (learnerName != null && !learnerName.isBlank()) {
+            anonymizedText = anonymizedText.replace(learnerName, "[LEARNER]");
+        }
+        if (learner.getEmail() != null && !learner.getEmail().isBlank()) {
+            anonymizedText = anonymizedText.replace(learner.getEmail(), "[EMAIL]");
+        }
+        if (learner.getId() != null) {
+            anonymizedText = anonymizedText.replace(learner.getId().toString(), "[LEARNER_ID]");
+        }
         return aiTutor.suggestRubricScores(course, anonymizedText, submission.getAssignment().getRubric());
     }
 
