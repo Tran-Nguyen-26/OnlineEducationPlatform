@@ -12,7 +12,10 @@ public record MyEnrollmentResponse(
         String courseTitle,
         String subjectName,
         EnrollmentStatus status,
-        Instant enrolledAt) {
+        Instant enrolledAt,
+        Instant completedAt,
+        Instant withdrawnAt,
+        Instant removedAt) {
 
     public static MyEnrollmentResponse from(Enrollment enrollment) {
         return new MyEnrollmentResponse(
@@ -21,6 +24,9 @@ public record MyEnrollmentResponse(
                 enrollment.getCourse().getTitle(),
                 enrollment.getCourse().getSubject().getName(),
                 enrollment.getStatus(),
-                enrollment.getEnrolledAt());
+                enrollment.getEnrolledAt(),
+                enrollment.getCompletedAt(),
+                enrollment.getWithdrawnAt(),
+                enrollment.getRemovedAt());
     }
 }

@@ -6,6 +6,7 @@ import com.oep.corelms.repository.CourseRepository;
 import com.oep.corelms.repository.EnrollmentRepository;
 import com.oep.coremodel.entity.course.Course;
 import com.oep.coremodel.enums.CourseLifecycleStatus;
+import com.oep.coremodel.enums.EnrollmentStatus;
 import com.oep.coremodel.exception.BusinessException;
 import com.oep.coremodel.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +27,7 @@ public class StudentCourseService {
     @Transactional(readOnly = true)
     public List<StudentCourseResponse> listCatalog(UUID studentId) {
         return courses.findByLifecycleStatusOrderByCreatedAtDesc(CourseLifecycleStatus.PUBLISHED).stream()
-                .map(course -> StudentCourseResponse.from(course, enrollments.existsByCourseIdAndStudentId(course.getId(), studentId)))
+                .map(course -> StudentCourseResponse.from(course, isActivelyEnrolled(course.getId(), studentId)))
                 .toList();
     }
 
@@ -37,7 +38,12 @@ public class StudentCourseService {
         if (course.getLifecycleStatus() != CourseLifecycleStatus.PUBLISHED) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "Course not found");
         }
-        return StudentCourseResponse.from(course, enrollments.existsByCourseIdAndStudentId(courseId, studentId));
+        return StudentCourseResponse.from(course, isActivelyEnrolled(courseId, studentId));
+    }
+
+    /** A withdrawn/removed row still exists (unique per course+student) but must not read back as "enrolled". */
+    private boolean isActivelyEnrolled(UUID courseId, UUID studentId) {
+        return enrollments.existsByCourseIdAndStudentIdAndStatus(courseId, studentId, EnrollmentStatus.ACTIVE);
     }
 
     @Transactional(readOnly = true)

@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -44,6 +45,11 @@ public class EnrollmentController {
     @GetMapping("/progress")
     public List<MyProgressResponse> myProgress(@AuthenticationPrincipal Jwt jwt) {
         return studentCourseContentService.myProgress(UUID.fromString(jwt.getSubject()));
+    }
+
+    @PostMapping("/{enrollmentId}/withdraw")
+    public MyEnrollmentResponse withdraw(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID enrollmentId) {
+        return enrollmentService.withdraw(enrollmentId, UUID.fromString(jwt.getSubject()));
     }
 
     private void requireStudent(Jwt jwt) {

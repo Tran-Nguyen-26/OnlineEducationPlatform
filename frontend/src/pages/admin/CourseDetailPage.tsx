@@ -10,12 +10,14 @@ import { OverviewTab } from './course-detail/OverviewTab'
 import { ContentTab } from './course-detail/ContentTab'
 import { QuizzesTab } from './course-detail/QuizzesTab'
 import { AssignmentsTab } from './course-detail/AssignmentsTab'
+import { StudentsTab } from './course-detail/StudentsTab'
 
 const TABS = [
   { key: 'overview', label: 'Tổng quan' },
   { key: 'content', label: 'Nội dung' },
   { key: 'quizzes', label: 'Quiz' },
   { key: 'assignments', label: 'Bài tập' },
+  { key: 'students', label: 'Học sinh' },
 ] as const
 
 type TabKey = (typeof TABS)[number]['key']
@@ -70,6 +72,7 @@ export function CourseDetailPage() {
       {tab === 'content' && <ContentTab courseId={courseId} />}
       {tab === 'quizzes' && <QuizzesTab courseId={courseId} />}
       {tab === 'assignments' && <AssignmentsTab courseId={courseId} />}
+      {tab === 'students' && <StudentsTab courseId={courseId} />}
     </div>
   )
 }

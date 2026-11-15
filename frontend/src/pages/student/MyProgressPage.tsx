@@ -1,15 +1,31 @@
-import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { apiClient } from '../../lib/apiClient'
+import { apiClient, getApiErrorMessage } from '../../lib/apiClient'
 import type { MyProgressResponse } from '../../types/api'
 import { Badge } from '../../components/Badge'
 import { Button } from '../../components/ui/Button'
+import { Modal } from '../../components/ui/Modal'
 
 export function MyProgressPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const progressQuery = useQuery({
     queryKey: ['student', 'progress'],
     queryFn: () => apiClient.get<MyProgressResponse[]>('/api/enrollments/progress').then((r) => r.data),
+  })
+
+  const [withdrawing, setWithdrawing] = useState<MyProgressResponse | null>(null)
+  const [withdrawError, setWithdrawError] = useState<string | null>(null)
+
+  const withdrawMutation = useMutation({
+    mutationFn: (enrollmentId: string) => apiClient.post(`/api/enrollments/${enrollmentId}/withdraw`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['student', 'progress'] })
+      queryClient.invalidateQueries({ queryKey: ['student', 'courses'] })
+      setWithdrawing(null)
+    },
+    onError: (err) => setWithdrawError(getApiErrorMessage(err)),
   })
 
   const items = progressQuery.data ?? []
@@ -58,20 +74,50 @@ export function MyProgressPage() {
               </div>
             </div>
 
-            <Button
-              variant="secondary"
-              size="sm"
-              className="mt-4"
-              onClick={() => navigate(`/student/courses/${item.courseId}`)}
-            >
-              Tiếp tục học
-            </Button>
+            <div className="mt-4 flex gap-2">
+              <Button variant="secondary" size="sm" onClick={() => navigate(`/student/courses/${item.courseId}`)}>
+                Tiếp tục học
+              </Button>
+              {item.status === 'ACTIVE' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-red-600 hover:bg-red-50"
+                  onClick={() => {
+                    setWithdrawing(item)
+                    setWithdrawError(null)
+                  }}
+                >
+                  Rút khỏi khóa học
+                </Button>
+              )}
+            </div>
           </div>
         ))}
         {!progressQuery.isLoading && items.length === 0 && (
           <p className="text-slate-400">Chưa ghi danh khóa học nào.</p>
         )}
       </div>
+
+      <Modal title="Rút khỏi khóa học" open={withdrawing !== null} onClose={() => setWithdrawing(null)}>
+        <p className="mb-4 text-sm text-slate-600">
+          Bạn sắp rút khỏi khóa <strong>{withdrawing?.courseTitle}</strong>. Bạn sẽ mất quyền truy cập nội dung khóa học
+          này; để học lại, bạn cần một mã mời còn hiệu lực.
+        </p>
+        {withdrawError && <p className="mb-4 text-sm text-red-600">{withdrawError}</p>}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={() => setWithdrawing(null)}>
+            Hủy
+          </Button>
+          <Button
+            variant="danger"
+            disabled={withdrawMutation.isPending}
+            onClick={() => withdrawing && withdrawMutation.mutate(withdrawing.enrollmentId)}
+          >
+            {withdrawMutation.isPending ? 'Đang xử lý...' : 'Xác nhận rút khóa'}
+          </Button>
+        </div>
+      </Modal>
     </div>
   )
 }

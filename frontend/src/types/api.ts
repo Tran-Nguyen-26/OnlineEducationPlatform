@@ -227,13 +227,30 @@ export interface StudentCourseResponse {
   enrolled: boolean
 }
 
+export type EnrollmentStatus = 'ACTIVE' | 'COMPLETED' | 'WITHDRAWN' | 'REMOVED'
+
 export interface MyEnrollmentResponse {
   enrollmentId: string
   courseId: string
   courseTitle: string
   subjectName: string
-  status: 'ACTIVE' | 'COMPLETED' | 'WITHDRAWN' | 'REMOVED'
+  status: EnrollmentStatus
   enrolledAt: string
+  completedAt: string | null
+  withdrawnAt: string | null
+  removedAt: string | null
+}
+
+export interface AdminEnrollmentResponse {
+  enrollmentId: string
+  studentId: string
+  studentEmail: string
+  studentFullName: string | null
+  status: EnrollmentStatus
+  enrolledAt: string
+  completedAt: string | null
+  withdrawnAt: string | null
+  removedAt: string | null
 }
 
 export type LessonProgressStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED'
