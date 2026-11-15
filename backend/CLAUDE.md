@@ -103,10 +103,10 @@ backend/
 │   └── src/main/java/com/oep/coremodel/
 │       ├── constant/            MessagingConstants
 │       ├── datasource/          DbRole, ReadWriteRoutingDataSource, RoutingDataSourceConfig
-│       ├── entity/              BaseEntity + 10 package theo miền:
+│       ├── entity/              BaseEntity + 10 package theo miền (38 bảng, xem DATABASE.md):
 │       │                        identity, course, enrollment, quiz, assignment,
 │       │                        notification, system, social, registration, ai
-│       ├── enums/               20 enum
+│       ├── enums/               15 enum
 │       ├── event/               QuizPublishedEvent, NotificationRequestedEvent, ExamScoreSyncEvent
 │       └── exception/           BusinessException, ErrorCode
 ├── api-gateway/                 :8080  config/ (SecurityConfig, RateLimitConfig)
@@ -148,7 +148,7 @@ Lưu ý:
 - Bảng DB do Hibernate tạo trên primary khi Core LMS khởi động (`ddl-auto: update`, chỉ cho dev), replica tự nhận qua replication. Assessment và Worker không tạo bảng nên luôn chạy Core LMS trước. `update` không đổi tên hay xóa cột cũ. Cần làm sạch DB: `docker compose down -v && docker compose up -d` (xóa cả hai volume), rồi chạy lại Core LMS.
 - Mọi lệnh `docker compose` phải chạy trong thư mục có `docker-compose.yml`. Không dùng `--remove-orphans` nếu máy có container khác.
 
-Kiểm tra: `curl http://localhost:8081/actuator/health` và `docker compose exec postgres psql -U oep -d oep -c '\dt'` (phải có 41 bảng, replica cũng vậy).
+Kiểm tra: `curl http://localhost:8081/actuator/health` và `docker compose exec postgres psql -U oep -d oep -c '\dt'` (phải có 38 bảng, replica cũng vậy). Chi tiết từng bảng/cột/lý do thiết kế: xem `DATABASE.md`.
 
 ## 4. Nhánh Git
 

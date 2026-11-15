@@ -2,7 +2,7 @@
 
 Modules
 - api-gateway         :8080  Spring Cloud Gateway: JWT check, Redis rate limit, path routing (no core-model dependency)
-- core-model          shared jar: entities (41), enums, event contracts, exceptions
+- core-model          shared jar: entities (38, see DATABASE.md), enums, event contracts, exceptions
 - core-lms-service    :8081  users, courses, enrollment, signed URLs (runs Flyway)
 - assessment-service  :8082  quiz / submission, Redis for exam state
 - worker-service      :8083  RabbitMQ consumers: notification, score sync

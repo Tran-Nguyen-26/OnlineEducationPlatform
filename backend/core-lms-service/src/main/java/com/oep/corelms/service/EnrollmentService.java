@@ -8,7 +8,6 @@ import com.oep.coremodel.entity.course.Course;
 import com.oep.coremodel.entity.enrollment.Enrollment;
 import com.oep.coremodel.entity.registration.CourseInviteCode;
 import com.oep.coremodel.enums.CourseLifecycleStatus;
-import com.oep.coremodel.enums.CourseVisibility;
 import com.oep.coremodel.enums.EnrollmentStatus;
 import com.oep.coremodel.exception.BusinessException;
 import com.oep.coremodel.exception.ErrorCode;
@@ -19,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.UUID;
 
-/** Example of using core-model: capacity check + private course invite code. */
+/** Students can only enroll with a valid invite code for the course; the course page itself is always browsable. */
 @Service
 @RequiredArgsConstructor
 public class EnrollmentService {
@@ -37,14 +36,12 @@ public class EnrollmentService {
         if (course.getLifecycleStatus() != CourseLifecycleStatus.PUBLISHED) {
             throw new BusinessException(ErrorCode.COURSE_NOT_OPEN, "Course is not open for enrollment");
         }
-        if (course.getVisibility() == CourseVisibility.PRIVATE) {
-            CourseInviteCode ic = inviteCode == null ? null : inviteCodes.findByCode(inviteCode).orElse(null);
-            boolean valid = ic != null && ic.isActive()
-                    && ic.getCourse().getId().equals(courseId)
-                    && (ic.getExpiresAt() == null || ic.getExpiresAt().isAfter(Instant.now()));
-            if (!valid) {
-                throw new BusinessException(ErrorCode.INVALID_INVITE_CODE, "Invalid or expired invite code");
-            }
+        CourseInviteCode ic = inviteCode == null ? null : inviteCodes.findByCode(inviteCode).orElse(null);
+        boolean valid = ic != null && ic.isActive()
+                && ic.getCourse().getId().equals(courseId)
+                && (ic.getExpiresAt() == null || ic.getExpiresAt().isAfter(Instant.now()));
+        if (!valid) {
+            throw new BusinessException(ErrorCode.INVALID_INVITE_CODE, "Invalid or expired invite code");
         }
         // (course_id, student_id) is unique: a WITHDRAWN/REMOVED row would need reactivation logic later
         if (enrollments.existsByCourseIdAndStudentId(courseId, studentId)) {
@@ -59,6 +56,7 @@ public class EnrollmentService {
         Enrollment e = new Enrollment();
         e.setCourse(course);
         e.setStudent(users.getReferenceById(studentId));
+        e.setInviteCode(ic);
         return enrollments.save(e);
     }
 }
