@@ -16,6 +16,7 @@ Cập nhật: xem lịch sử commit trên nhánh `nguyentt/database-replication
 | 7 | Form sửa thông tin khóa học trên Admin UI (môn/tiêu đề/mô tả/sĩ số/chế độ học/thời gian) | ✅ (đã có từ trước) | ✅ (tab Tổng quan) |
 | 8 | Dashboard thống kê Admin: `GET /api/admin/stats` (số môn/khóa học theo trạng thái, số giáo viên/học sinh, ghi danh theo trạng thái, tỷ lệ hoàn thành) | ✅ | ✅ (`DashboardPage`) |
 | 9 | Trang "Tiến độ của tôi" cho học sinh: `GET /api/enrollments/progress` (số bài học hoàn thành/tổng số theo từng khóa đã ghi danh, % trung bình) | ✅ | ✅ (`/student/progress`) |
+| 10 | Notification nhắc hạn: `@Scheduled` hourly job nhắc Admin khi mã mời sắp hết hạn (`InviteCodeExpiryReminderScheduler`, core-lms-service) và nhắc học sinh ACTIVE chưa làm bài khi quiz sắp đến deadline (`QuizDeadlineReminderScheduler`, assessment-service), trong vòng 24h tới — tái dùng đúng pipeline notification ở Phase 6 | ✅ | — (hiện trong `NotificationBell` có sẵn) |
 
 Hạ tầng dev đang chạy thật và đã verify bằng curl: `api-gateway :8080`, `core-lms-service :8081`, `assessment-service :8082`, PostgreSQL primary `:5432` + read replica `:5433` (streaming replication, routing đọc/ghi tự động trong `core-lms-service`), Redis, RabbitMQ, MinIO (object storage, presigned PUT/GET), frontend Vite dev server `:5173`.
 
@@ -30,7 +31,7 @@ Tài khoản test đang có sẵn trên DB dev: `admin@oep.local` / `Admin@12345
 | ~~D3~~ | ~~Admin frontend chưa có form sửa thông tin cơ bản khóa học~~ | — | **Đã xử lý**: modal "Sửa thông tin" trong `OverviewTab.tsx`, dùng `PATCH /api/admin/courses/{id}` đã có sẵn. |
 | D4 | RSA keypair ký JWT sinh lại mỗi lần restart `core-lms-service` | `core-lms-service/.../security/JwtKeyService.java` | Thấp (dev-only) — access token cũ hết hiệu lực ngay sau restart, user chỉ cần gọi lại `/refresh` hoặc đăng nhập lại |
 | D5 | `ddl-auto: update`, không có Flyway, chưa tách config theo biến môi trường prod | toàn bộ `core-lms-service` | Phải xử lý trước khi lên `prod` (đã ghi sẵn trong `CLAUDE.md` mục 4) |
-| D6 | Notification mới chỉ có 2 trigger (bài tập được chấm, tin nhắn Q&A) — chưa có "mã mời sắp hết hạn" hay "quiz sắp đến deadline" vì 2 mục đó cần job định kỳ (`@Scheduled`), không chỉ publish theo event như hiện tại | `assessment-service`, `core-lms-service` | Thấp — có thể bổ sung sau nếu cần |
+| ~~D6~~ | ~~Notification chưa có "mã mời sắp hết hạn" / "quiz sắp đến deadline"~~ | — | **Đã xử lý**: 2 scheduler mới chạy mỗi giờ (xem Phase 10), đã verify thật bằng cách tạm đổi cron sang mỗi 10s, tạo invite code/quiz có hạn trong 24h tới, xác nhận notification đúng + không bị gửi trùng (`dedupe_key`) qua nhiều lần tick, rồi trả cron về `0 0 * * * *` và khởi động lại sạch. |
 
 ## 3. Ngoài phạm vi hiện tại (chưa bắt đầu)
 
@@ -41,10 +42,9 @@ Tài khoản test đang có sẵn trên DB dev: `admin@oep.local` / `Admin@12345
 
 ## 4. Đề xuất kế hoạch tiếp theo
 
-Tất cả 4 mục đề xuất trong lần trước (notification, form sửa khóa học, dashboard, tiến độ học sinh) **đã hoàn thành** — xem Phase 6–9 ở mục 1. Thứ tự đề xuất tiếp theo, **chưa làm gì** — chờ chọn:
+Tất cả 5 mục đề xuất trong các lần trước (notification, form sửa khóa học, dashboard, tiến độ học sinh, notification nhắc hạn) **đã hoàn thành** — xem Phase 6–10 ở mục 1. Còn lại, **chưa làm gì** — chờ chọn:
 
-1. **Notification nhắc hạn (D6)** — job định kỳ cho "mã mời sắp hết hạn" / "quiz sắp đến deadline", tái dùng pipeline notification đã có.
-2. **Flyway + cấu hình prod (D5)** — cần làm trước khi deploy thật, không gấp nếu vẫn đang ở giai đoạn phát triển tính năng.
-3. **AI Tutor** — khối lượng lớn nhất, nên làm sau khi nghiệp vụ lõi ổn định.
+1. **Flyway + cấu hình prod (D5)** — cần làm trước khi deploy thật, không gấp nếu vẫn đang ở giai đoạn phát triển tính năng.
+2. **AI Tutor** — khối lượng lớn nhất, nên làm sau khi nghiệp vụ lõi ổn định.
 
 Nói "làm mục N" hoặc "làm phần X" để bắt đầu — giữ đúng quy ước: build + verify bằng curl/UI thật trước khi báo xong, commit chỉ khi được yêu cầu.

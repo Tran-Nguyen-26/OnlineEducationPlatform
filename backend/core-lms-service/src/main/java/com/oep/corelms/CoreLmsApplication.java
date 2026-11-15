@@ -6,11 +6,13 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @EntityScan("com.oep.coremodel.entity")
 @EnableJpaRepositories("com.oep.corelms")
 @Import(RoutingDataSourceConfig.class)
+@EnableScheduling
 public class CoreLmsApplication {
     public static void main(String[] args) {
         SpringApplication.run(CoreLmsApplication.class, args);

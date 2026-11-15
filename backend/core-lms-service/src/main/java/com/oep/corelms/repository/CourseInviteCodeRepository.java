@@ -3,6 +3,7 @@ package com.oep.corelms.repository;
 import com.oep.coremodel.entity.registration.CourseInviteCode;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,4 +16,6 @@ public interface CourseInviteCodeRepository extends JpaRepository<CourseInviteCo
     List<CourseInviteCode> findByCourse_IdOrderByCreatedAtDesc(UUID courseId);
 
     Optional<CourseInviteCode> findByIdAndCourse_Id(UUID id, UUID courseId);
+
+    List<CourseInviteCode> findByActiveTrueAndExpiresAtBetween(Instant from, Instant to);
 }
