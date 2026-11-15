@@ -227,3 +227,25 @@ AI tutor (`ai_conversations`, `ai_messages`, `ai_document_chunks`) nằm ngoài 
 ## 6. Ngoài phạm vi tài liệu nghiệp vụ hiện tại
 
 `entity/ai/*` (`ai_conversations`, `ai_messages`, `ai_document_chunks`) phục vụ tính năng AI Tutor (RAG + Pinecone) được nêu trong sơ đồ kiến trúc ở `CLAUDE.md` nhưng **không** nằm trong tài liệu nghiệp vụ Admin/Giáo viên/Học sinh hiện tại. Giữ nguyên, không đụng tới — nếu nghiệp vụ chưa cần, có thể bỏ qua các bảng này khi review schema.
+
+## 7. Xác thực (đã triển khai trong `core-lms-service`)
+
+`core-lms-service` vừa là **token issuer** vừa là **resource server**: ký access token bằng RSA keypair sinh trong RAM lúc khởi động (`security/JwtKeyService`), expose public key tại `GET /.well-known/jwks.json` để `api-gateway` (và service khác sau này) validate — đúng với `JWK_SET_URI` đã cấu hình sẵn trong `api-gateway/application.yml`.
+
+| Endpoint | Ai gọi được | Nghiệp vụ |
+|---|---|---|
+| `POST /api/auth/register` | Public | Học sinh tự đăng ký (role=STUDENT, auto-login) |
+| `POST /api/auth/login` | Public | Đăng nhập, trả `mustChangePassword` để frontend bắt buộc đổi mật khẩu nếu cần |
+| `POST /api/auth/refresh` | Public (cần refresh token hợp lệ) | Xoay access+refresh token (refresh cũ bị revoke ngay khi dùng) |
+| `POST /api/auth/logout` | Đã đăng nhập | Revoke refresh token hiện tại |
+| `POST /api/auth/change-password` | Đã đăng nhập | Đổi mật khẩu — dùng cho flow bắt buộc đổi lần đầu của giáo viên/admin được seed |
+| `GET /api/auth/me` | Đã đăng nhập | Thông tin user hiện tại + `mustChangePassword` |
+| `POST /api/admin/teachers` | ADMIN only | Admin tạo tài khoản giáo viên, sinh mật khẩu ngẫu nhiên 12 ký tự, trả về đúng 1 lần để admin gửi cho giáo viên; `must_change_password=true` buộc đổi ở lần đăng nhập đầu |
+
+Chi tiết:
+- Access token: JWT RS256, 15 phút (`oep.jwt.access-ttl-seconds`), claim `sub`=user id, `email`, `role`, `must_change_password`.
+- Refresh token: chuỗi ngẫu nhiên 32 byte, chỉ lưu **hash SHA-256** vào `refresh_tokens.token_hash` (không lưu raw); TTL 30 ngày (`oep.jwt.refresh-ttl-seconds`); mỗi lần `/refresh` sẽ revoke token cũ và phát token mới (rotation) — dùng lại token cũ bị từ chối.
+- `/api/admin/**` yêu cầu `ROLE_ADMIN` ở tầng `SecurityConfig` (path-based), không cần khai báo lại ở từng controller.
+- **`AdminSeeder`**: DB trống thì tự tạo 1 tài khoản ADMIN (`oep.admin.seed.email`/`oep.admin.seed.password`, mặc định `admin@oep.local` / `Admin@12345`, `must_change_password=true`) — nếu không có cách nào khác để đăng nhập lần đầu. Dev-only, giống các shortcut dev khác đã ghi trong `CLAUDE.md`; production phải seed qua kênh khác và đổi ngay.
+- Giới hạn biết trước (dev-only, đã ghi trong code): RSA keypair sinh lại mỗi lần restart service → access token phát trước khi restart hết hiệu lực ngay (refresh token trong DB vẫn còn, user chỉ cần gọi `/refresh` hoặc login lại).
+- Đã verify thật bằng curl trên DB chạy thật: JWKS, 401 khi không có token, 403 khi sai role, đăng ký/đăng nhập/đổi mật khẩu/logout/rotate refresh token đều đúng hành vi.

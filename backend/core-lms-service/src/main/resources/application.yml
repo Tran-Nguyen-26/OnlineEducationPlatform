@@ -25,3 +25,11 @@ oep:
       jdbc-url: ${DB_REPLICA_URL:jdbc:postgresql://localhost:5433/oep}
       username: ${DB_REPLICA_USER:oep}
       password: ${DB_REPLICA_PASSWORD:oep}
+  jwt:
+    issuer: oep-core-lms
+    access-ttl-seconds: 900
+    refresh-ttl-seconds: 2592000
+  admin:
+    seed:
+      email: ${ADMIN_SEED_EMAIL:admin@oep.local}
+      password: ${ADMIN_SEED_PASSWORD:Admin@12345}

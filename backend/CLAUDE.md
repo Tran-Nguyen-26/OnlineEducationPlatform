@@ -88,8 +88,8 @@ Java 21, Spring Boot 3.3.5, Maven multi-module. Hạ tầng dev: PostgreSQL (1 p
 - `core-model` là thư viện dùng chung (jar, không chạy độc lập): entity, enum, event, exception, cấu hình routing DataSource. Ba service Spring Boot cùng dùng.
 - `api-gateway` chạy WebFlux và **không** phụ thuộc `core-model`.
 - Frontend (SPA) ở repo khác, chỉ gọi qua `http://localhost:8080/api/...`.
-- Đã làm: PostgreSQL 1 primary (ghi, `:5432`) + 1 read replica (đọc, `:5433`). Chỉ `core-lms-service` bật routing đọc/ghi (mục 5).
-- Chưa làm: AI Tutor (Python + Pinecone), Cloud Storage/CDN, auth (JWT/JWKS) trong Core LMS, nhiều replica, backup WAL sang GCP Archive. Vì chưa có JWT nên gateway trả 401 cho mọi `/api/**` trừ `/api/auth/**`.
+- Đã làm: PostgreSQL 1 primary (ghi, `:5432`) + 1 read replica (đọc, `:5433`). Chỉ `core-lms-service` bật routing đọc/ghi (mục 5). Auth (JWT RS256 + JWKS) trong Core LMS: đăng ký/đăng nhập/refresh/logout/đổi mật khẩu, admin tạo giáo viên với mật khẩu random + bắt đổi lần đầu — chi tiết ở `DATABASE.md` mục 7.
+- Chưa làm: AI Tutor (Python + Pinecone), Cloud Storage/CDN, nhiều replica, backup WAL sang GCP Archive.
 
 ## 2. Cấu trúc thư mục
 
