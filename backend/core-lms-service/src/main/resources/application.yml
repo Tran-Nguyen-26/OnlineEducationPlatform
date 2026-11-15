@@ -33,3 +33,10 @@ oep:
     seed:
       email: ${ADMIN_SEED_EMAIL:admin@oep.local}
       password: ${ADMIN_SEED_PASSWORD:Admin@12345}
+  storage:
+    endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
+    access-key: ${STORAGE_ACCESS_KEY:oep}
+    secret-key: ${STORAGE_SECRET_KEY:oep_secret}
+    bucket: ${STORAGE_BUCKET:oep-content}
+    region: us-east-1
+    upload-url-ttl-seconds: 900
