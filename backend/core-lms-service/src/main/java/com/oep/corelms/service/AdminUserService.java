@@ -1,5 +1,6 @@
 package com.oep.corelms.service;
 
+import com.oep.corelms.dto.admin.AdminUserResponse;
 import com.oep.corelms.dto.admin.CreateTeacherRequest;
 import com.oep.corelms.dto.admin.CreateTeacherResponse;
 import com.oep.corelms.repository.AuthIdentityRepository;
@@ -19,7 +20,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Admin-only: create a teacher account directly, with a random password the teacher must change on first login. */
+import java.util.List;
+import java.util.UUID;
+
+/** Admin-only: create teacher accounts, list/filter all users, toggle active/disabled. */
 @Service
 @RequiredArgsConstructor
 public class AdminUserService {
@@ -55,5 +59,37 @@ public class AdminUserService {
         userProfiles.save(profile);
 
         return new CreateTeacherResponse(user.getId(), user.getEmail(), request.fullName(), temporaryPassword);
+    }
+
+    @Transactional(readOnly = true)
+    public List<AdminUserResponse> list(UserRole roleFilter, AccountStatus statusFilter) {
+        List<User> result;
+        if (roleFilter != null && statusFilter != null) {
+            result = users.findByRoleAndAccountStatus(roleFilter, statusFilter);
+        } else if (roleFilter != null) {
+            result = users.findByRole(roleFilter);
+        } else if (statusFilter != null) {
+            result = users.findByAccountStatus(statusFilter);
+        } else {
+            result = users.findAll();
+        }
+        return result.stream().map(this::toResponse).toList();
+    }
+
+    @Transactional
+    public AdminUserResponse updateStatus(UUID targetUserId, AccountStatus newStatus, UUID actingAdminId) {
+        if (targetUserId.equals(actingAdminId)) {
+            throw new BusinessException(ErrorCode.CANNOT_MODIFY_SELF, "Admin cannot change their own account status");
+        }
+        User user = users.findById(targetUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "User not found"));
+        user.setAccountStatus(newStatus);
+        return toResponse(users.save(user));
+    }
+
+    private AdminUserResponse toResponse(User user) {
+        String fullName = userProfiles.findById(user.getId()).map(UserProfile::getFullName).orElse(null);
+        return new AdminUserResponse(user.getId(), user.getEmail(), user.getRole(), user.getAccountStatus(),
+                fullName, user.getCreatedAt());
     }
 }
