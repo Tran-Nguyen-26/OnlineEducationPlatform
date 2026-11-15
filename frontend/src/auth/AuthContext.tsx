@@ -7,6 +7,7 @@ interface AuthContextValue {
   user: MeResponse | null
   loading: boolean
   login: (email: string, password: string) => Promise<MeResponse>
+  register: (email: string, password: string, fullName: string) => Promise<MeResponse>
   logout: () => void
   refreshMe: () => Promise<MeResponse>
 }
@@ -42,6 +43,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return refreshMe()
   }
 
+  async function register(email: string, password: string, fullName: string): Promise<MeResponse> {
+    const { data } = await apiClient.post<AuthResponse>('/api/auth/register', { email, password, fullName })
+    tokenStore.setTokens(data.accessToken, data.refreshToken)
+    return refreshMe()
+  }
+
   function logout() {
     const refreshToken = tokenStore.getRefreshToken()
     if (refreshToken) {
@@ -51,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }
 
-  return <AuthContext.Provider value={{ user, loading, login, logout, refreshMe }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, loading, login, register, logout, refreshMe }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth(): AuthContextValue {

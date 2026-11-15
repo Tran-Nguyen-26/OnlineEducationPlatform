@@ -1,5 +1,6 @@
 package com.oep.corelms.service;
 
+import com.oep.corelms.dto.student.MyEnrollmentResponse;
 import com.oep.corelms.repository.CourseInviteCodeRepository;
 import com.oep.corelms.repository.CourseRepository;
 import com.oep.corelms.repository.EnrollmentRepository;
@@ -28,8 +29,9 @@ public class EnrollmentService {
     private final UserRepository users;
     private final CourseInviteCodeRepository inviteCodes;
 
+    /** Maps to the response DTO here, still inside the transaction, so course/subject lazy-load safely. */
     @Transactional
-    public Enrollment enroll(UUID courseId, UUID studentId, String inviteCode) {
+    public MyEnrollmentResponse enroll(UUID courseId, UUID studentId, String inviteCode) {
         Course course = courses.findById(courseId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Course not found"));
 
@@ -57,6 +59,6 @@ public class EnrollmentService {
         e.setCourse(course);
         e.setStudent(users.getReferenceById(studentId));
         e.setInviteCode(ic);
-        return enrollments.save(e);
+        return MyEnrollmentResponse.from(enrollments.save(e));
     }
 }

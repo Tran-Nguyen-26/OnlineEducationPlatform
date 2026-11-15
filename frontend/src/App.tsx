@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { useAuth } from './auth/AuthContext'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { LoginPage } from './pages/LoginPage'
+import { RegisterPage } from './pages/RegisterPage'
 import { ChangePasswordPage } from './pages/ChangePasswordPage'
 import { AdminLayout } from './layouts/AdminLayout'
 import { DashboardPage } from './pages/admin/DashboardPage'
@@ -9,11 +11,23 @@ import { CoursesPage } from './pages/admin/CoursesPage'
 import { CourseDetailPage } from './pages/admin/CourseDetailPage'
 import { TeachersPage } from './pages/admin/TeachersPage'
 import { UsersPage } from './pages/admin/UsersPage'
+import { StudentLayout } from './layouts/StudentLayout'
+import { CataloguePage } from './pages/student/CataloguePage'
+import { CourseViewerPage } from './pages/student/CourseViewerPage'
+
+function RoleHome() {
+  const { user } = useAuth()
+  if (!user) return <Navigate to="/login" replace />
+  if (user.role === 'ADMIN') return <Navigate to="/admin" replace />
+  if (user.role === 'STUDENT') return <Navigate to="/student" replace />
+  return <Navigate to="/login" replace />
+}
 
 function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/change-password" element={<ChangePasswordPage />} />
@@ -30,8 +44,15 @@ function App() {
         </Route>
       </Route>
 
-      <Route path="/" element={<Navigate to="/admin" replace />} />
-      <Route path="*" element={<Navigate to="/admin" replace />} />
+      <Route element={<ProtectedRoute allowedRoles={['STUDENT']} />}>
+        <Route path="/student" element={<StudentLayout />}>
+          <Route index element={<CataloguePage />} />
+          <Route path="courses/:courseId" element={<CourseViewerPage />} />
+        </Route>
+      </Route>
+
+      <Route path="/" element={<RoleHome />} />
+      <Route path="*" element={<RoleHome />} />
     </Routes>
   )
 }

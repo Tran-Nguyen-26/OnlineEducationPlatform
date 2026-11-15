@@ -40,3 +40,4 @@ oep:
     bucket: ${STORAGE_BUCKET:oep-content}
     region: us-east-1
     upload-url-ttl-seconds: 900
+    view-url-ttl-seconds: 600

@@ -19,8 +19,8 @@ export function ChangePasswordPage() {
     setError(null)
     try {
       await apiClient.post('/api/auth/change-password', { currentPassword, newPassword })
-      await refreshMe()
-      navigate('/admin', { replace: true })
+      const me = await refreshMe()
+      navigate(me.role === 'ADMIN' ? '/admin' : '/student', { replace: true })
     } catch (err) {
       setError(getApiErrorMessage(err))
     } finally {

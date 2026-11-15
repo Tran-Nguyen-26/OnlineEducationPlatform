@@ -1,0 +1,113 @@
+package com.oep.corelms.service;
+
+import com.oep.corelms.dto.student.CourseOutlineResponse;
+import com.oep.corelms.dto.student.CourseOutlineResponse.OutlineContent;
+import com.oep.corelms.dto.student.CourseOutlineResponse.OutlineLesson;
+import com.oep.corelms.dto.student.CourseOutlineResponse.OutlineModule;
+import com.oep.corelms.dto.student.ViewUrlResponse;
+import com.oep.corelms.repository.CourseModuleRepository;
+import com.oep.corelms.repository.CourseRepository;
+import com.oep.corelms.repository.LessonContentRepository;
+import com.oep.corelms.repository.LessonProgressRepository;
+import com.oep.corelms.repository.LessonRepository;
+import com.oep.coremodel.entity.course.Course;
+import com.oep.coremodel.entity.course.Lesson;
+import com.oep.coremodel.entity.course.LessonContent;
+import com.oep.coremodel.entity.enrollment.Enrollment;
+import com.oep.coremodel.entity.enrollment.LessonProgress;
+import com.oep.coremodel.enums.LessonProgressStatus;
+import com.oep.coremodel.exception.BusinessException;
+import com.oep.coremodel.exception.ErrorCode;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+/** The full module/lesson/content tree is only readable while the student is actively enrolled. */
+@Service
+@RequiredArgsConstructor
+public class StudentCourseContentService {
+
+    private final CourseRepository courses;
+    private final CourseModuleRepository modules;
+    private final LessonRepository lessons;
+    private final LessonContentRepository lessonContents;
+    private final LessonProgressRepository lessonProgress;
+    private final EnrollmentAccessService enrollmentAccess;
+    private final StorageService storageService;
+
+    @Transactional(readOnly = true)
+    public CourseOutlineResponse getOutline(UUID courseId, UUID studentId) {
+        Enrollment enrollment = enrollmentAccess.requireActiveEnrollment(courseId, studentId);
+        Course course = courses.findById(courseId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Course not found"));
+
+        Map<UUID, LessonProgressStatus> progressByLesson = lessonProgress.findByEnrollmentId(enrollment.getId()).stream()
+                .collect(Collectors.toMap(p -> p.getLesson().getId(), LessonProgress::getStatus));
+
+        List<OutlineModule> moduleDtos = modules.findByCourse_IdOrderByPositionAsc(courseId).stream()
+                .map(module -> new OutlineModule(
+                        module.getId(),
+                        module.getTitle(),
+                        module.getDescription(),
+                        module.getPosition(),
+                        lessons.findByModule_IdOrderByPositionAsc(module.getId()).stream()
+                                .map(lesson -> toOutlineLesson(lesson, progressByLesson))
+                                .toList()))
+                .toList();
+
+        return new CourseOutlineResponse(courseId, course.getTitle(), moduleDtos);
+    }
+
+    private OutlineLesson toOutlineLesson(Lesson lesson, Map<UUID, LessonProgressStatus> progressByLesson) {
+        List<OutlineContent> contentDtos = lessonContents.findByLesson_IdOrderByPositionAsc(lesson.getId()).stream()
+                .map(c -> new OutlineContent(c.getId(), c.getContentType(), c.getTitle(), c.getTextContent(), c.getExternalUrl(),
+                        c.getFileName(), c.getMimeType(), c.getDurationSeconds(), c.getUploadStatus()))
+                .toList();
+        LessonProgressStatus status = progressByLesson.getOrDefault(lesson.getId(), LessonProgressStatus.NOT_STARTED);
+        return new OutlineLesson(lesson.getId(), lesson.getTitle(), lesson.getDescription(), lesson.getPosition(),
+                lesson.isRequired(), status, contentDtos);
+    }
+
+    @Transactional(readOnly = true)
+    public ViewUrlResponse getContentViewUrl(UUID contentId, UUID studentId) {
+        LessonContent content = lessonContents.findById(contentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Content not found"));
+        UUID courseId = content.getLesson().getModule().getCourse().getId();
+        enrollmentAccess.requireActiveEnrollment(courseId, studentId);
+        if (content.getObjectKey() == null) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "This content has no file to view");
+        }
+        return new ViewUrlResponse(storageService.presignView(content.getObjectKey()), storageService.viewUrlTtlSeconds());
+    }
+
+    @Transactional
+    public void updateLessonProgress(UUID lessonId, UUID studentId, LessonProgressStatus status) {
+        Lesson lesson = lessons.findById(lessonId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Lesson not found"));
+        UUID courseId = lesson.getModule().getCourse().getId();
+        Enrollment enrollment = enrollmentAccess.requireActiveEnrollment(courseId, studentId);
+
+        LessonProgress progress = lessonProgress.findByEnrollmentIdAndLessonId(enrollment.getId(), lessonId)
+                .orElseGet(() -> {
+                    LessonProgress p = new LessonProgress();
+                    p.setEnrollment(enrollment);
+                    p.setLesson(lesson);
+                    return p;
+                });
+        if (progress.getStartedAt() == null) {
+            progress.setStartedAt(Instant.now());
+        }
+        if (status == LessonProgressStatus.COMPLETED && progress.getCompletedAt() == null) {
+            progress.setCompletedAt(Instant.now());
+        }
+        progress.setStatus(status);
+        progress.setLastAccessedAt(Instant.now());
+        lessonProgress.save(progress);
+    }
+}

@@ -1,9 +1,13 @@
 import { useState, type FormEvent } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { getApiErrorMessage } from '../lib/apiClient'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
+
+function homeFor(role: string) {
+  return role === 'ADMIN' ? '/admin' : '/student'
+}
 
 export function LoginPage() {
   const { user, login } = useAuth()
@@ -15,7 +19,7 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false)
 
   if (user) {
-    const redirectTo = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/admin'
+    const redirectTo = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? homeFor(user.role)
     return <Navigate to={redirectTo} replace />
   }
 
@@ -25,7 +29,7 @@ export function LoginPage() {
     setError(null)
     try {
       const me = await login(email, password)
-      navigate(me.mustChangePassword ? '/change-password' : '/admin', { replace: true })
+      navigate(me.mustChangePassword ? '/change-password' : homeFor(me.role), { replace: true })
     } catch (err) {
       setError(getApiErrorMessage(err))
     } finally {
@@ -36,8 +40,8 @@ export function LoginPage() {
   return (
     <div className="flex h-screen items-center justify-center bg-slate-50">
       <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
-        <h1 className="mb-1 text-xl font-bold text-slate-900">OEP Admin</h1>
-        <p className="mb-6 text-sm text-slate-500">Đăng nhập để quản lý trung tâm</p>
+        <h1 className="mb-1 text-xl font-bold text-slate-900">OEP</h1>
+        <p className="mb-6 text-sm text-slate-500">Đăng nhập để tiếp tục</p>
 
         <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
         <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="mb-4" />
@@ -56,6 +60,13 @@ export function LoginPage() {
         <Button type="submit" disabled={submitting} className="w-full">
           {submitting ? 'Đang đăng nhập...' : 'Đăng nhập'}
         </Button>
+
+        <p className="mt-4 text-center text-sm text-slate-500">
+          Chưa có tài khoản?{' '}
+          <Link to="/register" className="font-medium text-slate-900 hover:underline">
+            Đăng ký làm học sinh
+          </Link>
+        </p>
       </form>
     </div>
   )

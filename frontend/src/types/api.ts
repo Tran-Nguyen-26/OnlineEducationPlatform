@@ -175,3 +175,159 @@ export interface AssignmentResponse {
   createdByEmail: string | null
   createdAt: string
 }
+
+// ---- Student-facing ----
+
+export interface StudentCourseResponse {
+  id: string
+  title: string
+  description: string | null
+  subjectName: string
+  capacity: number | null
+  learningMode: LearningMode
+  enrolled: boolean
+}
+
+export interface MyEnrollmentResponse {
+  enrollmentId: string
+  courseId: string
+  courseTitle: string
+  subjectName: string
+  status: 'ACTIVE' | 'COMPLETED' | 'WITHDRAWN' | 'REMOVED'
+  enrolledAt: string
+}
+
+export type LessonProgressStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED'
+
+export interface OutlineContent {
+  id: string
+  contentType: ContentType
+  title: string | null
+  textContent: string | null
+  externalUrl: string | null
+  fileName: string | null
+  mimeType: string | null
+  durationSeconds: number | null
+  uploadStatus: UploadStatus
+}
+
+export interface OutlineLesson {
+  id: string
+  title: string
+  description: string | null
+  position: number
+  required: boolean
+  progressStatus: LessonProgressStatus
+  contents: OutlineContent[]
+}
+
+export interface OutlineModule {
+  id: string
+  title: string
+  description: string | null
+  position: number
+  lessons: OutlineLesson[]
+}
+
+export interface CourseOutlineResponse {
+  courseId: string
+  title: string
+  modules: OutlineModule[]
+}
+
+export interface ViewUrlResponse {
+  viewUrl: string
+  expiresInSeconds: number
+}
+
+export interface StudentQuizResponse {
+  id: string
+  courseId: string
+  lessonId: string | null
+  title: string
+  description: string | null
+  timeLimitSeconds: number | null
+  deadline: string | null
+  maxAttempts: number
+  gradingPolicy: QuizGradingPolicy
+  locked: boolean
+  attemptsUsed: number
+  canAttempt: boolean
+  bestScore: number | null
+}
+
+export interface QuestionForAttempt {
+  questionId: string
+  questionType: QuestionType
+  questionText: string
+  position: number
+  points: number
+  options: { id: string; optionText: string; position: number }[]
+}
+
+export interface StartAttemptResponse {
+  attemptId: string
+  attemptNumber: number
+  startedAt: string
+  timeLimitSeconds: number | null
+  questions: QuestionForAttempt[]
+}
+
+export type QuizAttemptStatus = 'IN_PROGRESS' | 'SUBMITTED' | 'TIMED_OUT' | 'GRADED'
+
+export interface AttemptSummaryResponse {
+  attemptId: string
+  attemptNumber: number
+  status: QuizAttemptStatus
+  submittedAt: string | null
+  score: number | null
+}
+
+export interface AttemptResultResponse {
+  attemptId: string
+  attemptNumber: number
+  status: QuizAttemptStatus
+  submittedAt: string
+  score: number | null
+  questionResults: { questionId: string; correct: boolean | null; awardedScore: number | null }[]
+}
+
+export interface StudentAssignmentResponse {
+  id: string
+  courseId: string
+  lessonId: string | null
+  title: string
+  instructions: string | null
+  deadline: string | null
+  maxSubmissions: number
+  allowLateSubmission: boolean
+  allowText: boolean
+  allowFiles: boolean
+  maxScore: number
+  submissionCount: number
+  canSubmit: boolean
+  graded: boolean
+  score: number | null
+}
+
+export interface SubmissionFileResponse {
+  id: string
+  fileName: string
+  fileType: string | null
+  fileSize: number
+  uploadStatus: UploadStatus
+}
+
+export type AssignmentSubmissionStatus = 'SUBMITTED' | 'PENDING_REGRADE' | 'GRADED'
+
+export interface MySubmissionResponse {
+  id: string
+  textContent: string | null
+  submissionCount: number
+  status: AssignmentSubmissionStatus
+  submittedAt: string
+  late: boolean
+  files: SubmissionFileResponse[]
+  score: number | null
+  feedback: string | null
+}
