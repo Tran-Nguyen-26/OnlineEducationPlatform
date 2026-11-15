@@ -4,10 +4,12 @@ import com.oep.corelms.dto.student.CourseOutlineResponse;
 import com.oep.corelms.dto.student.CourseOutlineResponse.OutlineContent;
 import com.oep.corelms.dto.student.CourseOutlineResponse.OutlineLesson;
 import com.oep.corelms.dto.student.CourseOutlineResponse.OutlineModule;
+import com.oep.corelms.dto.student.MyProgressResponse;
 import com.oep.corelms.dto.student.ViewUrlResponse;
 import com.oep.corelms.repository.CourseInstructorRepository;
 import com.oep.corelms.repository.CourseModuleRepository;
 import com.oep.corelms.repository.CourseRepository;
+import com.oep.corelms.repository.EnrollmentRepository;
 import com.oep.corelms.repository.LessonContentRepository;
 import com.oep.corelms.repository.LessonProgressRepository;
 import com.oep.corelms.repository.LessonRepository;
@@ -39,6 +41,7 @@ public class StudentCourseContentService {
     private final LessonRepository lessons;
     private final LessonContentRepository lessonContents;
     private final LessonProgressRepository lessonProgress;
+    private final EnrollmentRepository enrollments;
     private final EnrollmentAccessService enrollmentAccess;
     private final CourseInstructorRepository courseInstructors;
     private final StorageService storageService;
@@ -95,6 +98,29 @@ public class StudentCourseContentService {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "This content has no file to view");
         }
         return new ViewUrlResponse(storageService.presignView(content.getObjectKey()), storageService.viewUrlTtlSeconds());
+    }
+
+    /** One row per enrollment (any status), with lesson-completion counts aggregated across all its modules. */
+    @Transactional(readOnly = true)
+    public List<MyProgressResponse> myProgress(UUID studentId) {
+        return enrollments.findByStudentIdOrderByEnrolledAtDesc(studentId).stream()
+                .map(this::toProgressResponse)
+                .toList();
+    }
+
+    private MyProgressResponse toProgressResponse(Enrollment enrollment) {
+        UUID courseId = enrollment.getCourse().getId();
+        int totalLessons = modules.findByCourse_IdOrderByPositionAsc(courseId).stream()
+                .mapToInt(m -> (int) lessons.countByModule_Id(m.getId()))
+                .sum();
+        long completedLessons = lessonProgress.findByEnrollmentId(enrollment.getId()).stream()
+                .filter(p -> p.getStatus() == LessonProgressStatus.COMPLETED)
+                .count();
+        double percent = totalLessons == 0 ? 0.0 : Math.round(completedLessons * 1000.0 / totalLessons) / 10.0;
+
+        return new MyProgressResponse(enrollment.getId(), courseId, enrollment.getCourse().getTitle(),
+                enrollment.getCourse().getSubject().getName(), enrollment.getStatus(), totalLessons,
+                (int) completedLessons, percent);
     }
 
     @Transactional

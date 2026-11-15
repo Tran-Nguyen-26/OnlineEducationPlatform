@@ -2,7 +2,9 @@ package com.oep.corelms.controller;
 
 import com.oep.corelms.dto.student.EnrollRequest;
 import com.oep.corelms.dto.student.MyEnrollmentResponse;
+import com.oep.corelms.dto.student.MyProgressResponse;
 import com.oep.corelms.service.EnrollmentService;
+import com.oep.corelms.service.StudentCourseContentService;
 import com.oep.corelms.service.StudentCourseService;
 import com.oep.coremodel.exception.BusinessException;
 import com.oep.coremodel.exception.ErrorCode;
@@ -26,6 +28,7 @@ public class EnrollmentController {
 
     private final EnrollmentService enrollmentService;
     private final StudentCourseService studentCourseService;
+    private final StudentCourseContentService studentCourseContentService;
 
     @PostMapping
     public MyEnrollmentResponse enroll(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody EnrollRequest request) {
@@ -36,6 +39,11 @@ public class EnrollmentController {
     @GetMapping
     public List<MyEnrollmentResponse> myEnrollments(@AuthenticationPrincipal Jwt jwt) {
         return studentCourseService.myEnrollments(UUID.fromString(jwt.getSubject()));
+    }
+
+    @GetMapping("/progress")
+    public List<MyProgressResponse> myProgress(@AuthenticationPrincipal Jwt jwt) {
+        return studentCourseContentService.myProgress(UUID.fromString(jwt.getSubject()));
     }
 
     private void requireStudent(Jwt jwt) {

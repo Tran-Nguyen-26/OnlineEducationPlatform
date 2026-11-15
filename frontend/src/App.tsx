@@ -14,6 +14,7 @@ import { UsersPage } from './pages/admin/UsersPage'
 import { StudentLayout } from './layouts/StudentLayout'
 import { CataloguePage } from './pages/student/CataloguePage'
 import { CourseViewerPage } from './pages/student/CourseViewerPage'
+import { MyProgressPage } from './pages/student/MyProgressPage'
 import { TeacherLayout } from './layouts/TeacherLayout'
 import { MyCoursesPage } from './pages/teacher/MyCoursesPage'
 import { CourseViewPage } from './pages/teacher/CourseViewPage'
@@ -51,6 +52,7 @@ function App() {
       <Route element={<ProtectedRoute allowedRoles={['STUDENT']} />}>
         <Route path="/student" element={<StudentLayout />}>
           <Route index element={<CataloguePage />} />
+          <Route path="progress" element={<MyProgressPage />} />
           <Route path="courses/:courseId" element={<CourseViewerPage />} />
         </Route>
       </Route>

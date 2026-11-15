@@ -12,6 +12,10 @@ Cập nhật: xem lịch sử commit trên nhánh `nguyentt/database-replication
 | 3 | Soạn nội dung khóa học: module/lesson/lesson-content (video/PDF/slide/link/text) qua MinIO presigned URL, quiz + câu hỏi, assignment | ✅ | ✅ (tab Nội dung/Quiz/Assignment trong `CourseDetailPage`) |
 | 4 | Luồng học sinh: đăng ký, duyệt catalogue, nhập mã, xem nội dung đã khoá/mở theo enrollment, làm quiz (tự chấm, snapshot đề), nộp bài tập, xem tiến độ, hỏi đáp | ✅ (`assessment-service` đứng riêng cho quiz/submission) | ✅ (`/student/*`) |
 | 5 | Luồng giáo viên: xem khóa được giao (read-only), chấm bài tập (có lịch sử chấm lại), hỏi đáp | ✅ | ✅ (`/teacher/*`) |
+| 6 | Notification thật (bài tập được chấm, tin nhắn Q&A mới) qua RabbitMQ → `worker-service` ghi bảng `notifications`; chuông thông báo real-time (poll 30s) cho cả 3 vai trò | ✅ | ✅ (`NotificationBell`) |
+| 7 | Form sửa thông tin khóa học trên Admin UI (môn/tiêu đề/mô tả/sĩ số/chế độ học/thời gian) | ✅ (đã có từ trước) | ✅ (tab Tổng quan) |
+| 8 | Dashboard thống kê Admin: `GET /api/admin/stats` (số môn/khóa học theo trạng thái, số giáo viên/học sinh, ghi danh theo trạng thái, tỷ lệ hoàn thành) | ✅ | ✅ (`DashboardPage`) |
+| 9 | Trang "Tiến độ của tôi" cho học sinh: `GET /api/enrollments/progress` (số bài học hoàn thành/tổng số theo từng khóa đã ghi danh, % trung bình) | ✅ | ✅ (`/student/progress`) |
 
 Hạ tầng dev đang chạy thật và đã verify bằng curl: `api-gateway :8080`, `core-lms-service :8081`, `assessment-service :8082`, PostgreSQL primary `:5432` + read replica `:5433` (streaming replication, routing đọc/ghi tự động trong `core-lms-service`), Redis, RabbitMQ, MinIO (object storage, presigned PUT/GET), frontend Vite dev server `:5173`.
 
@@ -21,11 +25,12 @@ Tài khoản test đang có sẵn trên DB dev: `admin@oep.local` / `Admin@12345
 
 | # | Mục | Vị trí | Mức ảnh hưởng |
 |---|---|---|---|
-| D1 | `NotificationListener` chỉ `log.info(...)`, chưa ghi bảng `notifications` hay gửi email/push thật | `worker-service/.../listener/NotificationListener.java` | Trung bình — notification/nhắc hạn nộp chưa hoạt động thật dù đã có bảng & event |
+| ~~D1~~ | ~~`NotificationListener` chỉ log, chưa ghi bảng `notifications`~~ | — | **Đã xử lý**: publish `NotificationRequestedEvent` từ `assessment-service` (chấm bài) và `core-lms-service` (tin nhắn Q&A) → `worker-service` ghi bảng `notifications` (idempotent theo `dedupe_key`); `GET/PATCH /api/notifications` + `NotificationBell` ở frontend. Email/push thật vẫn chưa làm (chỉ in-app). |
 | D2 | `ScoreSyncListener` chỉ log, chưa đồng bộ điểm từ Redis xuống `quiz_attempts` | `worker-service/.../listener/ScoreSyncListener.java` | Thấp hiện tại — vì quiz đang chấm trực tiếp trong `assessment-service`/Postgres, chưa dùng Redis cho trạng thái thi tải cao như kiến trúc gốc dự tính |
-| D3 | Admin frontend chưa có form sửa thông tin cơ bản khóa học (title/description/subject/capacity) | `frontend/src/pages/admin/CourseDetailPage.tsx` (tab Overview) | Thấp — API `PATCH /api/admin/courses/{id}` đã có, chỉ thiếu UI |
+| ~~D3~~ | ~~Admin frontend chưa có form sửa thông tin cơ bản khóa học~~ | — | **Đã xử lý**: modal "Sửa thông tin" trong `OverviewTab.tsx`, dùng `PATCH /api/admin/courses/{id}` đã có sẵn. |
 | D4 | RSA keypair ký JWT sinh lại mỗi lần restart `core-lms-service` | `core-lms-service/.../security/JwtKeyService.java` | Thấp (dev-only) — access token cũ hết hiệu lực ngay sau restart, user chỉ cần gọi lại `/refresh` hoặc đăng nhập lại |
 | D5 | `ddl-auto: update`, không có Flyway, chưa tách config theo biến môi trường prod | toàn bộ `core-lms-service` | Phải xử lý trước khi lên `prod` (đã ghi sẵn trong `CLAUDE.md` mục 4) |
+| D6 | Notification mới chỉ có 2 trigger (bài tập được chấm, tin nhắn Q&A) — chưa có "mã mời sắp hết hạn" hay "quiz sắp đến deadline" vì 2 mục đó cần job định kỳ (`@Scheduled`), không chỉ publish theo event như hiện tại | `assessment-service`, `core-lms-service` | Thấp — có thể bổ sung sau nếu cần |
 
 ## 3. Ngoài phạm vi hiện tại (chưa bắt đầu)
 
@@ -36,13 +41,10 @@ Tài khoản test đang có sẵn trên DB dev: `admin@oep.local` / `Admin@12345
 
 ## 4. Đề xuất kế hoạch tiếp theo
 
-Thứ tự đề xuất theo giá trị/công sức, **chưa làm gì** — chờ chọn:
+Tất cả 4 mục đề xuất trong lần trước (notification, form sửa khóa học, dashboard, tiến độ học sinh) **đã hoàn thành** — xem Phase 6–9 ở mục 1. Thứ tự đề xuất tiếp theo, **chưa làm gì** — chờ chọn:
 
-1. **Hoàn thiện notification thật (D1)** — ghi bảng `notifications` khi có event (bài tập được chấm, mã mời sắp hết hạn, quiz sắp đến deadline...), hiển thị chuông thông báo trên frontend (cả 3 vai trò). Giá trị cao vì đụng tới cả 3 vai trò, công sức trung bình (đã có event/bảng, chỉ thiếu consumer + UI).
-2. **Form sửa khóa học trên Admin UI (D3)** — nhanh, API đã có sẵn.
-3. **Dashboard thống kê cho Admin** — số học sinh/giáo viên/khóa học, tỷ lệ hoàn thành, hiện `DashboardPage.tsx` đang là khung trống hay số liệu tĩnh (cần kiểm tra lại nếu muốn làm mục này).
-4. **Trang "Tiến độ của tôi" cho học sinh** — tổng hợp `lesson_progress` qua tất cả khóa đã enroll thành 1 màn hình riêng (hiện tiến độ chỉ hiện trong từng khóa).
-5. **Flyway + cấu hình prod (D5)** — cần làm trước khi deploy thật, không gấp nếu vẫn đang ở giai đoạn phát triển tính năng.
-6. **AI Tutor** — khối lượng lớn nhất, nên làm sau khi nghiệp vụ lõi (mục 1–4 ở trên) ổn định.
+1. **Notification nhắc hạn (D6)** — job định kỳ cho "mã mời sắp hết hạn" / "quiz sắp đến deadline", tái dùng pipeline notification đã có.
+2. **Flyway + cấu hình prod (D5)** — cần làm trước khi deploy thật, không gấp nếu vẫn đang ở giai đoạn phát triển tính năng.
+3. **AI Tutor** — khối lượng lớn nhất, nên làm sau khi nghiệp vụ lõi ổn định.
 
 Nói "làm mục N" hoặc "làm phần X" để bắt đầu — giữ đúng quy ước: build + verify bằng curl/UI thật trước khi báo xong, commit chỉ khi được yêu cầu.

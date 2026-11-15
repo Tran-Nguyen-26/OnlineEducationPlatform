@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { BookOpen, GraduationCap, LayoutDashboard, LogOut, Users as UsersIcon } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { cn } from '../lib/cn'
+import { NotificationBell } from '../components/NotificationBell'
 
 const NAV_ITEMS = [
   { to: '/admin', label: 'Tổng quan', icon: LayoutDashboard, end: true },
@@ -17,7 +18,10 @@ export function AdminLayout() {
   return (
     <div className="flex h-screen bg-slate-50">
       <aside className="flex w-60 flex-col border-r border-slate-200 bg-white">
-        <div className="px-5 py-5 text-lg font-bold text-slate-900">OEP Admin</div>
+        <div className="flex items-center justify-between px-5 py-5">
+          <span className="text-lg font-bold text-slate-900">OEP Admin</span>
+          <NotificationBell />
+        </div>
         <nav className="flex-1 space-y-1 px-3">
           {NAV_ITEMS.map((item) => (
             <NavLink

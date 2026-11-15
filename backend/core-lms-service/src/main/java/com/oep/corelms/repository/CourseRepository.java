@@ -10,4 +10,5 @@ import java.util.UUID;
 public interface CourseRepository extends JpaRepository<Course, UUID> {
     List<Course> findAllByOrderByCreatedAtDesc();
     List<Course> findByLifecycleStatusOrderByCreatedAtDesc(CourseLifecycleStatus status);
+    long countByLifecycleStatus(CourseLifecycleStatus status);
 }

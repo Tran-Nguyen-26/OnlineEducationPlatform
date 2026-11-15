@@ -11,15 +11,18 @@ import com.oep.assessment.repository.CourseInstructorRepository;
 import com.oep.assessment.repository.SubmissionFileRepository;
 import com.oep.assessment.repository.UserProfileRepository;
 import com.oep.assessment.repository.UserRepository;
+import com.oep.coremodel.constant.MessagingConstants;
 import com.oep.coremodel.entity.assignment.Assignment;
 import com.oep.coremodel.entity.assignment.AssignmentGrade;
 import com.oep.coremodel.entity.assignment.AssignmentSubmission;
 import com.oep.coremodel.entity.identity.User;
 import com.oep.coremodel.entity.identity.UserProfile;
 import com.oep.coremodel.enums.AssignmentStatus;
+import com.oep.coremodel.event.NotificationRequestedEvent;
 import com.oep.coremodel.exception.BusinessException;
 import com.oep.coremodel.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +43,7 @@ public class TeacherGradingService {
     private final CourseInstructorRepository courseInstructors;
     private final UserRepository users;
     private final UserProfileRepository userProfiles;
+    private final RabbitTemplate rabbitTemplate;
 
     @Transactional(readOnly = true)
     public List<TeacherAssignmentResponse> listAssignmentsForCourse(UUID courseId, UUID instructorId) {
@@ -76,12 +80,27 @@ public class TeacherGradingService {
         grade.setFeedback(request.feedback());
         grade.setGradedBy(users.getReferenceById(instructorId));
         grade.setGradedAt(Instant.now());
-        assignmentGrades.save(grade);
+        AssignmentGrade saved = assignmentGrades.saveAndFlush(grade);
 
         submission.setStatus(AssignmentStatus.GRADED);
         submissions.save(submission);
 
+        notifyStudent(submission, saved);
         return toResponse(submission);
+    }
+
+    private void notifyStudent(AssignmentSubmission submission, AssignmentGrade grade) {
+        Assignment assignment = submission.getAssignment();
+        UUID studentId = submission.getEnrollment().getStudent().getId();
+        String courseTitle = assignment.getCourse().getTitle();
+        String message = "Bài tập \"" + assignment.getTitle() + "\" đã được chấm: "
+                + grade.getScore().stripTrailingZeros().toPlainString() + "/" + assignment.getMaxScore().stripTrailingZeros().toPlainString() + " điểm";
+
+        NotificationRequestedEvent event = new NotificationRequestedEvent(
+                studentId, "ASSIGNMENT_GRADED", "Bài tập đã được chấm — " + courseTitle, message,
+                "assignment-graded:" + grade.getId() + ":" + grade.getGradedAt().toEpochMilli(),
+                "COURSE", assignment.getCourse().getId(), Instant.now());
+        rabbitTemplate.convertAndSend(MessagingConstants.EXCHANGE, MessagingConstants.RK_NOTIFICATION, event);
     }
 
     private void requireAssignedInstructor(UUID courseId, UUID instructorId) {

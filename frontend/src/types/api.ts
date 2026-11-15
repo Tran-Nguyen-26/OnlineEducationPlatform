@@ -20,6 +20,45 @@ export interface MeResponse {
   accountStatus: AccountStatus
 }
 
+export interface NotificationResponse {
+  id: string
+  eventType: string
+  title: string
+  message: string
+  targetType: string | null
+  targetId: string | null
+  read: boolean
+  createdAt: string
+}
+
+export interface AdminDashboardStatsResponse {
+  totalSubjects: number
+  totalCourses: number
+  draftCourses: number
+  publishedCourses: number
+  archivedCourses: number
+  disabledCourses: number
+  totalTeachers: number
+  totalStudents: number
+  totalEnrollments: number
+  activeEnrollments: number
+  completedEnrollments: number
+  withdrawnEnrollments: number
+  removedEnrollments: number
+  completionRatePercent: number
+}
+
+export interface MyProgressResponse {
+  enrollmentId: string
+  courseId: string
+  courseTitle: string
+  subjectName: string
+  status: string
+  totalLessons: number
+  completedLessons: number
+  percent: number
+}
+
 export interface SubjectResponse {
   id: string
   name: string

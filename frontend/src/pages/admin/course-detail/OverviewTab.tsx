@@ -1,11 +1,24 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { apiClient, getApiErrorMessage } from '../../../lib/apiClient'
-import type { AdminUserResponse, CourseInstructorResponse, CourseLifecycleStatus, CourseResponse, InviteCodeResponse } from '../../../types/api'
+import type {
+  AdminUserResponse,
+  CourseInstructorResponse,
+  CourseLifecycleStatus,
+  CourseResponse,
+  InviteCodeResponse,
+  LearningMode,
+  SubjectResponse,
+} from '../../../types/api'
 import { Button } from '../../../components/ui/Button'
+import { Input } from '../../../components/ui/Input'
 import { Modal } from '../../../components/ui/Modal'
 import { Badge } from '../../../components/Badge'
+
+function toDateTimeLocal(iso: string | null): string {
+  return iso ? iso.slice(0, 16) : ''
+}
 
 const NEXT_STATUSES: Record<CourseLifecycleStatus, CourseLifecycleStatus[]> = {
   DRAFT: ['PUBLISHED', 'DISABLED'],
@@ -38,6 +51,56 @@ export function OverviewTab({ course }: { course: CourseResponse }) {
     queryKey: ['users', 'INSTRUCTOR'],
     queryFn: () => apiClient.get<AdminUserResponse[]>('/api/admin/users?role=INSTRUCTOR').then((r) => r.data),
   })
+  const subjectsQuery = useQuery({
+    queryKey: ['subjects'],
+    queryFn: () => apiClient.get<SubjectResponse[]>('/api/admin/subjects').then((r) => r.data),
+  })
+
+  const [editOpen, setEditOpen] = useState(false)
+  const [editSubjectId, setEditSubjectId] = useState('')
+  const [editTitle, setEditTitle] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editCapacity, setEditCapacity] = useState('')
+  const [editLearningMode, setEditLearningMode] = useState<LearningMode>('FREE_NAVIGATION')
+  const [editStartAt, setEditStartAt] = useState('')
+  const [editEndAt, setEditEndAt] = useState('')
+  const [editError, setEditError] = useState<string | null>(null)
+
+  function openEdit() {
+    setEditSubjectId(course.subjectId)
+    setEditTitle(course.title)
+    setEditDescription(course.description ?? '')
+    setEditCapacity(course.capacity != null ? String(course.capacity) : '')
+    setEditLearningMode(course.learningMode)
+    setEditStartAt(toDateTimeLocal(course.startAt))
+    setEditEndAt(toDateTimeLocal(course.endAt))
+    setEditError(null)
+    setEditOpen(true)
+  }
+
+  const editMutation = useMutation({
+    mutationFn: () =>
+      apiClient.patch(`/api/admin/courses/${courseId}`, {
+        subjectId: editSubjectId,
+        title: editTitle,
+        description: editDescription || null,
+        capacity: editCapacity ? Number(editCapacity) : null,
+        startAt: editStartAt ? new Date(editStartAt).toISOString() : null,
+        endAt: editEndAt ? new Date(editEndAt).toISOString() : null,
+        learningMode: editLearningMode,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courses', courseId] })
+      queryClient.invalidateQueries({ queryKey: ['courses'] })
+      setEditOpen(false)
+    },
+    onError: (err) => setEditError(getApiErrorMessage(err)),
+  })
+
+  function handleEditSubmit(e: FormEvent) {
+    e.preventDefault()
+    editMutation.mutate()
+  }
 
   const [statusError, setStatusError] = useState<string | null>(null)
   const statusMutation = useMutation({
@@ -97,6 +160,9 @@ export function OverviewTab({ course }: { course: CourseResponse }) {
   return (
     <div>
       <div className="mb-8 flex flex-wrap items-center gap-2">
+        <Button variant="secondary" size="sm" onClick={openEdit}>
+          <Pencil size={16} /> Sửa thông tin
+        </Button>
         {NEXT_STATUSES[course.lifecycleStatus].map((status) => (
           <Button
             key={status}
@@ -227,6 +293,65 @@ export function OverviewTab({ course }: { course: CourseResponse }) {
             </Button>
             <Button type="submit" disabled={assignMutation.isPending || unassignedInstructors.length === 0}>
               {assignMutation.isPending ? 'Đang gán...' : 'Gán'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal title="Sửa thông tin khóa học" open={editOpen} onClose={() => setEditOpen(false)}>
+        <form onSubmit={handleEditSubmit}>
+          <label className="mb-1 block text-sm font-medium text-slate-700">Môn học</label>
+          <select
+            required
+            value={editSubjectId}
+            onChange={(e) => setEditSubjectId(e.target.value)}
+            className="mb-4 h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
+          >
+            {subjectsQuery.data?.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+
+          <label className="mb-1 block text-sm font-medium text-slate-700">Tên khóa học</label>
+          <Input required value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="mb-4" />
+
+          <label className="mb-1 block text-sm font-medium text-slate-700">Mô tả / giới thiệu</label>
+          <Input value={editDescription} onChange={(e) => setEditDescription(e.target.value)} className="mb-4" />
+
+          <label className="mb-1 block text-sm font-medium text-slate-700">Sĩ số tối đa (tùy chọn)</label>
+          <Input type="number" min={1} value={editCapacity} onChange={(e) => setEditCapacity(e.target.value)} className="mb-4" />
+
+          <label className="mb-1 block text-sm font-medium text-slate-700">Chế độ học</label>
+          <select
+            value={editLearningMode}
+            onChange={(e) => setEditLearningMode(e.target.value as LearningMode)}
+            className="mb-4 h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
+          >
+            <option value="FREE_NAVIGATION">Tự do (học bài bất kỳ thứ tự)</option>
+            <option value="SEQUENTIAL">Tuần tự (phải học theo thứ tự)</option>
+          </select>
+
+          <div className="mb-4 grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Bắt đầu (tùy chọn)</label>
+              <Input type="datetime-local" value={editStartAt} onChange={(e) => setEditStartAt(e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Kết thúc (tùy chọn)</label>
+              <Input type="datetime-local" value={editEndAt} onChange={(e) => setEditEndAt(e.target.value)} />
+            </div>
+          </div>
+
+          {editError && <p className="mb-4 text-sm text-red-600">{editError}</p>}
+
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setEditOpen(false)}>
+              Hủy
+            </Button>
+            <Button type="submit" disabled={editMutation.isPending}>
+              {editMutation.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
             </Button>
           </div>
         </form>
