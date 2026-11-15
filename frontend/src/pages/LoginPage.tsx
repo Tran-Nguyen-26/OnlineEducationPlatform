@@ -6,7 +6,9 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 
 function homeFor(role: string) {
-  return role === 'ADMIN' ? '/admin' : '/student'
+  if (role === 'ADMIN') return '/admin'
+  if (role === 'INSTRUCTOR') return '/teacher'
+  return '/student'
 }
 
 export function LoginPage() {

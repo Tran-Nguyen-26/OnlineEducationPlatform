@@ -10,6 +10,9 @@ const COLORS: Record<string, string> = {
   ARCHIVED: 'bg-amber-100 text-amber-700',
   DISABLED: 'bg-red-100 text-red-700',
   FAILED: 'bg-red-100 text-red-700',
+  GRADED: 'bg-green-100 text-green-700',
+  SUBMITTED: 'bg-amber-100 text-amber-700',
+  PENDING_REGRADE: 'bg-amber-100 text-amber-700',
 }
 
 export function Badge({ status }: { status: string }) {

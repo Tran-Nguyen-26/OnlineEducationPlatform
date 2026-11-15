@@ -331,3 +331,81 @@ export interface MySubmissionResponse {
   score: number | null
   feedback: string | null
 }
+
+// ---- Teacher-facing ----
+
+export interface InstructorCourseResponse {
+  id: string
+  title: string
+  description: string | null
+  subjectName: string
+  lifecycleStatus: CourseLifecycleStatus
+}
+
+export interface ContentItem {
+  id: string
+  contentType: ContentType
+  title: string | null
+  textContent: string | null
+  externalUrl: string | null
+  fileName: string | null
+  uploadStatus: UploadStatus
+}
+
+export interface ContentLesson {
+  id: string
+  title: string
+  description: string | null
+  position: number
+  required: boolean
+  contents: ContentItem[]
+}
+
+export interface ContentModule {
+  id: string
+  title: string
+  description: string | null
+  position: number
+  lessons: ContentLesson[]
+}
+
+export interface CourseContentResponse {
+  courseId: string
+  title: string
+  modules: ContentModule[]
+}
+
+export interface TeacherAssignmentResponse {
+  id: string
+  title: string
+  instructions: string | null
+  deadline: string | null
+  maxScore: number
+  submissionCount: number
+}
+
+export interface SubmissionForGradingResponse {
+  submissionId: string
+  studentId: string
+  studentName: string
+  studentEmail: string
+  textContent: string | null
+  submissionCount: number
+  status: AssignmentSubmissionStatus
+  submittedAt: string
+  late: boolean
+  files: SubmissionFileResponse[]
+  score: number | null
+  feedback: string | null
+}
+
+// ---- Shared (Q&A) ----
+
+export interface MessageResponse {
+  id: string
+  senderId: string
+  senderName: string
+  senderRole: UserRole
+  content: string
+  createdAt: string
+}

@@ -24,7 +24,7 @@ public class StudentContentController {
 
     @GetMapping("/api/lesson-contents/{contentId}/view-url")
     public ViewUrlResponse viewUrl(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID contentId) {
-        return contentService.getContentViewUrl(contentId, UUID.fromString(jwt.getSubject()));
+        return contentService.getContentViewUrl(contentId, UUID.fromString(jwt.getSubject()), jwt.getClaimAsString("role"));
     }
 
     @PatchMapping("/api/lessons/{lessonId}/progress")

@@ -5,6 +5,7 @@ import com.oep.corelms.dto.student.CourseOutlineResponse.OutlineContent;
 import com.oep.corelms.dto.student.CourseOutlineResponse.OutlineLesson;
 import com.oep.corelms.dto.student.CourseOutlineResponse.OutlineModule;
 import com.oep.corelms.dto.student.ViewUrlResponse;
+import com.oep.corelms.repository.CourseInstructorRepository;
 import com.oep.corelms.repository.CourseModuleRepository;
 import com.oep.corelms.repository.CourseRepository;
 import com.oep.corelms.repository.LessonContentRepository;
@@ -39,6 +40,7 @@ public class StudentCourseContentService {
     private final LessonContentRepository lessonContents;
     private final LessonProgressRepository lessonProgress;
     private final EnrollmentAccessService enrollmentAccess;
+    private final CourseInstructorRepository courseInstructors;
     private final StorageService storageService;
 
     @Transactional(readOnly = true)
@@ -74,12 +76,21 @@ public class StudentCourseContentService {
                 lesson.isRequired(), status, contentDtos);
     }
 
+    /** Either an actively-enrolled student or an assigned instructor/admin may view the file; others get 403. */
     @Transactional(readOnly = true)
-    public ViewUrlResponse getContentViewUrl(UUID contentId, UUID studentId) {
+    public ViewUrlResponse getContentViewUrl(UUID contentId, UUID userId, String role) {
         LessonContent content = lessonContents.findById(contentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Content not found"));
         UUID courseId = content.getLesson().getModule().getCourse().getId();
-        enrollmentAccess.requireActiveEnrollment(courseId, studentId);
+
+        if ("INSTRUCTOR".equals(role)) {
+            if (!courseInstructors.existsByCourse_IdAndInstructor_Id(courseId, userId)) {
+                throw new BusinessException(ErrorCode.FORBIDDEN, "You are not assigned to this course");
+            }
+        } else if (!"ADMIN".equals(role)) {
+            enrollmentAccess.requireActiveEnrollment(courseId, userId);
+        }
+
         if (content.getObjectKey() == null) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "This content has no file to view");
         }

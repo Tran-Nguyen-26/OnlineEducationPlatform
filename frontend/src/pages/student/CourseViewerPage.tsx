@@ -5,6 +5,7 @@ import { ArrowLeft } from 'lucide-react'
 import { apiClient } from '../../lib/apiClient'
 import type { CourseOutlineResponse } from '../../types/api'
 import { cn } from '../../lib/cn'
+import { CourseQaTab } from '../../components/CourseQaTab'
 import { ContentTab } from './course-viewer/ContentTab'
 import { QuizzesTab } from './course-viewer/QuizzesTab'
 import { AssignmentsTab } from './course-viewer/AssignmentsTab'
@@ -13,6 +14,7 @@ const TABS = [
   { key: 'content', label: 'Nội dung' },
   { key: 'quizzes', label: 'Quiz' },
   { key: 'assignments', label: 'Bài tập' },
+  { key: 'qa', label: 'Hỏi đáp' },
 ] as const
 
 type TabKey = (typeof TABS)[number]['key']
@@ -57,6 +59,7 @@ export function CourseViewerPage() {
       {tab === 'content' && <ContentTab courseId={courseId} outline={outlineQuery.data!} />}
       {tab === 'quizzes' && <QuizzesTab courseId={courseId} />}
       {tab === 'assignments' && <AssignmentsTab courseId={courseId} />}
+      {tab === 'qa' && <CourseQaTab courseId={courseId} />}
     </div>
   )
 }

@@ -14,12 +14,16 @@ import { UsersPage } from './pages/admin/UsersPage'
 import { StudentLayout } from './layouts/StudentLayout'
 import { CataloguePage } from './pages/student/CataloguePage'
 import { CourseViewerPage } from './pages/student/CourseViewerPage'
+import { TeacherLayout } from './layouts/TeacherLayout'
+import { MyCoursesPage } from './pages/teacher/MyCoursesPage'
+import { CourseViewPage } from './pages/teacher/CourseViewPage'
 
 function RoleHome() {
   const { user } = useAuth()
   if (!user) return <Navigate to="/login" replace />
   if (user.role === 'ADMIN') return <Navigate to="/admin" replace />
   if (user.role === 'STUDENT') return <Navigate to="/student" replace />
+  if (user.role === 'INSTRUCTOR') return <Navigate to="/teacher" replace />
   return <Navigate to="/login" replace />
 }
 
@@ -48,6 +52,13 @@ function App() {
         <Route path="/student" element={<StudentLayout />}>
           <Route index element={<CataloguePage />} />
           <Route path="courses/:courseId" element={<CourseViewerPage />} />
+        </Route>
+      </Route>
+
+      <Route element={<ProtectedRoute allowedRoles={['INSTRUCTOR']} />}>
+        <Route path="/teacher" element={<TeacherLayout />}>
+          <Route index element={<MyCoursesPage />} />
+          <Route path="courses/:courseId" element={<CourseViewPage />} />
         </Route>
       </Route>
 

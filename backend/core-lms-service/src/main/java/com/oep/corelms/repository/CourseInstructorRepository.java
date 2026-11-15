@@ -10,6 +10,8 @@ import java.util.UUID;
 public interface CourseInstructorRepository extends JpaRepository<CourseInstructor, CourseInstructorId> {
     List<CourseInstructor> findByCourse_Id(UUID courseId);
 
+    List<CourseInstructor> findByInstructor_IdOrderByAddedAtDesc(UUID instructorId);
+
     boolean existsByCourse_IdAndInstructor_Id(UUID courseId, UUID instructorId);
 
     long deleteByCourse_IdAndInstructor_Id(UUID courseId, UUID instructorId);
