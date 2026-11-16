@@ -6,6 +6,7 @@ import type { QuestionType, QuizQuestionResponse, QuizResponse } from '../../../
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { Modal } from '../../../components/ui/Modal'
+import { QuestionBankModal } from './QuestionBankModal'
 
 const QUESTION_TYPE_LABEL: Record<QuestionType, string> = {
   SINGLE_CHOICE: 'Một đáp án đúng',
@@ -55,6 +56,7 @@ export function QuizItem({ quiz, courseId }: { quiz: QuizResponse; courseId: str
 
   // --- Add question modal ---
   const [open, setOpen] = useState(false)
+  const [bankOpen, setBankOpen] = useState(false)
   const [questionType, setQuestionType] = useState<QuestionType>('SINGLE_CHOICE')
   const [questionText, setQuestionText] = useState('')
   const [keywordAnswer, setKeywordAnswer] = useState('')
@@ -185,12 +187,22 @@ export function QuizItem({ quiz, courseId }: { quiz: QuizResponse; courseId: str
           ))}
 
           {!quiz.locked && (
-            <Button size="sm" variant="secondary" onClick={openCreate}>
-              <Plus size={14} /> Thêm câu hỏi
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" variant="secondary" onClick={openCreate}>
+                <Plus size={14} /> Thêm câu hỏi
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setBankOpen(true)}>
+                Chọn từ ngân hàng
+              </Button>
+            </div>
           )}
           {quiz.locked && <p className="text-xs text-slate-400">Quiz đang khóa — mở khóa để thêm/sửa câu hỏi.</p>}
         </div>
+      )}
+
+      {bankOpen && (
+        <QuestionBankModal courseId={courseId} quizId={quiz.id} nextPosition={questionsQuery.data?.length ?? 0}
+          existingIds={(questionsQuery.data ?? []).map((q) => q.questionId)} onClose={() => setBankOpen(false)} />
       )}
 
       <Modal title="Thêm câu hỏi" open={open} onClose={() => setOpen(false)}>

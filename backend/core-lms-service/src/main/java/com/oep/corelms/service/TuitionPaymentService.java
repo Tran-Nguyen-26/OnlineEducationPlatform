@@ -8,6 +8,7 @@ import com.oep.corelms.repository.TuitionPaymentRepository;
 import com.oep.corelms.repository.UserRepository;
 import com.oep.coremodel.entity.enrollment.Enrollment;
 import com.oep.coremodel.entity.enrollment.TuitionPayment;
+import com.oep.coremodel.enums.PaymentEntryType;
 import com.oep.coremodel.exception.BusinessException;
 import com.oep.coremodel.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +31,7 @@ public class TuitionPaymentService {
     @Transactional(readOnly = true)
     public BigDecimal totalPaid(UUID enrollmentId) {
         return payments.findByEnrollment_IdOrderByPaidAtDesc(enrollmentId).stream()
-                .map(TuitionPayment::getAmount)
+                .map(TuitionPaymentService::signed)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
@@ -53,11 +54,28 @@ public class TuitionPaymentService {
         payment.setEnrollment(enrollment);
         payment.setAmount(request.amount());
         payment.setNote(request.note());
+        PaymentEntryType type = request.type() == null ? PaymentEntryType.PAYMENT : request.type();
+        if (type == PaymentEntryType.REFUND && request.amount().compareTo(totalPaid(enrollmentId)) > 0) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "Refund exceeds the amount credited to this enrollment");
+        }
+        payment.setEntryType(type);
         payment.setRecordedBy(users.getReferenceById(adminId));
         return toResponse(payments.saveAndFlush(payment));
     }
 
     private TuitionPaymentResponse toResponse(TuitionPayment p) {
-        return new TuitionPaymentResponse(p.getId(), p.getAmount(), p.getNote(), p.getPaidAt(), p.getRecordedBy().getEmail());
+        return new TuitionPaymentResponse(p.getId(), p.getAmount(), p.getNote(), p.getPaidAt(), p.getRecordedBy().getEmail(),
+                p.getEntryType().name(), receiptNo(p));
+    }
+
+    /** Receipt number derived from the entry (date + id prefix) so it is stable and needs no counter table. */
+    public static String receiptNo(TuitionPayment p) {
+        String prefix = p.getEntryType() == PaymentEntryType.REFUND ? "HT" : p.getEntryType() == PaymentEntryType.DISCOUNT ? "MG" : "BL";
+        return prefix + "-" + p.getPaidAt().atZone(java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"))
+                + "-" + p.getId().toString().substring(0, 6).toUpperCase();
+    }
+
+    public static BigDecimal signed(TuitionPayment p) {
+        return p.getEntryType() == PaymentEntryType.REFUND ? p.getAmount().negate() : p.getAmount();
     }
 }

@@ -116,6 +116,8 @@ export interface TuitionPaymentResponse {
   note: string | null
   paidAt: string
   recordedByEmail: string
+  type: 'PAYMENT' | 'DISCOUNT' | 'REFUND'
+  receiptNo: string
 }
 
 export interface CourseInstructorResponse {
@@ -667,4 +669,42 @@ export interface FinancePaymentRow {
   note: string | null
   paidAt: string
   recordedByEmail: string
+  type: 'PAYMENT' | 'DISCOUNT' | 'REFUND'
+  receiptNo: string
+}
+
+export interface QuizAttemptRow {
+  attemptId: string; studentId: string; studentName: string; studentEmail: string; attemptNumber: number
+  status: string; startedAt: string; submittedAt: string | null; durationSeconds: number | null
+  autoScore: number | null; finalScore: number | null; adjustmentReason: string | null
+}
+export interface QuizQuestionStat { questionId: string; position: number; text: string; type: string; points: number; answeredCount: number; correctCount: number }
+export interface QuizAnalyticsResponse {
+  quizId: string; quizTitle: string; maxScore: number; maxAttempts: number; attemptCount: number; studentCount: number
+  averageScore: number | null; attempts: QuizAttemptRow[]; questions: QuizQuestionStat[]
+}
+
+export interface BankQuestionResponse {
+  questionId: string; questionType: QuestionType; questionText: string; keywordAnswer: string | null
+  options: OptionResponse[]; usedInQuizzes: number; createdAt: string
+}
+
+export type AttendanceStatus = 'PRESENT' | 'LATE' | 'EXCUSED' | 'ABSENT'
+export interface SessionResponse {
+  id: string; title: string; startsAt: string; endsAt: string | null; location: string | null; note: string | null
+  present: number; late: number; excused: number; absent: number; marked: number; myStatus: AttendanceStatus | null
+}
+export interface AttendanceRosterRow { enrollmentId: string; studentId: string; studentName: string; studentEmail: string; status: AttendanceStatus | null; note: string | null }
+export interface AttendanceSummaryRow {
+  enrollmentId: string; studentId: string; studentName: string; studentEmail: string; sessionsMarked: number
+  present: number; late: number; excused: number; absent: number; attendanceRate: number | null
+}
+
+export interface ReportCourseRow { courseId: string; title: string; lifecycleStatus: string; active: number; completed: number; withdrawn: number; removed: number; waitlisted: number; completionRate: number | null; dropoutRate: number | null }
+export interface ReportInstructorRow { instructorId: string; name: string; email: string; courses: number; activeStudents: number; completedStudents: number; completionRate: number | null; pendingGrading: number }
+export interface ReportMonthRow { month: string; enrollments: number; completions: number }
+export interface ReportOverview {
+  totalEnrollments: number; activeEnrollments: number; completedEnrollments: number; dropouts: number
+  overallCompletionRate: number | null; overallDropoutRate: number | null
+  courses: ReportCourseRow[]; instructors: ReportInstructorRow[]; months: ReportMonthRow[]
 }

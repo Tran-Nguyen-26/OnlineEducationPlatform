@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { apiClient } from '../../lib/apiClient'
+import { ENTRY_LABEL, printReceipt } from '../../lib/receipt'
 import { downloadCsv, vnd } from '../../lib/csv'
 import type { FinanceCourseRow, FinanceOutstandingRow, FinancePaymentRow, FinanceSummary } from '../../types/api'
 import { Badge } from '../../components/Badge'
@@ -34,8 +35,8 @@ export function FinancePage() {
       ])
     } else {
       downloadCsv('lich-su-thu.csv', [
-        ['Ngày', 'Học sinh', 'Email', 'Khóa học', 'Số tiền', 'Ghi chú', 'Người ghi nhận'],
-        ...(payments.data ?? []).map((r) => [new Date(r.paidAt).toLocaleString('vi-VN'), r.studentName, r.studentEmail, r.courseTitle, r.amount, r.note, r.recordedByEmail]),
+        ['Ngày', 'Học sinh', 'Email', 'Khóa học', 'Số tiền', 'Ghi chú', 'Người ghi nhận', 'Loại', 'Số phiếu'],
+        ...(payments.data ?? []).map((r) => [new Date(r.paidAt).toLocaleString('vi-VN'), r.studentName, r.studentEmail, r.courseTitle, r.amount, r.note, r.recordedByEmail, r.type, r.receiptNo]),
       ])
     }
   }
@@ -114,18 +115,21 @@ export function FinancePage() {
         {tab === 'payments' && (
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-500"><tr>
-              <th className={th}>Ngày</th><th className={th}>Học sinh</th><th className={th}>Khóa học</th><th className={th}>Số tiền</th><th className={th}>Ghi chú</th><th className={th}>Người ghi nhận</th>
+              <th className={th}>Số</th><th className={th}>Ngày</th><th className={th}>Loại</th><th className={th}>Học sinh</th><th className={th}>Khóa học</th><th className={th}>Số tiền</th><th className={th}>Ghi chú</th><th className={th}>Người ghi nhận</th><th className={th} />
             </tr></thead>
             <tbody className="divide-y divide-slate-100">
               {payments.data?.map((r) => (
                 <tr key={r.paymentId}>
+                  <td className="px-4 py-3 text-xs text-slate-500">{r.receiptNo}</td>
                   <td className="px-4 py-3 text-slate-500">{new Date(r.paidAt).toLocaleString('vi-VN')}</td>
+                  <td className="px-4 py-3">{ENTRY_LABEL[r.type]}</td>
                   <td className="px-4 py-3">{r.studentName}<div className="text-xs text-slate-400">{r.studentEmail}</div></td>
-                  <td className="px-4 py-3">{r.courseTitle}</td><td className="px-4 py-3 font-medium">{vnd(r.amount)}</td>
+                  <td className="px-4 py-3">{r.courseTitle}</td><td className={`px-4 py-3 font-medium ${r.type === 'REFUND' ? 'text-red-600' : ''}`}>{r.type === 'REFUND' ? '−' : ''}{vnd(r.amount)}</td>
                   <td className="px-4 py-3 text-slate-500">{r.note ?? '—'}</td><td className="px-4 py-3 text-slate-500">{r.recordedByEmail}</td>
+                  <td className="px-4 py-3"><button className="text-blue-600 hover:underline" onClick={() => printReceipt({ ...r, recordedBy: r.recordedByEmail })}>In</button></td>
                 </tr>
               ))}
-              {payments.data?.length === 0 && <tr><td className="px-4 py-6 text-slate-400" colSpan={6}>Chưa có khoản thu nào.</td></tr>}
+              {payments.data?.length === 0 && <tr><td className="px-4 py-6 text-slate-400" colSpan={9}>Chưa có khoản thu nào.</td></tr>}
             </tbody>
           </table>
         )}

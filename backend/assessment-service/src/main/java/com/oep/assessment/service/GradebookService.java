@@ -2,6 +2,10 @@ package com.oep.assessment.service;
 
 import com.oep.assessment.dto.GradebookResponse;
 import com.oep.assessment.dto.PendingGradingResponse;
+import com.oep.assessment.dto.QuizAnalyticsResponse;
+import com.oep.assessment.repository.QuizAnswerRepository;
+import com.oep.coremodel.entity.quiz.QuizAnswer;
+import java.time.Duration;
 import com.oep.assessment.repository.AssignmentGradeRepository;
 import com.oep.assessment.repository.AssignmentRepository;
 import com.oep.assessment.repository.AssignmentSubmissionRepository;
@@ -55,6 +59,7 @@ public class GradebookService {
     private final QuizQuestionRepository quizQuestions;
     private final QuizAttemptRepository attempts;
     private final QuizResultRepository quizResults;
+    private final QuizAnswerRepository quizAnswers;
     private final AssignmentRepository assignments;
     private final AssignmentSubmissionRepository submissions;
     private final AssignmentGradeRepository grades;
@@ -159,6 +164,54 @@ public class GradebookService {
             case AVERAGE -> scores.stream().reduce(BigDecimal.ZERO, BigDecimal::add)
                     .divide(BigDecimal.valueOf(scores.size()), 2, RoundingMode.HALF_UP);
         };
+    }
+
+    @Transactional(readOnly = true)
+    public QuizAnalyticsResponse quizAnalytics(UUID courseId, UUID quizId, UUID userId, String role) {
+        requireAccess(courseId, userId, role);
+        Quiz quiz = quizzes.findById(quizId)
+                .filter(q -> q.getCourse().getId().equals(courseId))
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Quiz not found in this course"));
+        List<QuizQuestion> qs = quizQuestions.findByQuiz_IdOrderByPositionAsc(quizId);
+        BigDecimal max = qs.stream().map(QuizQuestion::getPoints).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        List<QuizAttempt> all = attempts.findByQuiz_IdOrderByStartedAtDesc(quizId);
+        Map<UUID, UserProfile> profiles = new java.util.HashMap<>();
+        List<QuizAnalyticsResponse.AttemptRow> rows = new ArrayList<>();
+        Map<UUID, int[]> stats = new LinkedHashMap<>();
+        qs.forEach(x -> stats.put(x.getQuestion().getId(), new int[2]));
+        BigDecimal sum = BigDecimal.ZERO;
+        int scored = 0;
+        for (QuizAttempt a : all) {
+            User student = a.getEnrollment().getStudent();
+            UserProfile prof = profiles.computeIfAbsent(student.getId(), id -> userProfiles.findById(id).orElse(null));
+            QuizResult r = quizResults.findByAttempt_Id(a.getId()).orElse(null);
+            Long dur = a.getSubmittedAt() == null ? null : Duration.between(a.getStartedAt(), a.getSubmittedAt()).getSeconds();
+            rows.add(new QuizAnalyticsResponse.AttemptRow(a.getId(), student.getId(),
+                    prof != null ? prof.getFullName() : student.getEmail(), student.getEmail(), a.getAttemptNumber(),
+                    a.getStatus().name(), a.getStartedAt(), a.getSubmittedAt(), dur,
+                    r != null ? r.getAutoScore() : null, r != null ? r.getFinalScore() : null,
+                    r != null ? r.getAdjustmentReason() : null));
+            if (r != null) {
+                sum = sum.add(r.getFinalScore());
+                scored++;
+                for (QuizAnswer ans : quizAnswers.findByAttempt_Id(a.getId())) {
+                    int[] st = stats.get(ans.getQuestion().getId());
+                    if (st != null) {
+                        st[0]++;
+                        if (Boolean.TRUE.equals(ans.getCorrect())) st[1]++;
+                    }
+                }
+            }
+        }
+        List<QuizAnalyticsResponse.QuestionStat> qStats = qs.stream().map(x -> {
+            int[] st = stats.get(x.getQuestion().getId());
+            return new QuizAnalyticsResponse.QuestionStat(x.getQuestion().getId(), x.getPosition(), x.getQuestion().getQuestionText(),
+                    x.getQuestion().getQuestionType().name(), x.getPoints(), st[0], st[1]);
+        }).toList();
+        long students = all.stream().map(a -> a.getEnrollment().getStudent().getId()).distinct().count();
+        BigDecimal avg = scored == 0 ? null : sum.divide(BigDecimal.valueOf(scored), 2, RoundingMode.HALF_UP);
+        return new QuizAnalyticsResponse(quizId, quiz.getTitle(), max, quiz.getMaxAttempts(), all.size(), (int) students, avg, rows, qStats);
     }
 
     private void requireAccess(UUID courseId, UUID userId, String role) {

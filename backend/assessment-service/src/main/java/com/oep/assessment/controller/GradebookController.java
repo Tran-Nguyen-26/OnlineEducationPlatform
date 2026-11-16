@@ -28,4 +28,9 @@ public class GradebookController {
     public List<PendingGradingResponse> pendingGrading(@AuthenticationPrincipal Jwt jwt) {
         return gradebookService.pendingGrading(UUID.fromString(jwt.getSubject()), jwt.getClaimAsString("role"));
     }
+
+    @GetMapping("/api/gradebook/{courseId}/quizzes/{quizId}")
+    public com.oep.assessment.dto.QuizAnalyticsResponse quizAnalytics(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId, @PathVariable UUID quizId) {
+        return gradebookService.quizAnalytics(courseId, quizId, UUID.fromString(jwt.getSubject()), jwt.getClaimAsString("role"));
+    }
 }

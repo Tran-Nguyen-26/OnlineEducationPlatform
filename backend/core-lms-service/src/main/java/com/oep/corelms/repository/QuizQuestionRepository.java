@@ -12,4 +12,6 @@ public interface QuizQuestionRepository extends JpaRepository<QuizQuestion, Quiz
     List<QuizQuestion> findByQuiz_IdOrderByPositionAsc(UUID quizId);
 
     Optional<QuizQuestion> findByQuiz_IdAndQuestion_Id(UUID quizId, UUID questionId);
+
+    long countByQuestion_Id(UUID questionId);
 }

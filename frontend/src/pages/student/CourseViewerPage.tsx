@@ -9,12 +9,14 @@ import { CourseQaTab } from '../../components/CourseQaTab'
 import { ContentTab } from './course-viewer/ContentTab'
 import { QuizzesTab } from './course-viewer/QuizzesTab'
 import { AssignmentsTab } from './course-viewer/AssignmentsTab'
+import { SessionsPanel } from '../../components/SessionsPanel'
 import { AnnouncementsPanel } from '../../components/AnnouncementsPanel'
 
 const TABS = [
   { key: 'content', label: 'Nội dung' },
   { key: 'quizzes', label: 'Quiz' },
   { key: 'assignments', label: 'Bài tập' },
+  { key: 'sessions', label: 'Lịch học & điểm danh' },
   { key: 'announcements', label: 'Thông báo' },
   { key: 'qa', label: 'Hỏi đáp' },
 ] as const
@@ -61,6 +63,7 @@ export function CourseViewerPage() {
       {tab === 'content' && <ContentTab courseId={courseId} outline={outlineQuery.data!} />}
       {tab === 'quizzes' && <QuizzesTab courseId={courseId} />}
       {tab === 'assignments' && <AssignmentsTab courseId={courseId} />}
+      {tab === 'sessions' && <SessionsPanel courseId={courseId} staff={false} />}
       {tab === 'announcements' && <AnnouncementsPanel courseId={courseId} canPost={false} />}
       {tab === 'qa' && <CourseQaTab courseId={courseId} />}
     </div>

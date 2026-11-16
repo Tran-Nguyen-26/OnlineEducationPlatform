@@ -19,7 +19,7 @@ public final class FinanceDtos {
                                  BigDecimal due, PaymentStatus paymentStatus) {}
 
     public record PaymentRow(UUID paymentId, UUID enrollmentId, String studentName, String studentEmail, String courseTitle,
-                             BigDecimal amount, String note, Instant paidAt, String recordedByEmail) {}
+                             BigDecimal amount, String note, Instant paidAt, String recordedByEmail, String type, String receiptNo) {}
 
     public record Summary(BigDecimal expected, BigDecimal collected, BigDecimal outstanding) {}
 }

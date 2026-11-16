@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-/** Each question is created directly under one quiz (no cross-quiz question bank reuse in this version). */
+/** Questions live in a per-course bank (auto-created) and are linked to quizzes, so one question can be reused across quizzes. */
 @Service
 @RequiredArgsConstructor
 public class AdminQuizQuestionService {
@@ -38,6 +38,8 @@ public class AdminQuizQuestionService {
     private final QuestionOptionRepository options;
     private final QuizQuestionRepository quizQuestions;
     private final UserRepository users;
+    private final com.oep.corelms.repository.QuestionBankRepository banks;
+    private final com.oep.corelms.repository.QuizRepository quizRepository;
 
     @Transactional
     public QuizQuestionResponse addQuestion(UUID quizId, UUID adminId, AddQuestionRequest request) {
@@ -52,6 +54,7 @@ public class AdminQuizQuestionService {
         newQuestion.setQuestionText(request.questionText());
         newQuestion.setKeywordAnswer(request.keywordAnswer());
         newQuestion.setCreatedBy(users.getReferenceById(adminId));
+        newQuestion.setQuestionBank(bankFor(quiz));
         Question question = questions.save(newQuestion);
 
         List<OptionResponse> optionResponses = List.of();
@@ -83,9 +86,76 @@ public class AdminQuizQuestionService {
     public void removeQuestion(UUID quizId, UUID questionId) {
         QuizQuestion link = quizQuestions.findByQuiz_IdAndQuestion_Id(quizId, questionId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Question not found in this quiz"));
+        // Unlink only: the question stays in the course bank (it may be reused, and past attempts reference it).
         quizQuestions.delete(link);
+    }
+
+    /** Also adopts pre-bank questions (created before banks existed) into the course bank, so older quizzes' questions are reusable. */
+    @Transactional
+    public List<com.oep.corelms.dto.admin.BankQuestionResponse> bank(UUID courseId) {
+        List<Quiz> courseQuizzes = quizRepository.findByCourse_IdOrderByCreatedAtDesc(courseId);
+        if (!courseQuizzes.isEmpty()) {
+            com.oep.coremodel.entity.quiz.QuestionBank bank = bankFor(courseQuizzes.get(0));
+            for (Quiz q : courseQuizzes) {
+                for (QuizQuestion link : quizQuestions.findByQuiz_IdOrderByPositionAsc(q.getId())) {
+                    if (link.getQuestion().getQuestionBank() == null) {
+                        link.getQuestion().setQuestionBank(bank);
+                        questions.save(link.getQuestion());
+                    }
+                }
+            }
+        }
+        return banks.findFirstByCourse_IdOrderByCreatedAtAsc(courseId)
+                .map(b -> questions.findByQuestionBank_IdOrderByCreatedAtDesc(b.getId()).stream()
+                        .map(q -> new com.oep.corelms.dto.admin.BankQuestionResponse(q.getId(), q.getQuestionType(), q.getQuestionText(),
+                                q.getKeywordAnswer(), optionsOf(q.getId()), quizQuestions.countByQuestion_Id(q.getId()), q.getCreatedAt()))
+                        .toList())
+                .orElse(List.of());
+    }
+
+    @Transactional
+    public QuizQuestionResponse addFromBank(UUID quizId, com.oep.corelms.dto.admin.AddFromBankRequest request) {
+        Quiz quiz = quizService.findOrThrow(quizId);
+        if (quiz.isLocked()) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "Quiz is locked");
+        }
+        Question question = questions.findById(request.questionId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Question not found"));
+        if (question.getQuestionBank() == null || !question.getQuestionBank().getCourse().getId().equals(quiz.getCourse().getId())) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "Question belongs to a different course's bank");
+        }
+        if (quizQuestions.findByQuiz_IdAndQuestion_Id(quizId, question.getId()).isPresent()) {
+            throw new BusinessException(ErrorCode.ALREADY_ASSIGNED, "Question is already in this quiz");
+        }
+        QuizQuestion link = new QuizQuestion();
+        link.setId(new QuizQuestionId(quizId, question.getId()));
+        link.setQuiz(quiz);
+        link.setQuestion(question);
+        link.setPosition(request.position());
+        if (request.points() != null) {
+            link.setPoints(request.points());
+        }
+        return QuizQuestionResponse.from(quizQuestions.save(link), optionsOf(question.getId()));
+    }
+
+    @Transactional
+    public void deleteFromBank(UUID questionId) {
+        Question question = questions.findById(questionId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Question not found"));
+        if (quizQuestions.countByQuestion_Id(questionId) > 0) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "Question is used by a quiz; remove it from the quiz first");
+        }
         options.deleteByQuestion_Id(questionId);
-        questions.deleteById(questionId);
+        questions.delete(question);
+    }
+
+    private com.oep.coremodel.entity.quiz.QuestionBank bankFor(Quiz quiz) {
+        return banks.findFirstByCourse_IdOrderByCreatedAtAsc(quiz.getCourse().getId()).orElseGet(() -> {
+            com.oep.coremodel.entity.quiz.QuestionBank b = new com.oep.coremodel.entity.quiz.QuestionBank();
+            b.setCourse(quiz.getCourse());
+            b.setName("Ngân hàng câu hỏi");
+            return banks.save(b);
+        });
     }
 
     private QuestionOption saveOption(Question question, OptionInput input) {

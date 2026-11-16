@@ -44,4 +44,13 @@ public class AdminQuizQuestionController {
                 Map.of("quizId", quizId.toString()));
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/from-bank")
+    public QuizQuestionResponse addFromBank(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID quizId,
+                                             @Valid @RequestBody com.oep.corelms.dto.admin.AddFromBankRequest request) {
+        QuizQuestionResponse response = quizQuestionService.addFromBank(quizId, request);
+        auditLogService.record(UUID.fromString(jwt.getSubject()), "ADD_QUESTION_FROM_BANK", "QUIZ_QUESTION", response.questionId(),
+                Map.of("quizId", quizId.toString()));
+        return response;
+    }
 }

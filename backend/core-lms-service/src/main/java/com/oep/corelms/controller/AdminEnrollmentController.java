@@ -71,8 +71,8 @@ public class AdminEnrollmentController {
                                                  @Valid @RequestBody RecordPaymentRequest request) {
         UUID adminId = UUID.fromString(jwt.getSubject());
         TuitionPaymentResponse response = tuitionPaymentService.record(enrollmentId, adminId, request);
-        auditLogService.record(adminId, "RECORD_PAYMENT", "ENROLLMENT", enrollmentId,
-                Map.of("amount", request.amount().toString()));
+        auditLogService.record(adminId, (request.type() == null ? (request.type() == null ? "RECORD_PAYMENT" : "RECORD_" + request.type()) : "RECORD_" + request.type()), "ENROLLMENT", enrollmentId,
+                Map.of("amount", request.amount().toString(), "type", String.valueOf(request.type() == null ? "PAYMENT" : request.type())));
         return response;
     }
 }

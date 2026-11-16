@@ -95,7 +95,8 @@ public class FinanceService {
     private FinanceDtos.PaymentRow toPaymentRow(TuitionPayment p) {
         Enrollment e = p.getEnrollment();
         return new FinanceDtos.PaymentRow(p.getId(), e.getId(), name(e.getStudent()), e.getStudent().getEmail(),
-                e.getCourse().getTitle(), p.getAmount(), p.getNote(), p.getPaidAt(), p.getRecordedBy().getEmail());
+                e.getCourse().getTitle(), p.getAmount(), p.getNote(), p.getPaidAt(), p.getRecordedBy().getEmail(),
+                p.getEntryType().name(), TuitionPaymentService.receiptNo(p));
     }
 
     private String name(User u) {

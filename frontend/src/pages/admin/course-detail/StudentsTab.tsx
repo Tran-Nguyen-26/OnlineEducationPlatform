@@ -5,6 +5,7 @@ import type { AdminEnrollmentResponse, BulkEnrollRowResult, InviteCodeResponse, 
 import { Badge } from '../../../components/Badge'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
+import { ENTRY_LABEL, printReceipt } from '../../../lib/receipt'
 import { Modal } from '../../../components/ui/Modal'
 
 function formatVnd(amount: number | null): string {
@@ -22,8 +23,10 @@ function PaymentModal({
   onClose: () => void
 }) {
   const queryClient = useQueryClient()
+  const courseTitle = queryClient.getQueryData<{ id: string; title: string }[]>(['courses'])?.find((c) => c.id === courseId)?.title ?? ''
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
+  const [entryType, setEntryType] = useState<'PAYMENT' | 'DISCOUNT' | 'REFUND'>('PAYMENT')
   const [error, setError] = useState<string | null>(null)
 
   const paymentsQuery = useQuery({
@@ -32,10 +35,11 @@ function PaymentModal({
   })
 
   const recordMutation = useMutation({
-    mutationFn: () => apiClient.post(`/api/admin/enrollments/${enrollment.enrollmentId}/payments`, { amount: Number(amount), note: note || null }),
+    mutationFn: () => apiClient.post(`/api/admin/enrollments/${enrollment.enrollmentId}/payments`, { amount: Number(amount), note: note || null, type: entryType }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['enrollments', enrollment.enrollmentId, 'payments'] })
       queryClient.invalidateQueries({ queryKey: ['courses', courseId, 'enrollments'] })
+      queryClient.invalidateQueries({ queryKey: ['finance'] })
       setAmount('')
       setNote('')
       setError(null)
@@ -48,7 +52,7 @@ function PaymentModal({
     recordMutation.mutate()
   }
 
-  const totalPaid = paymentsQuery.data?.reduce((sum, p) => sum + p.amount, 0) ?? enrollment.totalPaid ?? 0
+  const totalPaid = paymentsQuery.data?.reduce((sum, p) => sum + (p.type === 'REFUND' ? -p.amount : p.amount), 0) ?? enrollment.totalPaid ?? 0
   const feeAmount = enrollment.feeAmount
   const liveStatus =
     feeAmount == null || feeAmount <= 0 ? 'NOT_APPLICABLE' : totalPaid <= 0 ? 'UNPAID' : totalPaid >= feeAmount ? 'PAID' : 'PARTIAL'
@@ -60,7 +64,7 @@ function PaymentModal({
           Học phí: <strong>{formatVnd(feeAmount)}</strong>
         </span>
         <span>
-          Đã đóng: <strong>{formatVnd(totalPaid)}</strong>
+          Đã ghi nhận: <strong>{formatVnd(totalPaid)}</strong>
         </span>
         <Badge status={liveStatus} />
       </div>
@@ -71,14 +75,31 @@ function PaymentModal({
         {paymentsQuery.data?.map((p) => (
           <div key={p.id} className="flex items-center justify-between rounded border border-slate-100 px-2 py-1 text-xs text-slate-600">
             <span>
-              {new Date(p.paidAt).toLocaleDateString('vi-VN')} — {formatVnd(p.amount)} {p.note && `(${p.note})`}
+              <span className="font-medium">{ENTRY_LABEL[p.type]}</span> · {new Date(p.paidAt).toLocaleDateString('vi-VN')} — {p.type === 'REFUND' ? '−' : ''}{formatVnd(p.amount)} {p.note && `(${p.note})`}
             </span>
-            <span className="text-slate-400">{p.recordedByEmail}</span>
+            <span className="flex items-center gap-2 text-slate-400">
+              {p.receiptNo}
+              <button
+                type="button"
+                className="text-blue-600 hover:underline"
+                onClick={() => printReceipt({ ...p, studentName: enrollment.studentFullName ?? enrollment.studentEmail, studentEmail: enrollment.studentEmail, courseTitle: courseTitle, recordedBy: p.recordedByEmail })}
+              >
+                In
+              </button>
+            </span>
           </div>
         ))}
       </div>
 
       <form onSubmit={handleSubmit} className="flex items-end gap-2">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-600">Loại</label>
+          <select value={entryType} onChange={(e) => setEntryType(e.target.value as 'PAYMENT' | 'DISCOUNT' | 'REFUND')} className="h-10 rounded-md border border-slate-300 px-2 text-sm">
+            <option value="PAYMENT">Thu học phí</option>
+            <option value="DISCOUNT">Miễn giảm</option>
+            <option value="REFUND">Hoàn tiền</option>
+          </select>
+        </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-600">Số tiền (VNĐ)</label>
           <Input type="number" min={1} step={1000} required value={amount} onChange={(e) => setAmount(e.target.value)} className="w-32" />

@@ -10,6 +10,7 @@ import { ContentTab } from './course-view/ContentTab'
 import { GradingTab } from './course-view/GradingTab'
 import { RosterTab } from './course-view/RosterTab'
 import { GradebookView } from '../../components/GradebookView'
+import { SessionsPanel } from '../../components/SessionsPanel'
 import { AnnouncementsPanel } from '../../components/AnnouncementsPanel'
 
 const TABS = [
@@ -17,6 +18,7 @@ const TABS = [
   { key: 'students', label: 'Học sinh' },
   { key: 'grading', label: 'Chấm bài tập' },
   { key: 'gradebook', label: 'Bảng điểm' },
+  { key: 'sessions', label: 'Lịch học & điểm danh' },
   { key: 'announcements', label: 'Thông báo' },
   { key: 'qa', label: 'Hỏi đáp' },
 ] as const
@@ -66,6 +68,7 @@ export function CourseViewPage() {
       {tab === 'students' && <RosterTab courseId={courseId} />}
       {tab === 'grading' && <GradingTab courseId={courseId} />}
       {tab === 'gradebook' && <GradebookView courseId={courseId} />}
+      {tab === 'sessions' && <SessionsPanel courseId={courseId} staff={true} />}
       {tab === 'announcements' && <AnnouncementsPanel courseId={courseId} canPost />}
       {tab === 'qa' && <CourseQaTab courseId={courseId} />}
     </div>

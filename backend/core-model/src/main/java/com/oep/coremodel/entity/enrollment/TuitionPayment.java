@@ -4,6 +4,8 @@ import com.oep.coremodel.entity.BaseEntity;
 import com.oep.coremodel.entity.identity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
@@ -29,6 +31,10 @@ public class TuitionPayment extends BaseEntity {
 
     @Column(name = "amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "entry_type", nullable = false, length = 20, columnDefinition = "varchar(20) not null default 'PAYMENT'")
+    private com.oep.coremodel.enums.PaymentEntryType entryType = com.oep.coremodel.enums.PaymentEntryType.PAYMENT;
 
     @Column(name = "note", nullable = true, length = 255)
     private String note;

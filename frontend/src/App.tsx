@@ -16,6 +16,7 @@ import { TeachersPage } from './pages/admin/TeachersPage'
 import { UsersPage } from './pages/admin/UsersPage'
 import { AuditLogPage } from './pages/admin/AuditLogPage'
 import { FinancePage } from './pages/admin/FinancePage'
+import { ReportsPage } from './pages/admin/ReportsPage'
 import { BroadcastPage } from './pages/admin/BroadcastPage'
 import { UserDetailPage } from './pages/admin/UserDetailPage'
 import { StudentLayout } from './layouts/StudentLayout'
@@ -68,6 +69,7 @@ function App() {
           <Route path="users" element={<UsersPage />} />
           <Route path="users/:userId" element={<UserDetailPage />} />
           <Route path="finance" element={<FinancePage />} />
+          <Route path="reports" element={<ReportsPage />} />
           <Route path="broadcast" element={<BroadcastPage />} />
           <Route path="audit-logs" element={<AuditLogPage />} />
           <Route path="notifications" element={<NotificationsPage />} />

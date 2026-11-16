@@ -13,6 +13,6 @@ public interface TuitionPaymentRepository extends JpaRepository<TuitionPayment, 
 
     List<TuitionPayment> findTop200ByOrderByPaidAtDesc();
 
-    @Query("select p.enrollment.id, sum(p.amount) from TuitionPayment p group by p.enrollment.id")
+    @Query("select p.enrollment.id, sum(case when p.entryType = com.oep.coremodel.enums.PaymentEntryType.REFUND then -p.amount else p.amount end) from TuitionPayment p group by p.enrollment.id")
     List<Object[]> sumPaidByEnrollment();
 }

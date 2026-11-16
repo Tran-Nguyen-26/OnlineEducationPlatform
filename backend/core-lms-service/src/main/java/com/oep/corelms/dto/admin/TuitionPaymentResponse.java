@@ -9,5 +9,7 @@ public record TuitionPaymentResponse(
         BigDecimal amount,
         String note,
         Instant paidAt,
-        String recordedByEmail) {
+        String recordedByEmail,
+        String type,
+        String receiptNo) {
 }

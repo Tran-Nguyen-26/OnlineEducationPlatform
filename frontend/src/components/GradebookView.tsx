@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient, getApiErrorMessage } from '../lib/apiClient'
 import { downloadCsv } from '../lib/csv'
 import type { GradebookCell, GradebookResponse } from '../types/api'
 import { Button } from './ui/Button'
+import { QuizAnalyticsModal } from './QuizAnalyticsModal'
 
 function cellText(cell: GradebookCell | undefined): string {
   if (!cell || cell.status === 'NONE') return '—'
@@ -17,6 +19,7 @@ export function GradebookView({ courseId }: { courseId: string }) {
     queryFn: () => apiClient.get<GradebookResponse>(`/api/gradebook/${courseId}`).then((r) => r.data),
   })
   const data = query.data
+  const [quizId, setQuizId] = useState<string | null>(null)
 
   function exportCsv() {
     if (!data) return
@@ -56,7 +59,11 @@ export function GradebookView({ courseId }: { courseId: string }) {
               <th className="px-4 py-3 font-medium">Học sinh</th>
               {data.columns.map((c) => (
                 <th key={c.id} className="px-4 py-3 font-medium">
-                  <div>{c.title}</div>
+                  {c.kind === 'QUIZ' ? (
+                    <button className="text-left text-blue-600 hover:underline" onClick={() => setQuizId(c.id)}>{c.title}</button>
+                  ) : (
+                    <div>{c.title}</div>
+                  )}
                   <div className="text-xs font-normal text-slate-400">
                     {c.kind === 'QUIZ' ? 'Quiz' : 'Bài tập'} · /{c.maxScore}
                   </div>
@@ -86,6 +93,7 @@ export function GradebookView({ courseId }: { courseId: string }) {
           </tbody>
         </table>
       </div>
+      <QuizAnalyticsModal courseId={courseId} quizId={quizId} onClose={() => setQuizId(null)} />
     </div>
   )
 }
