@@ -56,6 +56,20 @@ Một **trung tâm dạy học** (vận hành bởi **Admin**) dạy nhiều **m
 | T5 | Chấm điểm bài tập của học sinh | Nhập điểm + nhận xét; chấm lại thì giữ lịch sử điểm cũ (`previous_score`, `regraded_at`) | ✅ |
 | T6 | Trả lời câu hỏi học sinh | Cùng kênh chat với S9 — giáo viên được gán khóa học mới gửi/xem được | ✅ |
 
+### 2.4. Quy tắc học tập & chấm điểm (bổ sung)
+
+| Nghiệp vụ | Quy tắc |
+|---|---|
+| Điểm tổng kết khóa | Admin đặt cho từng khóa: trọng số quiz (%, bài tập chiếm phần còn lại) và điểm đạt tối thiểu (có thể để trống). Quiz tính theo chính sách của từng quiz; mục chưa làm tính 0; mục được Admin miễn trừ bị loại khỏi phép tính và khỏi điều kiện hoàn thành. |
+| Hoàn thành khóa | Học sinh tự hoàn thành khi: xong mọi bài bắt buộc, làm mọi quiz, nộp mọi bài tập, không còn mục chờ chấm và (nếu có) đạt điểm tối thiểu → cấp chứng chỉ. Admin vẫn hoàn thành thủ công được. |
+| Ai chấm điểm | **Chỉ giáo viên được phân công khóa** chấm bài tập, chấm câu tự luận, sửa điểm quiz (bắt buộc nêu lý do) và xử lý phúc khảo. **Admin không chấm** — chỉ theo dõi hàng đợi và bảng điểm. |
+| Phúc khảo | Học sinh gửi yêu cầu cho bài tập đã chấm hoặc lượt quiz đã nộp (mỗi mục một yêu cầu mở); giáo viên chấp nhận (có thể kèm điểm mới) hoặc từ chối, bắt buộc có phản hồi. |
+| Câu hỏi tự luận | Do Admin soạn; học sinh viết; giáo viên chấm tay và có thể nhận xét; học sinh xem nhận xét ở lịch sử quiz. |
+| Quiz ngẫu nhiên | Có thể rút N câu ngẫu nhiên từ các câu của quiz cho mỗi lượt làm, trộn câu/đáp án; điểm quy về thang tổng điểm toàn bộ câu. |
+| Thời gian khóa | Chưa khai giảng: ghi danh được, chưa vào học/làm bài. Đã kết thúc: ngừng ghi danh, ngừng làm bài/nộp bài, chỉ xem lại. |
+| Miễn trừ | Admin miễn trừ quiz/bài tập cho từng học sinh (ghi lý do, có nhật ký) để mục quá hạn không chặn hoàn thành khóa. |
+| Thông báo | Người dùng tắt/bật được 4 nhóm: khóa học, chấm điểm & phúc khảo, nhắc hạn, tin nhắn. Thông báo hệ thống và chứng chỉ luôn gửi. |
+
 ## 3. Quy tắc nghiệp vụ chung (áp dụng toàn hệ thống)
 
 1. **Không hard-delete dữ liệu nghiệp vụ.** Mọi "xoá" là đổi trạng thái (`DISABLED`, `ARCHIVED`, `WITHDRAWN`, `is_active=false`, ...). Ngoại lệ: những thực thể con chưa gắn dữ liệu quan trọng (ví dụ xoá một `question_option` khi quiz chưa ai làm) vẫn có thể xoá cứng, nhưng bị chặn (409) nếu đã có dữ liệu con phụ thuộc.

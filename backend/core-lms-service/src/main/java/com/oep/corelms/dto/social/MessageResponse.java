@@ -5,5 +5,8 @@ import com.oep.coremodel.enums.UserRole;
 import java.time.Instant;
 import java.util.UUID;
 
-public record MessageResponse(UUID id, UUID senderId, String senderName, UserRole senderRole, UUID lessonId, String content, Instant createdAt) {
+public record MessageResponse(UUID id, UUID senderId, String senderName, UserRole senderRole, UUID lessonId, String content, Instant createdAt,
+                              java.util.List<Attachment> attachments) {
+
+    public record Attachment(UUID id, String fileName, String fileType, Long fileSize, String url) {}
 }

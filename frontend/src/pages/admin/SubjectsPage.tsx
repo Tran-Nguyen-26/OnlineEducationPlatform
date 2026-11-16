@@ -1,3 +1,4 @@
+import { Pager, usePaged } from '../../components/Pager'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Pencil, Plus } from 'lucide-react'
@@ -14,6 +15,7 @@ export function SubjectsPage() {
     queryKey: ['subjects'],
     queryFn: () => apiClient.get<SubjectResponse[]>('/api/admin/subjects').then((r) => r.data),
   })
+  const pgd = usePaged(subjects ?? [], 15)
 
   const [editing, setEditing] = useState<SubjectResponse | 'new' | null>(null)
   const [name, setName] = useState('')
@@ -94,7 +96,7 @@ export function SubjectsPage() {
                 </td>
               </tr>
             )}
-            {subjects?.map((subject) => (
+            {pgd.slice.map((subject) => (
               <tr key={subject.id}>
                 <td className="px-4 py-3 font-medium text-slate-900">{subject.name}</td>
                 <td className="px-4 py-3 text-slate-500">{subject.description ?? '—'}</td>
@@ -146,6 +148,7 @@ export function SubjectsPage() {
           </div>
         </form>
       </Modal>
+      <Pager page={pgd.page} pages={pgd.pages} total={pgd.total} setPage={pgd.setPage} label="môn học" />
     </div>
   )
 }

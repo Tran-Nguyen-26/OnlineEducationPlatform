@@ -1,3 +1,4 @@
+import { UserAvatar } from '../../../components/UserAvatar'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '../../../lib/apiClient'
 import type { RosterEntryResponse } from '../../../types/api'
@@ -39,7 +40,7 @@ export function RosterTab({ courseId }: { courseId: string }) {
             )}
             {rows.map((row) => (
               <tr key={row.enrollmentId}>
-                <td className="px-4 py-3 font-medium text-slate-900">{row.studentFullName ?? '—'}</td>
+                <td className="px-4 py-3 font-medium text-slate-900"><span className="flex items-center gap-2"><UserAvatar url={row.avatarUrl} name={row.studentFullName ?? row.studentEmail} size={28} />{row.studentFullName ?? '—'}</span></td>
                 <td className="px-4 py-3 text-slate-500">{row.studentEmail}</td>
                 <td className="px-4 py-3">
                   <Badge status={row.status} />

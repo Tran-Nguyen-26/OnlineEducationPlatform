@@ -44,6 +44,7 @@ public class TeacherCourseService {
     private final EnrollmentRepository enrollments;
     private final LessonProgressRepository lessonProgress;
     private final UserProfileRepository userProfiles;
+    private final AvatarUrls avatarUrls;
 
     @Transactional(readOnly = true)
     public List<InstructorCourseResponse> listMyCourses(UUID instructorId) {
@@ -113,6 +114,6 @@ public class TeacherCourseService {
         double percent = totalLessons == 0 ? 0.0 : Math.round(completedLessons * 1000.0 / totalLessons) / 10.0;
 
         return new RosterEntryResponse(e.getId(), student.getId(), student.getEmail(), fullName, e.getStatus(),
-                e.getEnrolledAt(), totalLessons, (int) completedLessons, percent);
+                e.getEnrolledAt(), totalLessons, (int) completedLessons, percent, avatarUrls.of(student.getId()));
     }
 }

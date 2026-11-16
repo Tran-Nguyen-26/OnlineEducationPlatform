@@ -1,3 +1,4 @@
+import { Pager, usePaged } from '../../components/Pager'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
@@ -15,6 +16,7 @@ export function TeachersPage() {
     queryKey: ['users', 'INSTRUCTOR'],
     queryFn: () => apiClient.get<AdminUserResponse[]>('/api/admin/users?role=INSTRUCTOR').then((r) => r.data),
   })
+  const pgd = usePaged(teachers ?? [], 15)
 
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('')
@@ -71,7 +73,7 @@ export function TeachersPage() {
                 </td>
               </tr>
             )}
-            {teachers?.map((teacher) => (
+            {pgd.slice.map((teacher) => (
               <tr key={teacher.id}>
                 <td className="px-4 py-3 font-medium text-slate-900"><Link to={`/admin/users/${teacher.id}`} className="hover:underline">{teacher.fullName ?? '—'}</Link></td>
                 <td className="px-4 py-3 text-slate-500">{teacher.email}</td>
@@ -134,6 +136,7 @@ export function TeachersPage() {
           </form>
         )}
       </Modal>
+      <Pager page={pgd.page} pages={pgd.pages} total={pgd.total} setPage={pgd.setPage} label="giáo viên" />
     </div>
   )
 }

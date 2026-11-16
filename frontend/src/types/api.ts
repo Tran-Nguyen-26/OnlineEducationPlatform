@@ -539,6 +539,7 @@ export interface RosterEntryResponse {
   totalLessons: number
   completedLessons: number
   progressPercent: number
+  avatarUrl: string | null
 }
 
 export interface SubmissionForGradingResponse {
@@ -566,6 +567,7 @@ export interface MessageResponse {
   lessonId: string | null
   content: string
   createdAt: string
+  attachments: { id: string; fileName: string | null; fileType: string | null; fileSize: number | null; url: string }[]
 }
 
 export interface MyCertificateResponse {
@@ -755,7 +757,7 @@ export interface AppealResponse {
 export interface CourseOverview {
   id: string; title: string; description: string | null; subjectName: string; feeAmount: number | null; learningMode: LearningMode
   capacity: number | null; enrolledCount: number; phase: CoursePhase; startAt: string | null; endAt: string | null
-  instructors: { name: string; organization: string | null; bio: string | null }[]
+  instructors: { name: string; organization: string | null; bio: string | null; avatarUrl: string | null }[]
   prerequisites: { courseId: string; title: string; met: boolean }[]
   modules: { title: string; lessons: string[] }[]
   lessonCount: number; quizCount: number; assignmentCount: number; sessionCount: number
@@ -766,3 +768,10 @@ export interface CalendarEvent {
   at: string; endsAt: string | null; location: string | null; done: boolean
 }
 export interface WaiverItem { type: 'QUIZ' | 'ASSIGNMENT'; id: string; title: string; deadline: string | null; done: boolean; waived: boolean; waiverId: string | null; reason: string | null }
+
+export interface AttemptReviewResponse {
+  attemptId: string; attemptNumber: number
+  essays: { questionText: string; textAnswer: string | null; maxPoints: number; awardedScore: number | null; feedback: string | null; graded: boolean }[]
+}
+export interface ContentHistoryEntry { action: 'CREATED' | 'UPDATED' | 'FILE_REPLACED'; version: number; changedAt: string; changedBy: string | null }
+export type NotificationPrefs = Record<'COURSE_UPDATES' | 'GRADING' | 'REMINDERS' | 'MESSAGES', boolean>

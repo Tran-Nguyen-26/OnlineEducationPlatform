@@ -7,6 +7,7 @@ import type { ProfileResponse } from '../../types/api'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { Avatar } from '../../components/Avatar'
+import { NotificationPrefsCard } from '../../components/NotificationPrefsCard'
 
 export function ProfilePage() {
   const { refreshMe, user } = useAuth()
@@ -126,6 +127,7 @@ export function ProfilePage() {
           <Link to="/change-password" className="text-sm text-blue-600 hover:underline">Đổi mật khẩu</Link>
         </div>
       </form>
+      <NotificationPrefsCard />
     </div>
   )
 }

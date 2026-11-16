@@ -1,3 +1,4 @@
+import { Pager, usePaged } from '../../../components/Pager'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient, getApiErrorMessage } from '../../../lib/apiClient'
@@ -263,14 +264,16 @@ export function StudentsTab({ courseId }: { courseId: string }) {
     onError: (err) => setRemoveError(getApiErrorMessage(err)),
   })
 
-  const rows = enrollmentsQuery.data ?? []
+  const allRows = enrollmentsQuery.data ?? []
+  const pg = usePaged(allRows, 20)
+  const rows = pg.slice
 
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-slate-900">Học sinh ghi danh</h2>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-slate-500">{rows.length} học sinh</span>
+          <span className="text-sm text-slate-500">{allRows.length} học sinh</span>
           <Button size="sm" variant="secondary" disabled={exporting} onClick={exportCsv}>
             {exporting ? 'Đang xuất...' : 'Xuất CSV'}
           </Button>
@@ -388,6 +391,7 @@ export function StudentsTab({ courseId }: { courseId: string }) {
         </div>
       </Modal>
 
+      <Pager page={pg.page} pages={pg.pages} total={pg.total} setPage={pg.setPage} label="học sinh" />
       {waiving && <WaiverModal enrollment={waiving} onClose={() => setWaiving(null)} />}
       {paying && <PaymentModal courseId={courseId} enrollment={paying} onClose={() => setPaying(null)} />}
       {bulkOpen && <BulkEnrollModal courseId={courseId} onClose={() => setBulkOpen(false)} />}

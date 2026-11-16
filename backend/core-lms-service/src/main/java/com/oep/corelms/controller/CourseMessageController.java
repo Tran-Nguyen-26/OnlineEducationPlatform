@@ -37,4 +37,22 @@ public class CourseMessageController {
         return messageService.post(courseId, UUID.fromString(jwt.getSubject()), jwt.getClaimAsString("role"),
                 request.content(), request.lessonId());
     }
+
+    public record AttachmentRequest(String fileName, String mimeType, long fileSize) {}
+
+    public record ConfirmRequest(String objectKey, String fileName, String mimeType, long fileSize) {}
+
+    @PostMapping("/{messageId}/attachments/upload-url")
+    public CourseMessageService.AttachmentUpload attachmentUploadUrl(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
+                                                                      @PathVariable UUID messageId, @RequestBody AttachmentRequest r) {
+        return messageService.requestAttachmentUpload(courseId, messageId, UUID.fromString(jwt.getSubject()), jwt.getClaimAsString("role"),
+                r.fileName(), r.mimeType(), r.fileSize());
+    }
+
+    @PostMapping("/{messageId}/attachments")
+    public MessageResponse confirmAttachment(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
+                                             @PathVariable UUID messageId, @RequestBody ConfirmRequest r) {
+        return messageService.confirmAttachment(courseId, messageId, UUID.fromString(jwt.getSubject()), jwt.getClaimAsString("role"),
+                r.objectKey(), r.fileName(), r.mimeType(), r.fileSize());
+    }
 }

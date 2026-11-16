@@ -129,10 +129,9 @@ public class AppealService {
     @Transactional
     public AppealDtos.AppealResponse resolve(UUID appealId, UUID userId, String role, AppealDtos.ResolveRequest req) {
         GradeAppeal ap = appeals.findById(appealId).orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Appeal not found"));
-        boolean allowed = "ADMIN".equals(role)
-                || ("INSTRUCTOR".equals(role) && courseInstructors.existsByCourse_IdAndInstructor_Id(ap.getCourseId(), userId));
+        boolean allowed = "INSTRUCTOR".equals(role) && courseInstructors.existsByCourse_IdAndInstructor_Id(ap.getCourseId(), userId);
         if (!allowed) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "You are not assigned to this course");
+            throw new BusinessException(ErrorCode.FORBIDDEN, "Chỉ giáo viên phụ trách khóa học mới được xử lý phúc khảo");
         }
         if (!"OPEN".equals(ap.getStatus())) {
             throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "Appeal was already resolved");

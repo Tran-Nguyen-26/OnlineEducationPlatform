@@ -37,6 +37,7 @@ public class AdminLessonContentService {
     private final LessonContentRepository contents;
     private final UserRepository users;
     private final StorageService storageService;
+    private final com.oep.corelms.repository.ContentChangeLogRepository changeLogs;
 
     @Value("${oep.storage.upload-url-ttl-seconds:900}")
     private long uploadUrlTtlSeconds;
@@ -93,6 +94,7 @@ public class AdminLessonContentService {
     @Transactional
     public void delete(UUID contentId) {
         findOrThrow(contentId);
+        changeLogs.deleteByContent_Id(contentId);
         contents.deleteById(contentId);
     }
 

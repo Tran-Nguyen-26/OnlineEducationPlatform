@@ -271,6 +271,23 @@ public class QuizAttemptService {
                 attempt.getQuiz().getTimeLimitSeconds(), questionDtos);
     }
 
+    @Transactional(readOnly = true)
+    public com.oep.assessment.dto.AttemptReviewResponse review(UUID attemptId, UUID studentId) {
+        QuizAttempt attempt = attempts.findById(attemptId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Attempt not found"));
+        if (!attempt.getEnrollment().getStudent().getId().equals(studentId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "This attempt does not belong to you");
+        }
+        List<QuizQuestion> pool = quizQuestions.findByQuiz_IdOrderByPositionAsc(attempt.getQuiz().getId());
+        var essays = quizAnswers.findByAttempt_Id(attemptId).stream()
+                .filter(a -> a.getQuestion().getQuestionType() == QuestionType.ESSAY)
+                .map(a -> new com.oep.assessment.dto.AttemptReviewResponse.EssayReview(a.getQuestion().getQuestionText(), a.getTextAnswer(),
+                        pool.stream().filter(qq -> qq.getQuestion().getId().equals(a.getQuestion().getId())).map(QuizQuestion::getPoints).findFirst().orElse(BigDecimal.ONE),
+                        a.getAwardedScore(), a.getFeedback(), a.getAwardedScore() != null))
+                .toList();
+        return new com.oep.assessment.dto.AttemptReviewResponse(attemptId, attempt.getAttemptNumber(), essays);
+    }
+
     private StudentQuizResponse toResponse(Quiz quiz, Enrollment enrollment) {
         List<QuizAttempt> myAttempts = attempts.findByQuiz_IdAndEnrollment_IdOrderByAttemptNumberAsc(quiz.getId(), enrollment.getId());
         int used = myAttempts.size();

@@ -10,7 +10,7 @@ import { Button } from '../../components/ui/Button'
 
 const th = 'px-4 py-3 font-medium'
 
-function EssayRow({ e }: { e: PendingEssay }) {
+function EssayRow({ e, readOnly }: { e: PendingEssay; readOnly: boolean }) {
   const queryClient = useQueryClient()
   const [score, setScore] = useState('')
   const [feedback, setFeedback] = useState('')
@@ -28,7 +28,7 @@ function EssayRow({ e }: { e: PendingEssay }) {
       <div className="mb-1 text-xs text-slate-400">{e.courseTitle} · {e.quizTitle} · {e.studentName} ({e.studentEmail}) · {new Date(e.submittedAt).toLocaleString('vi-VN')}</div>
       <div className="font-medium text-slate-900">{e.questionText}</div>
       <div className="mt-2 whitespace-pre-wrap rounded-md bg-slate-50 p-3 text-sm text-slate-700">{e.textAnswer || <span className="text-slate-400">(Học sinh bỏ trống)</span>}</div>
-      <div className="mt-3 flex flex-wrap items-end gap-2">
+      {readOnly ? <p className="mt-2 text-xs text-slate-400">Giáo viên phụ trách sẽ chấm câu này (tối đa {e.maxPoints} điểm).</p> : <div className="mt-3 flex flex-wrap items-end gap-2">
         <div>
           <label className="mb-1 block text-xs text-slate-500">Điểm (tối đa {e.maxPoints})</label>
           <input type="number" min={0} max={e.maxPoints} step="0.25" value={score} onChange={(ev) => setScore(ev.target.value)} className="h-9 w-24 rounded-md border border-slate-300 px-2 text-sm" />
@@ -38,13 +38,13 @@ function EssayRow({ e }: { e: PendingEssay }) {
           <input value={feedback} onChange={(ev) => setFeedback(ev.target.value)} className="h-9 w-full rounded-md border border-slate-300 px-2 text-sm" />
         </div>
         <Button size="sm" disabled={grade.isPending || score === ''} onClick={() => grade.mutate()}>Lưu điểm</Button>
-      </div>
+      </div>}
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </div>
   )
 }
 
-function AppealCard({ a }: { a: AppealResponse }) {
+function AppealCard({ a, readOnly }: { a: AppealResponse; readOnly: boolean }) {
   const queryClient = useQueryClient()
   const [response, setResponse] = useState('')
   const [newScore, setNewScore] = useState('')
@@ -63,7 +63,9 @@ function AppealCard({ a }: { a: AppealResponse }) {
       <div className="mb-1 text-xs text-slate-400">{a.courseTitle} · {a.studentName} ({a.studentEmail}) · {new Date(a.createdAt).toLocaleString('vi-VN')}</div>
       <div className="font-medium text-slate-900">{a.targetType === 'QUIZ_ATTEMPT' ? 'Quiz' : 'Bài tập'}: {a.targetTitle}</div>
       <div className="mt-2 rounded-md bg-amber-50 p-3 text-sm text-slate-700"><span className="font-medium">Lý do học sinh nêu:</span> {a.reason}</div>
-      {a.status === 'OPEN' ? (
+      {a.status === 'OPEN' && readOnly ? (
+        <p className="mt-2 text-xs text-slate-400">Đang chờ giáo viên phụ trách xử lý.</p>
+      ) : a.status === 'OPEN' ? (
         <div className="mt-3 space-y-2">
           <input value={response} onChange={(e) => setResponse(e.target.value)} placeholder="Phản hồi cho học sinh (bắt buộc)" className="h-9 w-full rounded-md border border-slate-300 px-2 text-sm" />
           <div className="flex flex-wrap items-center gap-2">
@@ -85,6 +87,7 @@ export function PendingGradingPage() {
   const { user } = useAuth()
   const base = user?.role === 'ADMIN' ? '/admin/courses' : '/teacher/courses'
   const q = useGradingQueues()
+  const readOnly = user?.role === 'ADMIN'
   const rows = q.assignments.data ?? []
   const resolved = (q.appeals.data ?? []).filter((a) => a.status !== 'OPEN').slice(0, 10)
 
@@ -92,7 +95,9 @@ export function PendingGradingPage() {
     <div className="space-y-10">
       <div>
         <h1 className="mb-1 text-2xl font-bold text-slate-900">Cần chấm bài</h1>
-        <p className="text-sm text-slate-500">Bài tập, câu tự luận và yêu cầu phúc khảo đang chờ bạn xử lý — lâu nhất lên đầu.</p>
+        <p className="text-sm text-slate-500">
+          {readOnly ? 'Theo dõi hàng đợi chấm bài của toàn trung tâm. Việc chấm điểm và xử lý phúc khảo do giáo viên phụ trách thực hiện.' : 'Bài tập, câu tự luận và yêu cầu phúc khảo đang chờ bạn xử lý — lâu nhất lên đầu.'}
+        </p>
       </div>
 
       <section>
@@ -124,7 +129,7 @@ export function PendingGradingPage() {
       <section>
         <h2 className="mb-3 text-lg font-semibold text-slate-900">Câu tự luận chờ chấm ({q.essays.data?.length ?? 0})</h2>
         <div className="space-y-3">
-          {q.essays.data?.map((e) => <EssayRow key={e.answerId} e={e} />)}
+          {q.essays.data?.map((e) => <EssayRow key={e.answerId} e={e} readOnly={readOnly} />)}
           {!q.essays.isLoading && q.essays.data?.length === 0 && <p className="rounded-lg border border-dashed border-slate-300 p-5 text-sm text-slate-400">Không có câu tự luận nào đang chờ chấm.</p>}
         </div>
       </section>
@@ -132,13 +137,13 @@ export function PendingGradingPage() {
       <section>
         <h2 className="mb-3 text-lg font-semibold text-slate-900">Yêu cầu phúc khảo ({q.openAppeals.length})</h2>
         <div className="space-y-3">
-          {q.openAppeals.map((a) => <AppealCard key={a.id} a={a} />)}
+          {q.openAppeals.map((a) => <AppealCard key={a.id} a={a} readOnly={readOnly} />)}
           {!q.appeals.isLoading && q.openAppeals.length === 0 && <p className="rounded-lg border border-dashed border-slate-300 p-5 text-sm text-slate-400">Không có yêu cầu phúc khảo nào đang mở.</p>}
         </div>
         {resolved.length > 0 && (
           <>
             <h3 className="mt-6 mb-2 text-sm font-semibold text-slate-600">Đã xử lý gần đây</h3>
-            <div className="space-y-3">{resolved.map((a) => <AppealCard key={a.id} a={a} />)}</div>
+            <div className="space-y-3">{resolved.map((a) => <AppealCard key={a.id} a={a} readOnly={readOnly} />)}</div>
           </>
         )}
       </section>

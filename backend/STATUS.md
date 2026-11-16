@@ -51,6 +51,10 @@ Cập nhật: xem lịch sử commit trên nhánh `nguyentt/database-replication
 | 42 | Admin miễn trừ quiz/bài tập cho từng học sinh (`/api/admin/enrollments/{id}/waivers`, nhật ký thao tác) — nút "Miễn trừ" ở tab Học sinh. | ✅ Verify API + UI |
 | 43 | Lịch tổng hợp học sinh `GET /api/users/me/calendar` + trang `/student/calendar` (buổi học + hạn quiz + hạn bài tập). | ✅ Verify API + UI |
 | 44 | Ảnh đại diện (presigned upload PNG/JPG/WEBP/GIF ≤ 2MB, hiện ở profile + sidebar 3 vai trò). Các trường hồ sơ khác (ngày sinh, đơn vị/trường, điện thoại, giới thiệu) đã có sẵn. | ✅ Verify API + UI |
+| 45 | Quy tắc "Admin không chấm": chấm tự luận / sửa điểm quiz / xử lý phúc khảo chỉ cho giáo viên phụ trách (Admin 403, chỉ xem hàng đợi); giao diện Admin ở chế độ theo dõi. | ✅ Verify API + UI |
+| 46 | Học sinh xem nhận xét + điểm câu tự luận (`GET /api/attempts/{id}/review`). | ✅ Verify API + UI |
+| 47 | Ảnh đại diện hiện trong danh sách lớp của giáo viên và thẻ giáo viên ở trang giới thiệu khóa. | ✅ Verify API + UI |
+| 48 | G3 tùy chọn thông báo (4 nhóm, worker bỏ qua nhóm đã tắt), G6 lịch sử phiên bản nội dung (`/api/admin/lesson-contents/{id}/history`), G7 đính kèm file hỏi đáp (≤3 file, ≤10MB, chặn file thực thi), G11 phân trang phía client cho thông báo/nhật ký/khóa học/giáo viên/môn học/học sinh. | ✅ Verify API + UI |
 
 **2 lỗi hạ tầng tự phát hiện và sửa khi verify các mục 16–21 (không liên quan trực tiếp tới code mới, đã có từ trước):**
 - `api-gateway`: route `core-lms` thiếu `/api/certificates/**` trong danh sách `Path` predicate → mọi request tới endpoint xác thực chứng chỉ bị gateway trả 404 dù `core-lms-service` xử lý đúng. Đã thêm vào `api-gateway/src/main/resources/application.yml`.
@@ -83,7 +87,7 @@ Tài khoản test đang có sẵn trên DB dev: `admin@oep.local` / `Admin@12345
 Toàn bộ G1–G11 trong `GAPS.md` đợt phân tích đầu, cộng thêm "Nhóm A" (học phí, chứng chỉ, điều kiện tiên quyết, danh sách chờ, hỏi đáp theo bài học, ghi danh/xuất CSV hàng loạt — xem Phase 16–21 ở mục 1) **đã hoàn thành**. Còn lại:
 
 - **Đăng nhập Google** — đã được yêu cầu nhưng **đang chờ** Admin/chủ dự án cung cấp OAuth client id/secret thật (tạo trên Google Cloud Console); chưa làm được phần nào vì cần thông tin bên ngoài.
-- G3 (tuỳ chọn thông báo), G4 (gửi email thật), G6 (lịch sử sửa nội dung), G7 (đính kèm file Q&A), G11 (phân trang) — mức thấp, cải thiện UX/vận hành, chưa làm.
+- G4 (gửi email thật) — mức thấp, cải thiện UX/vận hành, chưa làm.
 - Flyway + cấu hình prod (D5), AI Tutor — nằm ngoài phạm vi theo yêu cầu hiện tại của user.
 
 Nói "làm mục N" hoặc "làm phần X" để bắt đầu — giữ đúng quy ước: build + verify bằng curl/UI thật trước khi báo xong, commit chỉ khi được yêu cầu.

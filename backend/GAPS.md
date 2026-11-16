@@ -8,13 +8,13 @@ Phân tích dựa trên việc đọc trực tiếp code, không suy diễn từ
 
 | # | Bảng/entity | Tình trạng thật | Việc cần làm thêm |
 |---|---|---|---|
-| G1 | `question_banks` (`QuestionBank`) | Hoàn toàn không dùng — câu hỏi hiện tại luôn tạo riêng cho từng quiz, không tái sử dụng được | CRUD ngân hàng câu hỏi theo môn/khóa + cho phép AdminQuizQuestionController chọn câu hỏi có sẵn từ bank thay vì luôn tạo mới |
+| ~~G1~~ **(đã xử lý — ngân hàng câu hỏi theo khóa)** | `question_banks` (`QuestionBank`) | Hoàn toàn không dùng — câu hỏi hiện tại luôn tạo riêng cho từng quiz, không tái sử dụng được | CRUD ngân hàng câu hỏi theo môn/khóa + cho phép AdminQuizQuestionController chọn câu hỏi có sẵn từ bank thay vì luôn tạo mới |
 | ~~G2~~ | ~~`lesson_completion_rules` (`LessonCompletionRule`)~~ | — | **Đã xử lý** (trừ % video), xem chi tiết dưới đây. |
-| G3 | `notification_preferences` (`NotificationPreference`) | Hoàn toàn không dùng — mọi notification luôn bắn, user không tắt được loại nào | API cho user xem/sửa tuỳ chọn theo `event_type` (in-app/email on/off); `worker-service` check trước khi ghi |
+| ~~G3~~ **(đã xử lý — 4 nhóm thông báo)** | `notification_preferences` (`NotificationPreference`) | Hoàn toàn không dùng — mọi notification luôn bắn, user không tắt được loại nào | API cho user xem/sửa tuỳ chọn theo `event_type` (in-app/email on/off); `worker-service` check trước khi ghi |
 | G4 | `email_notification_events` (`EmailNotificationEvent`) | Hoàn toàn không dùng — không có `JavaMailSender`/SMTP nào trong code, notification chỉ in-app | Thêm gửi email thật (ít nhất cho các event quan trọng: tài khoản giáo viên mới, bài tập được chấm) |
 | ~~G5~~ | ~~`audit_logs` (`AuditLog`)~~ | — | **Đã xử lý**, xem chi tiết dưới đây. |
-| G6 | `content_change_logs` (`ContentChangeLog`) | Hoàn toàn không dùng — `lesson_contents.version_number` tồn tại nhưng không ai tăng/ghi lịch sử khi Admin sửa nội dung | Ghi 1 dòng log + tăng version mỗi lần `PATCH /api/admin/lesson-contents/{id}` |
-| G7 | `message_attachments` (`MessageAttachment`) | Hoàn toàn không dùng — tin nhắn Q&A chỉ có text, không đính kèm file được | Thêm presign-upload cho message, giống cơ chế `lesson_contents`/`submission_files` đã có |
+| ~~G6~~ **(đã xử lý — lịch sử phiên bản nội dung)** | `content_change_logs` (`ContentChangeLog`) | Hoàn toàn không dùng — `lesson_contents.version_number` tồn tại nhưng không ai tăng/ghi lịch sử khi Admin sửa nội dung | Ghi 1 dòng log + tăng version mỗi lần `PATCH /api/admin/lesson-contents/{id}` |
+| ~~G7~~ **(đã xử lý — đính kèm file trong hỏi đáp)** | `message_attachments` (`MessageAttachment`) | Hoàn toàn không dùng — tin nhắn Q&A chỉ có text, không đính kèm file được | Thêm presign-upload cho message, giống cơ chế `lesson_contents`/`submission_files` đã có |
 
 ## 2. Nghiệp vụ lõi còn thiếu hẳn (không có bất kỳ endpoint nào)
 

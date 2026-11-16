@@ -1,3 +1,4 @@
+import { Pager, usePaged } from '../../components/Pager'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '../../lib/apiClient'
 import type { AuditLogResponse } from '../../types/api'
@@ -20,7 +21,9 @@ export function AuditLogPage() {
     queryFn: () => apiClient.get<AuditLogResponse[]>('/api/admin/audit-logs').then((r) => r.data),
   })
 
-  const rows = logsQuery.data ?? []
+  const allRows = logsQuery.data ?? []
+  const pg = usePaged(allRows, 25)
+  const rows = pg.slice
 
   return (
     <div>
@@ -69,6 +72,7 @@ export function AuditLogPage() {
           </tbody>
         </table>
       </div>
+      <Pager page={pg.page} pages={pg.pages} total={pg.total} setPage={pg.setPage} label="bản ghi" />
     </div>
   )
 }

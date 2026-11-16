@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient, getApiErrorMessage } from '../lib/apiClient'
 import { downloadCsv } from '../lib/csv'
 import type { QuizAnalyticsResponse } from '../types/api'
+import { useAuth } from '../auth/AuthContext'
 import { Modal } from './ui/Modal'
 import { Button } from './ui/Button'
 
@@ -21,6 +22,7 @@ export function QuizAnalyticsModal({ courseId, quizId, onClose }: { courseId: st
     queryFn: () => apiClient.get<QuizAnalyticsResponse>(`/api/gradebook/${courseId}/quizzes/${quizId}`).then((r) => r.data),
   })
   const d = query.data
+  const { user } = useAuth()
   const queryClient = useQueryClient()
   const [adjusting, setAdjusting] = useState<{ attemptId: string; score: string; reason: string } | null>(null)
   const [adjustError, setAdjustError] = useState<string | null>(null)
@@ -91,7 +93,7 @@ export function QuizAnalyticsModal({ courseId, quizId, onClose }: { courseId: st
                     <td>{STATUS[a.status] ?? a.status}</td>
                     <td>{fmtDuration(a.durationSeconds)}</td>
                     <td>{a.finalScore ?? '—'}{a.adjustmentReason ? <span title={a.adjustmentReason} className="text-amber-600"> *</span> : null}</td>
-                    <td className="text-right">{a.finalScore !== null && <button className="text-xs text-blue-600 hover:underline" onClick={() => { setAdjustError(null); setAdjusting({ attemptId: a.attemptId, score: String(a.finalScore), reason: '' }) }}>Sửa điểm</button>}</td>
+                    <td className="text-right">{a.finalScore !== null && user?.role === 'INSTRUCTOR' && <button className="text-xs text-blue-600 hover:underline" onClick={() => { setAdjustError(null); setAdjusting({ attemptId: a.attemptId, score: String(a.finalScore), reason: '' }) }}>Sửa điểm</button>}</td>
                   </tr>
                 ))}
                 {d.attempts.length === 0 && <tr><td colSpan={6} className="py-3 text-slate-400">Chưa có lượt làm nào.</td></tr>}

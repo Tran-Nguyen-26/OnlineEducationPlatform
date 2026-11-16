@@ -1,3 +1,4 @@
+import { Pager, usePaged } from '../../components/Pager'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
@@ -24,6 +25,8 @@ export function CoursesPage() {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const filtered = (courses ?? []).filter((c) => (!statusFilter || c.lifecycleStatus === statusFilter) && c.title.toLowerCase().includes(search.trim().toLowerCase()))
+  const pgd = usePaged(filtered, 15)
   const [subjectId, setSubjectId] = useState('')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -123,9 +126,7 @@ export function CoursesPage() {
                 </td>
               </tr>
             )}
-            {courses
-              ?.filter((c) => (!statusFilter || c.lifecycleStatus === statusFilter) && c.title.toLowerCase().includes(search.trim().toLowerCase()))
-              .map((course) => (
+            {pgd.slice.map((course) => (
               <tr key={course.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3">
                   <Link to={`/admin/courses/${course.id}`} className="font-medium text-slate-900 hover:underline">
@@ -212,6 +213,7 @@ export function CoursesPage() {
           </div>
         </form>
       </Modal>
+      <Pager page={pgd.page} pages={pgd.pages} total={pgd.total} setPage={pgd.setPage} label="khóa học" />
     </div>
   )
 }

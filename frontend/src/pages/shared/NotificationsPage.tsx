@@ -1,3 +1,4 @@
+import { Pager, usePaged } from '../../components/Pager'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { apiClient } from '../../lib/apiClient'
@@ -17,13 +18,15 @@ export function NotificationsPage() {
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['notifications'] })
   const markRead = useMutation({ mutationFn: (id: string) => apiClient.patch(`/api/notifications/${id}/read`), onSuccess: refresh })
   const markAll = useMutation({ mutationFn: () => apiClient.patch('/api/notifications/read-all'), onSuccess: refresh })
-  const rows = query.data ?? []
+  const allRows = query.data ?? []
+  const pg = usePaged(allRows, 20)
+  const rows = pg.slice
 
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-900">Thông báo</h1>
-        <Button size="sm" variant="secondary" onClick={() => markAll.mutate()} disabled={!rows.some((n) => !n.read)}>
+        <Button size="sm" variant="secondary" onClick={() => markAll.mutate()} disabled={!allRows.some((n) => !n.read)}>
           Đánh dấu tất cả đã đọc
         </Button>
       </div>
@@ -44,6 +47,7 @@ export function NotificationsPage() {
         ))}
         {!query.isLoading && rows.length === 0 && <p className="px-4 py-6 text-slate-400">Chưa có thông báo nào.</p>}
       </div>
+      <Pager page={pg.page} pages={pg.pages} total={pg.total} setPage={pg.setPage} label="thông báo" />
     </div>
   )
 }

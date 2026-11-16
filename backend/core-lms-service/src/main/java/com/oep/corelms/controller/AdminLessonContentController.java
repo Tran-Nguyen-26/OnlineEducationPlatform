@@ -25,12 +25,14 @@ public class AdminLessonContentController {
 
     private final AdminLessonContentService contentService;
     private final AuditLogService auditLogService;
+    private final com.oep.corelms.service.ContentChangeLogService changeLog;
 
     @PostMapping("/api/admin/lessons/{lessonId}/contents")
     public LessonContentResponse create(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID lessonId,
                                          @Valid @RequestBody CreateLessonContentRequest request) {
         UUID adminId = UUID.fromString(jwt.getSubject());
         LessonContentResponse response = contentService.create(lessonId, adminId, request);
+        changeLog.record(response.id(), adminId, "CREATED");
         auditLogService.record(adminId, "CREATE_LESSON_CONTENT", "LESSON_CONTENT", response.id(),
                 Map.of("lessonId", lessonId.toString(), "contentType", response.contentType().name()));
         return response;
@@ -45,6 +47,7 @@ public class AdminLessonContentController {
     public LessonContentResponse update(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID contentId,
                                          @Valid @RequestBody UpdateLessonContentRequest request) {
         LessonContentResponse response = contentService.update(contentId, request);
+        changeLog.record(contentId, UUID.fromString(jwt.getSubject()), "UPDATED");
         auditLogService.record(UUID.fromString(jwt.getSubject()), "UPDATE_LESSON_CONTENT", "LESSON_CONTENT", contentId, null);
         return response;
     }
@@ -62,7 +65,14 @@ public class AdminLessonContentController {
     }
 
     @PostMapping("/api/admin/lesson-contents/{contentId}/complete-upload")
-    public LessonContentResponse completeUpload(@PathVariable UUID contentId, @Valid @RequestBody CompleteUploadRequest request) {
-        return contentService.completeUpload(contentId, request);
+    public LessonContentResponse completeUpload(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID contentId, @Valid @RequestBody CompleteUploadRequest request) {
+        LessonContentResponse response = contentService.completeUpload(contentId, request);
+        changeLog.record(contentId, UUID.fromString(jwt.getSubject()), "FILE_REPLACED");
+        return response;
+    }
+
+    @GetMapping("/api/admin/lesson-contents/{contentId}/history")
+    public List<com.oep.corelms.service.ContentChangeLogService.Entry> history(@PathVariable UUID contentId) {
+        return changeLog.history(contentId);
     }
 }

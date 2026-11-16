@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Send } from 'lucide-react'
+import { Paperclip, Send, X } from 'lucide-react'
 import { apiClient, getApiErrorMessage } from '../lib/apiClient'
 import type { MessageResponse } from '../types/api'
 import { Button } from './ui/Button'
@@ -17,6 +17,7 @@ export function CourseQaTab({
   const queryClient = useQueryClient()
   const [content, setContent] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [files, setFiles] = useState<File[]>([])
   const queryKey = ['course-messages', courseId, lessonId ?? 'general']
 
   const messagesQuery = useQuery({
@@ -28,8 +29,19 @@ export function CourseQaTab({
   })
 
   const sendMutation = useMutation({
-    mutationFn: () => apiClient.post(`/api/courses/${courseId}/messages`, { content, lessonId: lessonId ?? null }),
+    mutationFn: async () => {
+      const { data: msg } = await apiClient.post<MessageResponse>(`/api/courses/${courseId}/messages`, { content, lessonId: lessonId ?? null })
+      for (const f of files) {
+        const { data: up } = await apiClient.post<{ uploadUrl: string; objectKey: string }>(`/api/courses/${courseId}/messages/${msg.id}/attachments/upload-url`, {
+          fileName: f.name, mimeType: f.type || 'application/octet-stream', fileSize: f.size,
+        })
+        const put = await fetch(up.uploadUrl, { method: 'PUT', headers: { 'Content-Type': f.type || 'application/octet-stream' }, body: f })
+        if (!put.ok) throw new Error('Tải file lên thất bại')
+        await apiClient.post(`/api/courses/${courseId}/messages/${msg.id}/attachments`, { objectKey: up.objectKey, fileName: f.name, mimeType: f.type || null, fileSize: f.size })
+      }
+    },
     onSuccess: () => {
+      setFiles([])
       setContent('')
       setError(null)
       queryClient.invalidateQueries({ queryKey })
@@ -65,10 +77,32 @@ export function CourseQaTab({
               <span className="text-slate-400">{new Date(m.createdAt).toLocaleString('vi-VN')}</span>
             </div>
             <p className="whitespace-pre-wrap text-sm text-slate-700">{m.content}</p>
+            {m.attachments?.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {m.attachments.map((a) => (
+                  <a key={a.id} href={a.url} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-blue-600 hover:bg-slate-50">
+                    <Paperclip size={12} /> {a.fileName}{a.fileSize ? ` (${Math.max(1, Math.round(a.fileSize / 1024))} KB)` : ''}
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>
+      {files.length > 0 && (
+        <div className="flex flex-wrap gap-2 border-t border-slate-100 px-3 pt-2">
+          {files.map((f, i) => (
+            <span key={i} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
+              {f.name}<button type="button" onClick={() => setFiles((fs) => fs.filter((_, j) => j !== i))}><X size={12} /></button>
+            </span>
+          ))}
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="flex items-center gap-2 border-t border-slate-200 p-3">
+        <label className="cursor-pointer rounded-md p-2 text-slate-500 hover:bg-slate-100" title="Đính kèm file (tối đa 3 file, 10MB mỗi file)">
+          <Paperclip size={16} />
+          <input type="file" multiple className="hidden" onChange={(e) => { const picked = Array.from(e.target.files ?? []); setFiles((fs) => [...fs, ...picked].slice(0, 3)); e.target.value = '' }} />
+        </label>
         <input
           value={content}
           onChange={(e) => setContent(e.target.value)}

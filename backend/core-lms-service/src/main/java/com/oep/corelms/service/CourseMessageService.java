@@ -45,6 +45,8 @@ public class CourseMessageService {
     private final UserProfileRepository userProfiles;
     private final LessonRepository lessons;
     private final RabbitTemplate rabbitTemplate;
+    private final com.oep.corelms.repository.MessageAttachmentRepository attachmentRepo;
+    private final StorageService storageService;
 
     /** lessonId null = the course's general thread; non-null = that lesson's own thread — the two never mix. */
     @Transactional(readOnly = true)
@@ -122,6 +124,63 @@ public class CourseMessageService {
         User sender = message.getSender();
         String name = userProfiles.findById(sender.getId()).map(UserProfile::getFullName).orElse(sender.getEmail());
         UUID lessonId = message.getLesson() == null ? null : message.getLesson().getId();
-        return new MessageResponse(message.getId(), sender.getId(), name, sender.getRole(), lessonId, message.getContent(), message.getCreatedAt());
+        var attachments = attachmentRepo.findByMessage_Id(message.getId()).stream()
+                .map(a -> new MessageResponse.Attachment(a.getId(), a.getFileName(), a.getFileType(), a.getFileSize(), storageService.presignView(a.getObjectKey())))
+                .toList();
+        return new MessageResponse(message.getId(), sender.getId(), name, sender.getRole(), lessonId, message.getContent(), message.getCreatedAt(), attachments);
+    }
+
+    private static final long MAX_ATTACHMENT_BYTES = 10L * 1024 * 1024;
+    private static final int MAX_ATTACHMENTS = 3;
+    private static final java.util.Set<String> BLOCKED_EXT = java.util.Set.of("exe", "bat", "cmd", "sh", "msi", "js", "jar", "com", "scr");
+
+    public record AttachmentUpload(String uploadUrl, String objectKey) {}
+
+    /** Only the message's author may attach files (max 3 per message, 10MB each, no executables). */
+    @Transactional(readOnly = true)
+    public AttachmentUpload requestAttachmentUpload(UUID courseId, UUID messageId, UUID userId, String role, String fileName, String mimeType, long fileSize) {
+        requireAccess(courseId, userId, role);
+        Message m = ownMessage(courseId, messageId, userId);
+        String ext = fileName == null || !fileName.contains(".") ? "" : fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase();
+        if (BLOCKED_EXT.contains(ext)) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "Loại file này không được phép đính kèm");
+        }
+        if (fileSize <= 0 || fileSize > MAX_ATTACHMENT_BYTES) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "File đính kèm tối đa 10MB");
+        }
+        if (attachmentRepo.countByMessage_Id(m.getId()) >= MAX_ATTACHMENTS) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "Tối đa " + MAX_ATTACHMENTS + " file cho mỗi tin nhắn");
+        }
+        String key = storageService.newObjectKey(fileName).replaceFirst("^lesson-contents/", "message-attachments/");
+        String type = mimeType == null || mimeType.isBlank() ? "application/octet-stream" : mimeType;
+        return new AttachmentUpload(storageService.presignUpload(key, type), key);
+    }
+
+    @Transactional
+    public MessageResponse confirmAttachment(UUID courseId, UUID messageId, UUID userId, String role, String objectKey, String fileName, String mimeType, long fileSize) {
+        requireAccess(courseId, userId, role);
+        Message m = ownMessage(courseId, messageId, userId);
+        if (objectKey == null || !objectKey.startsWith("message-attachments/")) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "Invalid attachment key");
+        }
+        if (attachmentRepo.countByMessage_Id(m.getId()) >= MAX_ATTACHMENTS) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "Tối đa " + MAX_ATTACHMENTS + " file cho mỗi tin nhắn");
+        }
+        com.oep.coremodel.entity.social.MessageAttachment a = new com.oep.coremodel.entity.social.MessageAttachment();
+        a.setMessage(m);
+        a.setObjectKey(objectKey);
+        a.setFileName(fileName);
+        a.setFileType(mimeType);
+        a.setFileSize(fileSize);
+        attachmentRepo.save(a);
+        return toResponse(m);
+    }
+
+    private Message ownMessage(UUID courseId, UUID messageId, UUID userId) {
+        Message m = messages.findById(messageId).orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Message not found"));
+        if (!m.getChannel().getCourse().getId().equals(courseId) || !m.getSender().getId().equals(userId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "Chỉ người gửi mới đính kèm file vào tin nhắn");
+        }
+        return m;
     }
 }

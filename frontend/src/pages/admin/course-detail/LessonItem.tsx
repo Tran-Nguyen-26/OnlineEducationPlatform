@@ -7,6 +7,7 @@ import {
   FileText,
   Link2,
   ListChecks,
+  History,
   Pencil,
   Plus,
   Presentation,
@@ -26,6 +27,7 @@ import type {
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { Modal } from '../../../components/ui/Modal'
+import { ContentHistoryModal } from './ContentHistoryModal'
 import { Badge } from '../../../components/Badge'
 
 const FILE_BASED_TYPES: ContentType[] = ['VIDEO', 'PDF', 'SLIDE', 'DOCUMENT', 'FILE']
@@ -64,6 +66,7 @@ export function LessonItem({ lesson }: { lesson: LessonResponse }) {
 
   const [uploadingIds, setUploadingIds] = useState<Set<string>>(new Set())
   const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({})
+  const [historyFor, setHistoryFor] = useState<LessonContentResponse | null>(null)
 
   async function uploadFile(content: LessonContentResponse, file: File) {
     setUploadingIds((prev) => new Set(prev).add(content.id))
@@ -260,6 +263,9 @@ export function LessonItem({ lesson }: { lesson: LessonResponse }) {
                     {isFileBased && <Badge status={content.uploadStatus} />}
                   </div>
                   <div className="flex items-center gap-1">
+                    <button onClick={() => setHistoryFor(content)} className="p-1 text-slate-400 hover:text-slate-700" aria-label="Lịch sử" title="Lịch sử chỉnh sửa">
+                      <History size={13} />
+                    </button>
                     <button onClick={() => openEdit(content)} className="p-1 text-slate-400 hover:text-slate-700" aria-label="Sửa">
                       <Pencil size={13} />
                     </button>
@@ -460,6 +466,7 @@ export function LessonItem({ lesson }: { lesson: LessonResponse }) {
           </div>
         )}
       </Modal>
+      {historyFor && <ContentHistoryModal contentId={historyFor.id} title={historyFor.title || 'Nội dung'} onClose={() => setHistoryFor(null)} />}
     </div>
   )
 }

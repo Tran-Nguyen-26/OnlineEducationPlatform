@@ -13,7 +13,7 @@ public record CourseOverviewResponse(
         int lessonCount, int quizCount, int assignmentCount, int sessionCount,
         int quizWeightPercent, Integer passingPercent, String myStatus) {
 
-    public record Instructor(String name, String organization, String bio) {}
+    public record Instructor(String name, String organization, String bio, String avatarUrl) {}
 
     public record Module(String title, List<String> lessons) {}
 }

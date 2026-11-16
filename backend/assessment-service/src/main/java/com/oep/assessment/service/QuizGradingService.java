@@ -43,7 +43,7 @@ public class QuizGradingService {
     @Transactional(readOnly = true)
     public List<QuizGradingDtos.PendingEssay> pendingEssays(UUID userId, String role) {
         return quizAnswers.findPendingEssays().stream()
-                .filter(a -> canGrade(a.getAttempt().getQuiz().getCourse().getId(), userId, role))
+                .filter(a -> canView(a.getAttempt().getQuiz().getCourse().getId(), userId, role))
                 .map(a -> {
                     QuizAttempt at = a.getAttempt();
                     Quiz quiz = at.getQuiz();
@@ -121,13 +121,18 @@ public class QuizGradingService {
                 "quiz-adjust:" + attemptId + ":" + System.currentTimeMillis(), quiz.getCourse().getId());
     }
 
+    /** Admins can look at the queues (oversight) but grading is the assigned instructor's job. */
+    private boolean canView(UUID courseId, UUID userId, String role) {
+        return "ADMIN".equals(role) || canGrade(courseId, userId, role);
+    }
+
     private boolean canGrade(UUID courseId, UUID userId, String role) {
-        return "ADMIN".equals(role) || ("INSTRUCTOR".equals(role) && courseInstructors.existsByCourse_IdAndInstructor_Id(courseId, userId));
+        return "INSTRUCTOR".equals(role) && courseInstructors.existsByCourse_IdAndInstructor_Id(courseId, userId);
     }
 
     private void requireGrader(UUID courseId, UUID userId, String role) {
         if (!canGrade(courseId, userId, role)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "You are not assigned to this course");
+            throw new BusinessException(ErrorCode.FORBIDDEN, "Chỉ giáo viên phụ trách khóa học mới được chấm bài");
         }
     }
 }

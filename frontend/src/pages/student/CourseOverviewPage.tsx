@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, CalendarDays, CheckCircle2, ClipboardCheck, FileQuestion, GraduationCap, KeyRound, Layers, Percent, Users } from 'lucide-react'
+import { ArrowLeft, CalendarDays, CheckCircle2, ClipboardCheck, FileQuestion, KeyRound, Layers, Percent, Users } from 'lucide-react'
 import { apiClient, getApiErrorMessage } from '../../lib/apiClient'
 import type { CourseOverview, MyEnrollmentResponse } from '../../types/api'
+import { UserAvatar } from '../../components/UserAvatar'
 import { PhaseBadge } from '../../components/PhaseBadge'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
@@ -60,7 +61,7 @@ export function CourseOverviewPage() {
           <div className="space-y-3">
             {c.instructors.map((t) => (
               <div key={t.name} className="flex gap-3 rounded-lg border border-slate-200 bg-white p-4">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-900 text-white"><GraduationCap size={18} /></span>
+                <UserAvatar url={t.avatarUrl} name={t.name} size={40} />
                 <div>
                   <div className="font-medium text-slate-900">{t.name}</div>
                   {t.organization && <div className="text-xs text-slate-500">{t.organization}</div>}

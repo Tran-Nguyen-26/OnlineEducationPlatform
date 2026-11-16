@@ -19,6 +19,7 @@ public class NotificationListener {
 
     private final NotificationRepository notifications;
     private final UserRepository users;
+    private final com.oep.worker.repository.NotificationPreferenceRepository preferences;
 
     /** dedupeKey carries a unique DB constraint, so a redelivered message never creates a duplicate row. */
     @Transactional
@@ -26,6 +27,11 @@ public class NotificationListener {
     public void onNotification(NotificationRequestedEvent event) {
         if (notifications.existsByDedupeKey(event.dedupeKey())) {
             log.info("Duplicate notification delivery ignored: {}", event.dedupeKey());
+            return;
+        }
+        String category = com.oep.coremodel.event.NotificationCategory.of(event.eventType());
+        if (category != null && preferences.findByUser_IdAndEventType(event.userId(), category).map(p -> !p.isInAppEnabled()).orElse(false)) {
+            log.info("Notification {} skipped: user switched off category {}", event.dedupeKey(), category);
             return;
         }
         Notification notification = new Notification();

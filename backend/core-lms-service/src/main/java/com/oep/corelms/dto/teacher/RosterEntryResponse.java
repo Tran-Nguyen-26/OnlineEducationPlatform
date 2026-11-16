@@ -14,5 +14,6 @@ public record RosterEntryResponse(
         Instant enrolledAt,
         int totalLessons,
         int completedLessons,
-        double progressPercent) {
+        double progressPercent,
+        String avatarUrl) {
 }

@@ -40,6 +40,7 @@ public class CourseOverviewService {
     private final AssignmentRepository assignments;
     private final CourseSessionRepository sessions;
     private final EnrollmentRepository enrollments;
+    private final AvatarUrls avatarUrls;
 
     @Transactional(readOnly = true)
     public CourseOverviewResponse overview(UUID courseId, UUID studentId) {
@@ -51,7 +52,7 @@ public class CourseOverviewService {
         var instructors = courseInstructors.findByCourse_Id(courseId).stream().map(ci -> {
             UserProfile p = userProfiles.findById(ci.getInstructor().getId()).orElse(null);
             return new CourseOverviewResponse.Instructor(p != null ? p.getFullName() : ci.getInstructor().getEmail(),
-                    p == null ? null : p.getOrganization(), p == null ? null : p.getBio());
+                    p == null ? null : p.getOrganization(), p == null ? null : p.getBio(), avatarUrls.of(ci.getInstructor().getId()));
         }).toList();
         var prereqs = prerequisites.findByCourse_Id(courseId).stream()
                 .map(p -> new StudentCourseResponse.Prerequisite(p.getPrerequisiteCourse().getId(), p.getPrerequisiteCourse().getTitle(),

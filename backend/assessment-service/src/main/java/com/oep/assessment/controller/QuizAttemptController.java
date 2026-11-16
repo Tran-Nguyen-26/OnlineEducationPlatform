@@ -41,4 +41,10 @@ public class QuizAttemptController {
                                          @Valid @RequestBody SubmitAttemptRequest request) {
         return quizAttemptService.submitAttempt(attemptId, UUID.fromString(jwt.getSubject()), request);
     }
+
+    @org.springframework.web.bind.annotation.GetMapping("/api/attempts/{attemptId}/review")
+    public com.oep.assessment.dto.AttemptReviewResponse review(@org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.oauth2.jwt.Jwt jwt,
+                                                                @org.springframework.web.bind.annotation.PathVariable java.util.UUID attemptId) {
+        return quizAttemptService.review(attemptId, java.util.UUID.fromString(jwt.getSubject()));
+    }
 }
