@@ -25,4 +25,14 @@ public class EnrollmentAccessService {
         }
         return enrollment;
     }
+
+    /** Read access (outline, files) also stays open after the course is COMPLETED so graduates can revisit material. */
+    public Enrollment requireReadableEnrollment(UUID courseId, UUID studentId) {
+        Enrollment enrollment = enrollments.findByCourseIdAndStudentId(courseId, studentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_ENROLLED, "Not enrolled in this course"));
+        if (enrollment.getStatus() != EnrollmentStatus.ACTIVE && enrollment.getStatus() != EnrollmentStatus.COMPLETED) {
+            throw new BusinessException(ErrorCode.NOT_ENROLLED, "Enrollment is not active");
+        }
+        return enrollment;
+    }
 }

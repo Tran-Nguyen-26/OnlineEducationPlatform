@@ -33,17 +33,25 @@ import { NotificationsPage } from './pages/shared/NotificationsPage'
 import { ProfilePage } from './pages/shared/ProfilePage'
 import { TeacherLayout } from './layouts/TeacherLayout'
 import { MyCoursesPage } from './pages/teacher/MyCoursesPage'
+import { LandingPage } from './pages/landing/LandingPage'
 import { TeacherDashboardPage } from './pages/teacher/DashboardPage'
 import { PendingGradingPage } from './pages/teacher/PendingGradingPage'
 import { CourseViewPage } from './pages/teacher/CourseViewPage'
 
 function RoleHome() {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
+  if (loading) return null
   if (!user) return <Navigate to="/login" replace />
   if (user.role === 'ADMIN') return <Navigate to="/admin" replace />
   if (user.role === 'STUDENT') return <Navigate to="/student" replace />
   if (user.role === 'INSTRUCTOR') return <Navigate to="/teacher" replace />
   return <Navigate to="/login" replace />
+}
+
+function HomeRoute() {
+  const { user, loading } = useAuth()
+  if (loading) return null
+  return user ? <RoleHome /> : <LandingPage />
 }
 
 function App() {
@@ -78,6 +86,7 @@ function App() {
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={['STUDENT']} />}>
+        <Route path="/student/courses/:courseId" element={<CourseViewerPage />} />
         <Route path="/student" element={<StudentLayout />}>
           <Route index element={<StudentDashboardPage />} />
           <Route path="my-courses" element={<MyProgressPage />} />
@@ -90,7 +99,6 @@ function App() {
           <Route path="tuition" element={<TuitionPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="profile" element={<ProfilePage />} />
-          <Route path="courses/:courseId" element={<CourseViewerPage />} />
         </Route>
       </Route>
 
@@ -105,7 +113,7 @@ function App() {
         </Route>
       </Route>
 
-      <Route path="/" element={<RoleHome />} />
+      <Route path="/" element={<HomeRoute />} />
       <Route path="*" element={<RoleHome />} />
     </Routes>
   )

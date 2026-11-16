@@ -61,13 +61,16 @@ public class StudentCourseContentService {
 
     @Transactional(readOnly = true)
     public CourseOutlineResponse getOutline(UUID courseId, UUID studentId) {
-        Enrollment enrollment = enrollmentAccess.requireActiveEnrollment(courseId, studentId);
+        Enrollment enrollment = enrollmentAccess.requireReadableEnrollment(courseId, studentId);
         Course course = courses.findById(courseId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Course not found"));
 
-        Map<UUID, LessonProgressStatus> progressByLesson = lessonProgress.findByEnrollmentId(enrollment.getId()).stream()
-                .collect(Collectors.toMap(p -> p.getLesson().getId(), LessonProgress::getStatus));
+        Map<UUID, LessonProgress> progressByLesson = lessonProgress.findByEnrollmentId(enrollment.getId()).stream()
+                .collect(Collectors.toMap(p -> p.getLesson().getId(), p -> p));
 
+        boolean sequential = course.getLearningMode() == com.oep.coremodel.enums.LearningMode.SEQUENTIAL
+                && enrollment.getStatus() == com.oep.coremodel.enums.EnrollmentStatus.ACTIVE;
+        boolean[] blocked = {false}; // flips once an earlier required lesson is unfinished
         List<OutlineModule> moduleDtos = modules.findByCourse_IdOrderByPositionAsc(courseId).stream()
                 .map(module -> new OutlineModule(
                         module.getId(),
@@ -75,21 +78,37 @@ public class StudentCourseContentService {
                         module.getDescription(),
                         module.getPosition(),
                         lessons.findByModule_IdOrderByPositionAsc(module.getId()).stream()
-                                .map(lesson -> toOutlineLesson(lesson, progressByLesson))
+                                .map(lesson -> {
+                                    boolean locked = sequential && blocked[0];
+                                    LessonProgress lp = progressByLesson.get(lesson.getId());
+                                    if (lesson.isRequired() && (lp == null || lp.getStatus() != LessonProgressStatus.COMPLETED)) {
+                                        blocked[0] = true;
+                                    }
+                                    return toOutlineLesson(lesson, progressByLesson, locked);
+                                })
                                 .toList()))
                 .toList();
 
-        return new CourseOutlineResponse(courseId, course.getTitle(), moduleDtos);
+        return new CourseOutlineResponse(courseId, course.getTitle(), enrollment.getStatus().name(),
+                enrollment.getStatus() != com.oep.coremodel.enums.EnrollmentStatus.ACTIVE, course.getLearningMode().name(), moduleDtos);
     }
 
-    private OutlineLesson toOutlineLesson(Lesson lesson, Map<UUID, LessonProgressStatus> progressByLesson) {
-        List<OutlineContent> contentDtos = lessonContents.findByLesson_IdOrderByPositionAsc(lesson.getId()).stream()
+    private OutlineLesson toOutlineLesson(Lesson lesson, Map<UUID, LessonProgress> progressByLesson, boolean locked) {
+        List<OutlineContent> contentDtos = locked ? List.of() : lessonContents.findByLesson_IdOrderByPositionAsc(lesson.getId()).stream()
                 .map(c -> new OutlineContent(c.getId(), c.getContentType(), c.getTitle(), c.getTextContent(), c.getExternalUrl(),
                         c.getFileName(), c.getMimeType(), c.getDurationSeconds(), c.getUploadStatus()))
                 .toList();
-        LessonProgressStatus status = progressByLesson.getOrDefault(lesson.getId(), LessonProgressStatus.NOT_STARTED);
+        LessonProgress progress = progressByLesson.get(lesson.getId());
+        LessonProgressStatus status = progress == null ? LessonProgressStatus.NOT_STARTED : progress.getStatus();
+        CourseOutlineResponse.CompletionRequirement requirement = completionRules.findByLesson_Id(lesson.getId()).map(rule -> {
+            boolean hasVideo = lessonContents.findByLesson_IdOrderByPositionAsc(lesson.getId()).stream().anyMatch(this::isVideo);
+            Integer minVideo = hasVideo && rule.getMinVideoPercentage() != null && rule.getMinVideoPercentage().signum() > 0
+                    ? rule.getMinVideoPercentage().intValue() : null;
+            return new CourseOutlineResponse.CompletionRequirement(rule.getMinimumTimeSeconds(), minVideo, rule.isRequireQuiz(), rule.isRequireAssignment());
+        }).orElse(null);
         return new OutlineLesson(lesson.getId(), lesson.getTitle(), lesson.getDescription(), lesson.getPosition(),
-                lesson.isRequired(), status, contentDtos);
+                lesson.isRequired(), locked, status, progress == null ? 0 : progress.getWatchedPercent(),
+                progress == null ? 0 : progress.getTimeSpentSeconds(), requirement, contentDtos);
     }
 
     /** Either an actively-enrolled student or an assigned instructor/admin may view the file; others get 403. */
@@ -104,7 +123,7 @@ public class StudentCourseContentService {
                 throw new BusinessException(ErrorCode.FORBIDDEN, "You are not assigned to this course");
             }
         } else if (!"ADMIN".equals(role)) {
-            enrollmentAccess.requireActiveEnrollment(courseId, userId);
+            requireUnlocked(content.getLesson(), enrollmentAccess.requireReadableEnrollment(courseId, userId));
         }
 
         if (content.getObjectKey() == null) {
@@ -144,6 +163,7 @@ public class StudentCourseContentService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Lesson not found"));
         UUID courseId = lesson.getModule().getCourse().getId();
         Enrollment enrollment = enrollmentAccess.requireActiveEnrollment(courseId, studentId);
+        requireUnlocked(lesson, enrollment);
 
         LessonProgress progress = lessonProgress.findByEnrollmentIdAndLessonId(enrollment.getId(), lessonId)
                 .orElseGet(() -> {
@@ -170,8 +190,8 @@ public class StudentCourseContentService {
     }
 
     /**
-     * minVideoPercentage is intentionally not enforced here: the content viewer has no in-app video player
-     * (files just open in a new tab), so there is no watch-time telemetry to check it against yet (GAPS.md G2).
+     * minVideoPercentage is enforced against the watched percentage reported by the in-app player
+     * (uploaded video or embedded YouTube) — only when the lesson actually contains a video.
      */
     private void enforceCompletionRule(LessonCompletionRule rule, Enrollment enrollment, LessonProgress progress) {
         if (progress.getTimeSpentSeconds() < rule.getMinimumTimeSeconds()) {
@@ -179,6 +199,12 @@ public class StudentCourseContentService {
                     "Bạn cần dành ít nhất " + rule.getMinimumTimeSeconds() + " giây cho bài học này trước khi đánh dấu hoàn thành");
         }
         UUID lessonId = progress.getLesson().getId();
+        if (rule.getMinVideoPercentage() != null && rule.getMinVideoPercentage().signum() > 0
+                && lessonContents.findByLesson_IdOrderByPositionAsc(lessonId).stream().anyMatch(this::isVideo)
+                && progress.getWatchedPercent() < rule.getMinVideoPercentage().intValue()) {
+            throw new BusinessException(ErrorCode.COMPLETION_RULE_NOT_MET,
+                    "Bạn cần xem ít nhất " + rule.getMinVideoPercentage().intValue() + "% video của bài học (hiện " + progress.getWatchedPercent() + "%)");
+        }
         if (rule.isRequireQuiz()) {
             boolean attempted = quizzes.findByLesson_Id(lessonId).stream()
                     .anyMatch(quiz -> quizAttempts.existsByQuiz_IdAndEnrollment_Id(quiz.getId(), enrollment.getId()));
@@ -191,6 +217,60 @@ public class StudentCourseContentService {
                     .anyMatch(a -> assignmentSubmissions.existsByAssignment_IdAndEnrollment_Id(a.getId(), enrollment.getId()));
             if (!submitted) {
                 throw new BusinessException(ErrorCode.COMPLETION_RULE_NOT_MET, "Bạn cần nộp bài tập của bài học này trước");
+            }
+        }
+    }
+
+    private boolean isVideo(LessonContent c) {
+        if (c.getContentType() == com.oep.coremodel.enums.ContentType.VIDEO) return true;
+        String url = c.getExternalUrl();
+        return c.getContentType() == com.oep.coremodel.enums.ContentType.LINK && url != null
+                && (url.contains("youtube.com/watch") || url.contains("youtu.be/"));
+    }
+
+    /** Player telemetry: keeps the highest percentage seen so seeking back never lowers progress. */
+    @Transactional
+    public void reportVideoProgress(UUID lessonId, UUID studentId, int percent) {
+        Lesson lesson = lessons.findById(lessonId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Lesson not found"));
+        Enrollment enrollment = enrollmentAccess.requireActiveEnrollment(lesson.getModule().getCourse().getId(), studentId);
+        requireUnlocked(lesson, enrollment);
+        LessonProgress progress = lessonProgress.findByEnrollmentIdAndLessonId(enrollment.getId(), lessonId).orElseGet(() -> {
+            LessonProgress p = new LessonProgress();
+            p.setEnrollment(enrollment);
+            p.setLesson(lesson);
+            p.setStartedAt(Instant.now());
+            return p;
+        });
+        int clamped = Math.max(0, Math.min(100, percent));
+        if (clamped > progress.getWatchedPercent()) {
+            progress.setWatchedPercent(clamped);
+        }
+        progress.setLastAccessedAt(Instant.now());
+        if (progress.getStatus() == LessonProgressStatus.NOT_STARTED) {
+            progress.setStatus(LessonProgressStatus.IN_PROGRESS);
+        }
+        lessonProgress.save(progress);
+    }
+
+    /** SEQUENTIAL courses: a lesson opens only after every earlier required lesson is COMPLETED (ACTIVE students only). */
+    private void requireUnlocked(Lesson lesson, Enrollment enrollment) {
+        Course course = lesson.getModule().getCourse();
+        if (course.getLearningMode() != com.oep.coremodel.enums.LearningMode.SEQUENTIAL
+                || enrollment.getStatus() != com.oep.coremodel.enums.EnrollmentStatus.ACTIVE) {
+            return;
+        }
+        java.util.Set<UUID> done = lessonProgress.findByEnrollmentId(enrollment.getId()).stream()
+                .filter(p -> p.getStatus() == LessonProgressStatus.COMPLETED).map(p -> p.getLesson().getId()).collect(Collectors.toSet());
+        for (com.oep.coremodel.entity.course.CourseModule m : modules.findByCourse_IdOrderByPositionAsc(course.getId())) {
+            for (Lesson l : lessons.findByModule_IdOrderByPositionAsc(m.getId())) {
+                if (l.getId().equals(lesson.getId())) {
+                    return;
+                }
+                if (l.isRequired() && !done.contains(l.getId())) {
+                    throw new BusinessException(ErrorCode.COMPLETION_RULE_NOT_MET,
+                            "Khóa học học tuần tự: hãy hoàn thành \"" + l.getTitle() + "\" trước");
+                }
             }
         }
     }

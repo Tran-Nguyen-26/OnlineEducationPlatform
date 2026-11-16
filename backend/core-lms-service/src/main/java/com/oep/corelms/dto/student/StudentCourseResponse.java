@@ -17,11 +17,15 @@ public record StudentCourseResponse(
         BigDecimal feeAmount,
         boolean enrolled,
         boolean waitlisted,
-        boolean completed) {
+        boolean completed,
+        java.util.List<Prerequisite> prerequisites) {
 
-    public static StudentCourseResponse from(Course course, boolean enrolled, boolean waitlisted, boolean completed) {
+    /** met = the student has COMPLETED that course; unmet prerequisites block self-service enrollment. */
+    public record Prerequisite(UUID courseId, String title, boolean met) {}
+
+    public static StudentCourseResponse from(Course course, boolean enrolled, boolean waitlisted, boolean completed, java.util.List<Prerequisite> prerequisites) {
         return new StudentCourseResponse(course.getId(), course.getTitle(), course.getDescription(),
                 course.getSubject().getName(), course.getCapacity(), course.getLearningMode(),
-                course.getFeeAmount(), enrolled, waitlisted, completed);
+                course.getFeeAmount(), enrolled, waitlisted, completed, prerequisites);
     }
 }

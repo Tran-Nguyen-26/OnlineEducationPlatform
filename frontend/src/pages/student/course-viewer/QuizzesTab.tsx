@@ -5,7 +5,7 @@ import type { AttemptSummaryResponse, StartAttemptResponse, StudentQuizResponse 
 import { Button } from '../../../components/ui/Button'
 import { QuizTakingModal } from './QuizTakingModal'
 
-function QuizRow({ courseId, quiz }: { courseId: string; quiz: StudentQuizResponse }) {
+export function QuizRow({ courseId, quiz }: { courseId: string; quiz: StudentQuizResponse }) {
   const [active, setActive] = useState<StartAttemptResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showHistory, setShowHistory] = useState(false)

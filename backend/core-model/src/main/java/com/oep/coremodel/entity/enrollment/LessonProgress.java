@@ -48,6 +48,10 @@ public class LessonProgress extends BaseEntity {
     @Column(name = "completed_at", nullable = true)
     private Instant completedAt;
 
+    /** Highest watched percentage (0-100) reported by the player for the lesson's video; only ever increases. */
+    @Column(name = "watched_percent", nullable = false, columnDefinition = "integer not null default 0")
+    private int watchedPercent = 0;
+
     @Column(name = "last_accessed_at", nullable = false)
     private Instant lastAccessedAt = Instant.now();
 }

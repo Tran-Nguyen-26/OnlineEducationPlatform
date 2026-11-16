@@ -337,14 +337,18 @@ export function LessonItem({ lesson }: { lesson: LessonResponse }) {
 
           {contentType === 'TEXT' && (
             <>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Nội dung văn bản</label>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Nội dung văn bản (hỗ trợ Markdown)</label>
               <textarea
                 required
                 value={textContent}
                 onChange={(e) => setTextContent(e.target.value)}
-                rows={5}
-                className="mb-4 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                rows={12}
+                className="mb-1 w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm"
               />
+              <p className="mb-4 text-xs text-slate-400">
+                Dùng <code>## Tiêu đề</code> (tạo mục lục "Trên trang này"), <code>**đậm**</code>, <code>- danh sách</code>, <code>```code```</code>, bảng <code>| a | b |</code>,
+                và hộp chú ý <code>&gt; [!NOTE]</code> / <code>[!TIP]</code> / <code>[!WARNING]</code>.
+              </p>
             </>
           )}
 

@@ -33,4 +33,11 @@ public class StudentContentController {
         contentService.updateLessonProgress(lessonId, UUID.fromString(jwt.getSubject()), request.status());
         return ResponseEntity.noContent().build();
     }
+
+    @PatchMapping("/api/lessons/{lessonId}/video-progress")
+    public ResponseEntity<Void> videoProgress(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID lessonId,
+                                               @RequestBody java.util.Map<String, Integer> body) {
+        contentService.reportVideoProgress(lessonId, UUID.fromString(jwt.getSubject()), body.getOrDefault("percent", 0));
+        return ResponseEntity.noContent().build();
+    }
 }

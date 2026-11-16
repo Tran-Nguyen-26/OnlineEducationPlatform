@@ -35,7 +35,7 @@ spring:
         - id: core-lms
           uri: ${CORE_LMS_URL:http://localhost:8081}
           predicates:
-            - Path=/api/auth/**,/api/admin/**,/api/users/**,/api/courses/**,/api/enrollments/**,/api/notifications/**,/api/lessons/**,/api/lesson-contents/**,/api/instructors/**,/api/certificates/**
+            - Path=/api/auth/**,/api/admin/**,/api/users/**,/api/courses/**,/api/enrollments/**,/api/notifications/**,/api/lessons/**,/api/lesson-contents/**,/api/instructors/**,/api/certificates/**,/api/public/**
         - id: assessment
           uri: ${ASSESSMENT_URL:http://localhost:8082}
           predicates:

@@ -291,6 +291,7 @@ export interface StudentCourseResponse {
   enrolled: boolean
   waitlisted: boolean
   completed: boolean
+  prerequisites: { courseId: string; title: string; met: boolean }[]
 }
 
 export type EnrollmentStatus = 'ACTIVE' | 'COMPLETED' | 'WITHDRAWN' | 'REMOVED' | 'WAITLISTED'
@@ -342,7 +343,11 @@ export interface OutlineLesson {
   description: string | null
   position: number
   required: boolean
+  locked: boolean
   progressStatus: LessonProgressStatus
+  watchedPercent: number
+  timeSpentSeconds: number
+  completionRequirement: { minimumTimeSeconds: number; minVideoPercentage: number | null; requireQuiz: boolean; requireAssignment: boolean } | null
   contents: OutlineContent[]
 }
 
@@ -357,6 +362,9 @@ export interface OutlineModule {
 export interface CourseOutlineResponse {
   courseId: string
   title: string
+  enrollmentStatus: EnrollmentStatus
+  readOnly: boolean
+  learningMode: LearningMode
   modules: OutlineModule[]
 }
 
@@ -707,4 +715,10 @@ export interface ReportOverview {
   totalEnrollments: number; activeEnrollments: number; completedEnrollments: number; dropouts: number
   overallCompletionRate: number | null; overallDropoutRate: number | null
   courses: ReportCourseRow[]; instructors: ReportInstructorRow[]; months: ReportMonthRow[]
+}
+
+export interface CourseCompletionResponse {
+  enrollmentStatus: EnrollmentStatus; requiredLessons: number; completedRequiredLessons: number
+  quizzes: number; attemptedQuizzes: number; assignments: number; submittedAssignments: number
+  eligible: boolean; completed: boolean
 }

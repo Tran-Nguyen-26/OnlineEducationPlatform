@@ -86,11 +86,22 @@ export function CataloguePage() {
               {course.capacity ? ` · Sĩ số tối đa ${course.capacity}` : ''}
               {' · '}{course.learningMode === 'SEQUENTIAL' ? 'Học tuần tự' : 'Học tự do'}
             </div>
+            {course.prerequisites.length > 0 && (
+              <div className="mt-2 text-xs text-slate-500">
+                Yêu cầu hoàn thành trước:{' '}
+                {course.prerequisites.map((p, i) => (
+                  <span key={p.courseId} className={p.met ? 'text-green-700' : 'text-amber-700'}>
+                    {i > 0 && ', '}{p.title} {p.met ? '✓' : '(chưa đạt)'}
+                  </span>
+                ))}
+              </div>
+            )}
             <div className="mt-4">
               {course.completed ? (
-                <Button variant="secondary" className="w-full" onClick={() => navigate('/student/certificates')}>
-                  Đã hoàn thành — xem chứng chỉ
-                </Button>
+                <div className="flex gap-2">
+                  <Button className="flex-1" onClick={() => navigate(`/student/courses/${course.id}`)}>Xem lại khóa học</Button>
+                  <Button variant="secondary" className="flex-1" onClick={() => navigate('/student/certificates')}>Chứng chỉ</Button>
+                </div>
               ) : course.waitlisted ? (
                 <p className="rounded-md bg-blue-50 p-2 text-center text-sm text-blue-700">Đang trong danh sách chờ</p>
               ) : course.enrolled ? (

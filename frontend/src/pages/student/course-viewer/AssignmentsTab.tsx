@@ -6,7 +6,7 @@ import type { MySubmissionResponse, StudentAssignmentResponse, UploadUrlResponse
 import { Button } from '../../../components/ui/Button'
 import { Badge } from '../../../components/Badge'
 
-function AssignmentRow({ courseId, assignment }: { courseId: string; assignment: StudentAssignmentResponse }) {
+export function AssignmentRow({ courseId, assignment }: { courseId: string; assignment: StudentAssignmentResponse }) {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
@@ -16,6 +16,7 @@ function AssignmentRow({ courseId, assignment }: { courseId: string; assignment:
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['student', 'assignments', courseId] })
     queryClient.invalidateQueries({ queryKey: ['student', 'my-submission', assignment.id] })
+    queryClient.invalidateQueries({ queryKey: ['student', 'completion', courseId] })
   }
 
   const mySubmissionQuery = useQuery({
