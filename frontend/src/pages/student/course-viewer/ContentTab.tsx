@@ -16,6 +16,7 @@ import {
 import { apiClient, getApiErrorMessage } from '../../../lib/apiClient'
 import type { ContentType, CourseOutlineResponse, OutlineContent, OutlineLesson, ViewUrlResponse } from '../../../types/api'
 import { Button } from '../../../components/ui/Button'
+import { CourseQaTab } from '../../../components/CourseQaTab'
 
 const TYPE_ICON: Record<ContentType, typeof Type> = {
   TEXT: Type,
@@ -116,6 +117,11 @@ function LessonPanel({ courseId, lesson }: { courseId: string; lesson: OutlineLe
           <ContentView key={content.id} content={content} />
         ))}
         {lesson.contents.length === 0 && <p className="text-sm text-slate-400">Chưa có nội dung.</p>}
+      </div>
+
+      <div className="mt-6">
+        <h3 className="mb-2 text-sm font-semibold text-slate-700">Hỏi đáp về bài học này</h3>
+        <CourseQaTab courseId={courseId} lessonId={lesson.id} compact />
       </div>
     </div>
   )

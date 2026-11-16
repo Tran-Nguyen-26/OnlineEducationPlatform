@@ -5,12 +5,14 @@ import com.oep.corelms.repository.CourseChannelRepository;
 import com.oep.corelms.repository.CourseInstructorRepository;
 import com.oep.corelms.repository.CourseRepository;
 import com.oep.corelms.repository.EnrollmentRepository;
+import com.oep.corelms.repository.LessonRepository;
 import com.oep.corelms.repository.MessageRepository;
 import com.oep.corelms.repository.UserProfileRepository;
 import com.oep.corelms.repository.UserRepository;
 import com.oep.coremodel.constant.MessagingConstants;
 import com.oep.coremodel.entity.course.Course;
 import com.oep.coremodel.entity.course.CourseInstructor;
+import com.oep.coremodel.entity.course.Lesson;
 import com.oep.coremodel.entity.enrollment.Enrollment;
 import com.oep.coremodel.entity.identity.User;
 import com.oep.coremodel.entity.identity.UserProfile;
@@ -41,23 +43,29 @@ public class CourseMessageService {
     private final CourseInstructorRepository courseInstructors;
     private final UserRepository users;
     private final UserProfileRepository userProfiles;
+    private final LessonRepository lessons;
     private final RabbitTemplate rabbitTemplate;
 
+    /** lessonId null = the course's general thread; non-null = that lesson's own thread — the two never mix. */
     @Transactional(readOnly = true)
-    public List<MessageResponse> list(UUID courseId, UUID userId, String role) {
+    public List<MessageResponse> list(UUID courseId, UUID userId, String role, UUID lessonId) {
         requireAccess(courseId, userId, role);
         return channels.findByCourse_Id(courseId)
-                .map(channel -> messages.findByChannel_IdOrderByCreatedAtAsc(channel.getId()).stream()
+                .map(channel -> (lessonId == null
+                        ? messages.findByChannel_IdAndLessonIsNullOrderByCreatedAtAsc(channel.getId())
+                        : messages.findByChannel_IdAndLesson_IdOrderByCreatedAtAsc(channel.getId(), lessonId)).stream()
                         .map(this::toResponse)
                         .toList())
                 .orElse(List.of());
     }
 
     @Transactional
-    public MessageResponse post(UUID courseId, UUID userId, String role, String content) {
+    public MessageResponse post(UUID courseId, UUID userId, String role, String content, UUID lessonId) {
         requireAccess(courseId, userId, role);
         Course course = courses.findById(courseId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Course not found"));
+        Lesson lesson = lessonId == null ? null : lessons.findById(lessonId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Lesson not found"));
 
         CourseChannel channel = channels.findByCourse_Id(courseId).orElseGet(() -> {
             CourseChannel c = new CourseChannel();
@@ -68,6 +76,7 @@ public class CourseMessageService {
         Message message = new Message();
         message.setChannel(channel);
         message.setSender(users.getReferenceById(userId));
+        message.setLesson(lesson);
         message.setContent(content);
         Message saved = messages.saveAndFlush(message);
 
@@ -112,6 +121,7 @@ public class CourseMessageService {
     private MessageResponse toResponse(Message message) {
         User sender = message.getSender();
         String name = userProfiles.findById(sender.getId()).map(UserProfile::getFullName).orElse(sender.getEmail());
-        return new MessageResponse(message.getId(), sender.getId(), name, sender.getRole(), message.getContent(), message.getCreatedAt());
+        UUID lessonId = message.getLesson() == null ? null : message.getLesson().getId();
+        return new MessageResponse(message.getId(), sender.getId(), name, sender.getRole(), lessonId, message.getContent(), message.getCreatedAt());
     }
 }

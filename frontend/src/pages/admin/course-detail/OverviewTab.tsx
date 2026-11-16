@@ -6,6 +6,7 @@ import type {
   AdminUserResponse,
   CourseInstructorResponse,
   CourseLifecycleStatus,
+  CoursePrerequisiteResponse,
   CourseResponse,
   InviteCodeResponse,
   LearningMode,
@@ -55,6 +56,14 @@ export function OverviewTab({ course }: { course: CourseResponse }) {
     queryKey: ['subjects'],
     queryFn: () => apiClient.get<SubjectResponse[]>('/api/admin/subjects').then((r) => r.data),
   })
+  const allCoursesQuery = useQuery({
+    queryKey: ['courses'],
+    queryFn: () => apiClient.get<CourseResponse[]>('/api/admin/courses').then((r) => r.data),
+  })
+  const prerequisitesQuery = useQuery({
+    queryKey: ['courses', courseId, 'prerequisites'],
+    queryFn: () => apiClient.get<CoursePrerequisiteResponse[]>(`/api/admin/courses/${courseId}/prerequisites`).then((r) => r.data),
+  })
 
   const [editOpen, setEditOpen] = useState(false)
   const [editSubjectId, setEditSubjectId] = useState('')
@@ -64,6 +73,7 @@ export function OverviewTab({ course }: { course: CourseResponse }) {
   const [editLearningMode, setEditLearningMode] = useState<LearningMode>('FREE_NAVIGATION')
   const [editStartAt, setEditStartAt] = useState('')
   const [editEndAt, setEditEndAt] = useState('')
+  const [editFeeAmount, setEditFeeAmount] = useState('')
   const [editError, setEditError] = useState<string | null>(null)
 
   function openEdit() {
@@ -74,6 +84,7 @@ export function OverviewTab({ course }: { course: CourseResponse }) {
     setEditLearningMode(course.learningMode)
     setEditStartAt(toDateTimeLocal(course.startAt))
     setEditEndAt(toDateTimeLocal(course.endAt))
+    setEditFeeAmount(course.feeAmount != null ? String(course.feeAmount) : '')
     setEditError(null)
     setEditOpen(true)
   }
@@ -88,6 +99,7 @@ export function OverviewTab({ course }: { course: CourseResponse }) {
         startAt: editStartAt ? new Date(editStartAt).toISOString() : null,
         endAt: editEndAt ? new Date(editEndAt).toISOString() : null,
         learningMode: editLearningMode,
+        feeAmount: editFeeAmount ? Number(editFeeAmount) : null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courses', courseId] })
@@ -134,6 +146,30 @@ export function OverviewTab({ course }: { course: CourseResponse }) {
   const unassignMutation = useMutation({
     mutationFn: (instructorId: string) => apiClient.delete(`/api/admin/courses/${courseId}/instructors/${instructorId}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['courses', courseId, 'instructors'] }),
+  })
+
+  const [selectedPrereqId, setSelectedPrereqId] = useState('')
+  const [prereqError, setPrereqError] = useState<string | null>(null)
+
+  const availablePrereqCourses = useMemo(() => {
+    const already = new Set(prerequisitesQuery.data?.map((p) => p.prerequisiteCourseId))
+    return (allCoursesQuery.data ?? []).filter((c) => c.id !== courseId && !already.has(c.id))
+  }, [allCoursesQuery.data, prerequisitesQuery.data, courseId])
+
+  const addPrereqMutation = useMutation({
+    mutationFn: () => apiClient.post(`/api/admin/courses/${courseId}/prerequisites`, { prerequisiteCourseId: selectedPrereqId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courses', courseId, 'prerequisites'] })
+      setSelectedPrereqId('')
+      setPrereqError(null)
+    },
+    onError: (err) => setPrereqError(getApiErrorMessage(err)),
+  })
+
+  const removePrereqMutation = useMutation({
+    mutationFn: (prerequisiteCourseId: string) =>
+      apiClient.delete(`/api/admin/courses/${courseId}/prerequisites/${prerequisiteCourseId}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['courses', courseId, 'prerequisites'] }),
   })
 
   const generateCodeMutation = useMutation({
@@ -268,6 +304,58 @@ export function OverviewTab({ course }: { course: CourseResponse }) {
         </div>
       </section>
 
+      <section className="mt-8">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-slate-900">Điều kiện tiên quyết</h2>
+        </div>
+        <p className="mb-3 text-sm text-slate-500">
+          Học sinh phải hoàn thành các khóa học dưới đây trước khi có thể ghi danh khóa này.
+        </p>
+        <div className="mb-3 flex flex-wrap gap-2">
+          {prerequisitesQuery.data?.map((p) => (
+            <span
+              key={p.prerequisiteCourseId}
+              className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700"
+            >
+              {p.prerequisiteCourseTitle}
+              <button
+                onClick={() => removePrereqMutation.mutate(p.prerequisiteCourseId)}
+                className="text-slate-400 hover:text-red-600"
+                aria-label="Xóa điều kiện"
+              >
+                <Trash2 size={13} />
+              </button>
+            </span>
+          ))}
+          {prerequisitesQuery.data?.length === 0 && (
+            <span className="text-sm text-slate-400">Không yêu cầu điều kiện tiên quyết nào.</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            value={selectedPrereqId}
+            onChange={(e) => setSelectedPrereqId(e.target.value)}
+            className="h-9 w-72 rounded-md border border-slate-300 px-3 text-sm"
+          >
+            <option value="">Chọn khóa học...</option>
+            {availablePrereqCourses.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.title}
+              </option>
+            ))}
+          </select>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={!selectedPrereqId || addPrereqMutation.isPending}
+            onClick={() => addPrereqMutation.mutate()}
+          >
+            <Plus size={14} /> Thêm điều kiện
+          </Button>
+        </div>
+        {prereqError && <p className="mt-2 text-sm text-red-600">{prereqError}</p>}
+      </section>
+
       <Modal title="Gán giáo viên" open={assignOpen} onClose={() => setAssignOpen(false)}>
         <form onSubmit={handleAssignSubmit}>
           {unassignedInstructors.length === 0 ? (
@@ -343,6 +431,16 @@ export function OverviewTab({ course }: { course: CourseResponse }) {
               <Input type="datetime-local" value={editEndAt} onChange={(e) => setEditEndAt(e.target.value)} />
             </div>
           </div>
+
+          <label className="mb-1 block text-sm font-medium text-slate-700">Học phí (VNĐ, tùy chọn)</label>
+          <Input
+            type="number"
+            min={0}
+            step={1000}
+            value={editFeeAmount}
+            onChange={(e) => setEditFeeAmount(e.target.value)}
+            className="mb-4"
+          />
 
           {editError && <p className="mb-4 text-sm text-red-600">{editError}</p>}
 

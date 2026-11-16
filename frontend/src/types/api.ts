@@ -57,6 +57,9 @@ export interface MyProgressResponse {
   totalLessons: number
   completedLessons: number
   percent: number
+  feeAmount: number | null
+  totalPaid: number | null
+  paymentStatus: PaymentStatus
 }
 
 export interface SubjectResponse {
@@ -65,6 +68,8 @@ export interface SubjectResponse {
   description: string | null
   active: boolean
 }
+
+export type PaymentStatus = 'NOT_APPLICABLE' | 'UNPAID' | 'PARTIAL' | 'PAID'
 
 export interface CourseResponse {
   id: string
@@ -77,9 +82,40 @@ export interface CourseResponse {
   startAt: string | null
   endAt: string | null
   learningMode: LearningMode
+  feeAmount: number | null
   createdByEmail: string
   createdAt: string
   updatedAt: string
+}
+
+export interface CoursePrerequisiteResponse {
+  prerequisiteCourseId: string
+  prerequisiteCourseTitle: string
+}
+
+export interface CertificateResponse {
+  id: string
+  certificateNumber: string
+  issuedAt: string
+  studentFullName: string | null
+  studentEmail: string
+  courseTitle: string
+  subjectName: string
+}
+
+export interface BulkEnrollRowResult {
+  email: string
+  status: string
+  message: string
+  temporaryPassword: string | null
+}
+
+export interface TuitionPaymentResponse {
+  id: string
+  amount: number
+  note: string | null
+  paidAt: string
+  recordedByEmail: string
 }
 
 export interface CourseInstructorResponse {
@@ -252,7 +288,7 @@ export interface StudentCourseResponse {
   enrolled: boolean
 }
 
-export type EnrollmentStatus = 'ACTIVE' | 'COMPLETED' | 'WITHDRAWN' | 'REMOVED'
+export type EnrollmentStatus = 'ACTIVE' | 'COMPLETED' | 'WITHDRAWN' | 'REMOVED' | 'WAITLISTED'
 
 export interface MyEnrollmentResponse {
   enrollmentId: string
@@ -276,6 +312,9 @@ export interface AdminEnrollmentResponse {
   completedAt: string | null
   withdrawnAt: string | null
   removedAt: string | null
+  feeAmount: number | null
+  totalPaid: number | null
+  paymentStatus: PaymentStatus
 }
 
 export type LessonProgressStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED'
@@ -499,6 +538,7 @@ export interface MessageResponse {
   senderId: string
   senderName: string
   senderRole: UserRole
+  lessonId: string | null
   content: string
   createdAt: string
 }

@@ -13,6 +13,7 @@ import {
 import { apiClient } from '../../../lib/apiClient'
 import type { ContentItem, ContentLesson, ContentType, CourseContentResponse, ViewUrlResponse } from '../../../types/api'
 import { Button } from '../../../components/ui/Button'
+import { CourseQaTab } from '../../../components/CourseQaTab'
 
 const TYPE_ICON: Record<ContentType, typeof Type> = {
   TEXT: Type,
@@ -64,7 +65,7 @@ function ContentView({ content }: { content: ContentItem }) {
   )
 }
 
-function LessonPanel({ lesson }: { lesson: ContentLesson }) {
+function LessonPanel({ courseId, lesson }: { courseId: string; lesson: ContentLesson }) {
   return (
     <div>
       <h2 className="mb-1 text-lg font-semibold text-slate-900">{lesson.title}</h2>
@@ -74,6 +75,11 @@ function LessonPanel({ lesson }: { lesson: ContentLesson }) {
           <ContentView key={content.id} content={content} />
         ))}
         {lesson.contents.length === 0 && <p className="text-sm text-slate-400">Chưa có nội dung.</p>}
+      </div>
+
+      <div className="mt-6">
+        <h3 className="mb-2 text-sm font-semibold text-slate-700">Hỏi đáp về bài học này</h3>
+        <CourseQaTab courseId={courseId} lessonId={lesson.id} compact />
       </div>
     </div>
   )
@@ -127,7 +133,13 @@ export function ContentTab({ content }: { content: CourseContentResponse }) {
         {content.modules.length === 0 && <p className="text-sm text-slate-400">Khóa học chưa có nội dung.</p>}
       </div>
 
-      <div>{selectedLesson ? <LessonPanel lesson={selectedLesson} /> : <p className="text-slate-400">Chọn một bài học.</p>}</div>
+      <div>
+        {selectedLesson ? (
+          <LessonPanel courseId={content.courseId} lesson={selectedLesson} />
+        ) : (
+          <p className="text-slate-400">Chọn một bài học.</p>
+        )}
+      </div>
     </div>
   )
 }

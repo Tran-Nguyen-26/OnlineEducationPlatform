@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -25,13 +26,15 @@ public class CourseMessageController {
     private final CourseMessageService messageService;
 
     @GetMapping
-    public List<MessageResponse> list(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
-        return messageService.list(courseId, UUID.fromString(jwt.getSubject()), jwt.getClaimAsString("role"));
+    public List<MessageResponse> list(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
+                                       @RequestParam(required = false) UUID lessonId) {
+        return messageService.list(courseId, UUID.fromString(jwt.getSubject()), jwt.getClaimAsString("role"), lessonId);
     }
 
     @PostMapping
     public MessageResponse post(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
                                  @Valid @RequestBody PostMessageRequest request) {
-        return messageService.post(courseId, UUID.fromString(jwt.getSubject()), jwt.getClaimAsString("role"), request.content());
+        return messageService.post(courseId, UUID.fromString(jwt.getSubject()), jwt.getClaimAsString("role"),
+                request.content(), request.lessonId());
     }
 }

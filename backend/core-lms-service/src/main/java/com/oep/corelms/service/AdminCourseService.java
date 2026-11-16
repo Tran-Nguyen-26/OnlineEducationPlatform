@@ -41,6 +41,7 @@ public class AdminCourseService {
         course.setStartAt(request.startAt());
         course.setEndAt(request.endAt());
         course.setLearningMode(request.learningMode() == null ? LearningMode.FREE_NAVIGATION : request.learningMode());
+        course.setFeeAmount(request.feeAmount());
         course.setLifecycleStatus(CourseLifecycleStatus.DRAFT);
         course.setCreatedBy(users.getReferenceById(adminId));
 
@@ -70,6 +71,7 @@ public class AdminCourseService {
         course.setStartAt(request.startAt());
         course.setEndAt(request.endAt());
         course.setLearningMode(request.learningMode());
+        course.setFeeAmount(request.feeAmount());
 
         return CourseResponse.from(courses.saveAndFlush(course));
     }

@@ -4,6 +4,7 @@ import com.oep.coremodel.entity.course.Course;
 import com.oep.coremodel.enums.CourseLifecycleStatus;
 import com.oep.coremodel.enums.LearningMode;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -18,6 +19,7 @@ public record CourseResponse(
         Instant startAt,
         Instant endAt,
         LearningMode learningMode,
+        BigDecimal feeAmount,
         String createdByEmail,
         Instant createdAt,
         Instant updatedAt) {
@@ -34,6 +36,7 @@ public record CourseResponse(
                 course.getStartAt(),
                 course.getEndAt(),
                 course.getLearningMode(),
+                course.getFeeAmount(),
                 course.getCreatedBy().getEmail(),
                 course.getCreatedAt(),
                 course.getUpdatedAt());

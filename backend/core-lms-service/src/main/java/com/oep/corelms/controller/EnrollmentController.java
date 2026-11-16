@@ -1,8 +1,10 @@
 package com.oep.corelms.controller;
 
+import com.oep.corelms.dto.student.CertificateResponse;
 import com.oep.corelms.dto.student.EnrollRequest;
 import com.oep.corelms.dto.student.MyEnrollmentResponse;
 import com.oep.corelms.dto.student.MyProgressResponse;
+import com.oep.corelms.service.CertificateService;
 import com.oep.corelms.service.EnrollmentService;
 import com.oep.corelms.service.StudentCourseContentService;
 import com.oep.corelms.service.StudentCourseService;
@@ -30,6 +32,7 @@ public class EnrollmentController {
     private final EnrollmentService enrollmentService;
     private final StudentCourseService studentCourseService;
     private final StudentCourseContentService studentCourseContentService;
+    private final CertificateService certificateService;
 
     @PostMapping
     public MyEnrollmentResponse enroll(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody EnrollRequest request) {
@@ -50,6 +53,11 @@ public class EnrollmentController {
     @PostMapping("/{enrollmentId}/withdraw")
     public MyEnrollmentResponse withdraw(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID enrollmentId) {
         return enrollmentService.withdraw(enrollmentId, UUID.fromString(jwt.getSubject()));
+    }
+
+    @GetMapping("/{enrollmentId}/certificate")
+    public CertificateResponse certificate(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID enrollmentId) {
+        return certificateService.getForStudent(enrollmentId, UUID.fromString(jwt.getSubject()));
     }
 
     private void requireStudent(Jwt jwt) {

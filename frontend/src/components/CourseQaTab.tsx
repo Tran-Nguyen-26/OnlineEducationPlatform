@@ -5,22 +5,34 @@ import { apiClient, getApiErrorMessage } from '../lib/apiClient'
 import type { MessageResponse } from '../types/api'
 import { Button } from './ui/Button'
 
-export function CourseQaTab({ courseId }: { courseId: string }) {
+export function CourseQaTab({
+  courseId,
+  lessonId,
+  compact,
+}: {
+  courseId: string
+  lessonId?: string
+  compact?: boolean
+}) {
   const queryClient = useQueryClient()
   const [content, setContent] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const queryKey = ['course-messages', courseId, lessonId ?? 'general']
 
   const messagesQuery = useQuery({
-    queryKey: ['course-messages', courseId],
-    queryFn: () => apiClient.get<MessageResponse[]>(`/api/courses/${courseId}/messages`).then((r) => r.data),
+    queryKey,
+    queryFn: () =>
+      apiClient
+        .get<MessageResponse[]>(`/api/courses/${courseId}/messages`, { params: lessonId ? { lessonId } : undefined })
+        .then((r) => r.data),
   })
 
   const sendMutation = useMutation({
-    mutationFn: () => apiClient.post(`/api/courses/${courseId}/messages`, { content }),
+    mutationFn: () => apiClient.post(`/api/courses/${courseId}/messages`, { content, lessonId: lessonId ?? null }),
     onSuccess: () => {
       setContent('')
       setError(null)
-      queryClient.invalidateQueries({ queryKey: ['course-messages', courseId] })
+      queryClient.invalidateQueries({ queryKey })
     },
     onError: (err) => setError(getApiErrorMessage(err)),
   })
@@ -31,7 +43,7 @@ export function CourseQaTab({ courseId }: { courseId: string }) {
   }
 
   return (
-    <div className="flex h-[65vh] flex-col rounded-lg border border-slate-200 bg-white">
+    <div className={`flex flex-col rounded-lg border border-slate-200 bg-white ${compact ? 'h-72' : 'h-[65vh]'}`}>
       <div className="flex-1 space-y-3 overflow-y-auto p-4">
         {messagesQuery.isLoading && <p className="text-slate-400">Đang tải...</p>}
         {messagesQuery.data?.length === 0 && <p className="text-sm text-slate-400">Chưa có câu hỏi nào — hãy là người đầu tiên hỏi!</p>}

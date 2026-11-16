@@ -25,6 +25,7 @@ export function CoursesPage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [capacity, setCapacity] = useState('')
+  const [feeAmount, setFeeAmount] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   function openCreate() {
@@ -32,6 +33,7 @@ export function CoursesPage() {
     setTitle('')
     setDescription('')
     setCapacity('')
+    setFeeAmount('')
     setError(null)
     setOpen(true)
   }
@@ -43,6 +45,7 @@ export function CoursesPage() {
         title,
         description: description || null,
         capacity: capacity ? Number(capacity) : null,
+        feeAmount: feeAmount ? Number(feeAmount) : null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courses'] })
@@ -136,6 +139,9 @@ export function CoursesPage() {
 
           <label className="mb-1 block text-sm font-medium text-slate-700">Sĩ số tối đa (tùy chọn)</label>
           <Input type="number" min={1} value={capacity} onChange={(e) => setCapacity(e.target.value)} className="mb-4" />
+
+          <label className="mb-1 block text-sm font-medium text-slate-700">Học phí (VNĐ, tùy chọn)</label>
+          <Input type="number" min={0} step={1000} value={feeAmount} onChange={(e) => setFeeAmount(e.target.value)} className="mb-4" />
 
           {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 

@@ -39,6 +39,10 @@ public class Course extends BaseEntity {
     @Column(name = "capacity", nullable = true)
     private Integer capacity;
 
+    /** Null means this course has no tuition fee tracked (free / not applicable). */
+    @Column(name = "fee_amount", nullable = true, precision = 12, scale = 2)
+    private BigDecimal feeAmount;
+
     @Column(name = "start_at", nullable = true)
     private Instant startAt;
 

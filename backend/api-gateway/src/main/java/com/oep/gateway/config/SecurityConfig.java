@@ -21,7 +21,7 @@ public class SecurityConfig {
                         // CORS preflight carries no Authorization header; must be allowed through
                         // before the auth rules below, or browsers block every cross-origin call.
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .pathMatchers("/api/auth/**", "/actuator/health").permitAll()
+                        .pathMatchers("/api/auth/**", "/api/certificates/verify/**", "/actuator/health").permitAll()
                         .pathMatchers("/api/**").authenticated()
                         .anyExchange().denyAll())
                 .oauth2ResourceServer(o -> o.jwt(Customizer.withDefaults()))

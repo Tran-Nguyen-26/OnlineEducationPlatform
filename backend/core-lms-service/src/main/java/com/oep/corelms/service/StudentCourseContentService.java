@@ -57,6 +57,7 @@ public class StudentCourseContentService {
     private final QuizAttemptRepository quizAttempts;
     private final AssignmentRepository assignments;
     private final AssignmentSubmissionRepository assignmentSubmissions;
+    private final TuitionPaymentService tuitionPaymentService;
 
     @Transactional(readOnly = true)
     public CourseOutlineResponse getOutline(UUID courseId, UUID studentId) {
@@ -130,9 +131,11 @@ public class StudentCourseContentService {
                 .count();
         double percent = totalLessons == 0 ? 0.0 : Math.round(completedLessons * 1000.0 / totalLessons) / 10.0;
 
+        java.math.BigDecimal feeAmount = enrollment.getCourse().getFeeAmount();
+        java.math.BigDecimal totalPaid = tuitionPaymentService.totalPaid(enrollment.getId());
         return new MyProgressResponse(enrollment.getId(), courseId, enrollment.getCourse().getTitle(),
                 enrollment.getCourse().getSubject().getName(), enrollment.getStatus(), totalLessons,
-                (int) completedLessons, percent);
+                (int) completedLessons, percent, feeAmount, totalPaid, tuitionPaymentService.status(feeAmount, totalPaid));
     }
 
     @Transactional

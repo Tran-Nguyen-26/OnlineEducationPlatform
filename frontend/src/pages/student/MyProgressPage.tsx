@@ -59,8 +59,16 @@ export function MyProgressPage() {
                 <div className="text-xs font-medium uppercase tracking-wide text-slate-400">{item.subjectName}</div>
                 <h2 className="mt-1 text-lg font-semibold text-slate-900">{item.courseTitle}</h2>
               </div>
-              <Badge status={item.status} />
+              <div className="flex items-center gap-2">
+                {item.paymentStatus !== 'NOT_APPLICABLE' && <Badge status={item.paymentStatus} />}
+                <Badge status={item.status} />
+              </div>
             </div>
+            {item.feeAmount != null && (
+              <p className="mt-1 text-xs text-slate-500">
+                Học phí: {item.feeAmount.toLocaleString('vi-VN')} đ — đã đóng {(item.totalPaid ?? 0).toLocaleString('vi-VN')} đ
+              </p>
+            )}
 
             <div className="mt-4">
               <div className="mb-1 flex items-center justify-between text-sm text-slate-600">
@@ -74,11 +82,22 @@ export function MyProgressPage() {
               </div>
             </div>
 
+            {item.status === 'WAITLISTED' && (
+              <p className="mt-2 text-xs text-blue-600">Khóa đã đầy — bạn đang ở danh sách chờ, sẽ tự động vào học khi có chỗ trống.</p>
+            )}
+
             <div className="mt-4 flex gap-2">
-              <Button variant="secondary" size="sm" onClick={() => navigate(`/student/courses/${item.courseId}`)}>
-                Tiếp tục học
-              </Button>
-              {item.status === 'ACTIVE' && (
+              {(item.status === 'ACTIVE' || item.status === 'COMPLETED') && (
+                <Button variant="secondary" size="sm" onClick={() => navigate(`/student/courses/${item.courseId}`)}>
+                  Tiếp tục học
+                </Button>
+              )}
+              {item.status === 'COMPLETED' && (
+                <Button variant="secondary" size="sm" onClick={() => navigate(`/student/certificates/${item.enrollmentId}`)}>
+                  Xem chứng chỉ
+                </Button>
+              )}
+              {(item.status === 'ACTIVE' || item.status === 'WAITLISTED') && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -88,7 +107,7 @@ export function MyProgressPage() {
                     setWithdrawError(null)
                   }}
                 >
-                  Rút khỏi khóa học
+                  {item.status === 'WAITLISTED' ? 'Rời danh sách chờ' : 'Rút khỏi khóa học'}
                 </Button>
               )}
             </div>

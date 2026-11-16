@@ -5,6 +5,7 @@ import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
+import { VerifyCertificatePage } from './pages/VerifyCertificatePage'
 import { ChangePasswordPage } from './pages/ChangePasswordPage'
 import { AdminLayout } from './layouts/AdminLayout'
 import { DashboardPage } from './pages/admin/DashboardPage'
@@ -18,6 +19,7 @@ import { StudentLayout } from './layouts/StudentLayout'
 import { CataloguePage } from './pages/student/CataloguePage'
 import { CourseViewerPage } from './pages/student/CourseViewerPage'
 import { MyProgressPage } from './pages/student/MyProgressPage'
+import { CertificatePage } from './pages/student/CertificatePage'
 import { TeacherLayout } from './layouts/TeacherLayout'
 import { MyCoursesPage } from './pages/teacher/MyCoursesPage'
 import { CourseViewPage } from './pages/teacher/CourseViewPage'
@@ -38,6 +40,7 @@ function App() {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/verify-certificate" element={<VerifyCertificatePage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/change-password" element={<ChangePasswordPage />} />
@@ -59,6 +62,7 @@ function App() {
         <Route path="/student" element={<StudentLayout />}>
           <Route index element={<CataloguePage />} />
           <Route path="progress" element={<MyProgressPage />} />
+          <Route path="certificates/:enrollmentId" element={<CertificatePage />} />
           <Route path="courses/:courseId" element={<CourseViewerPage />} />
         </Route>
       </Route>

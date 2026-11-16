@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { KeyRound } from 'lucide-react'
 import { apiClient, getApiErrorMessage } from '../../lib/apiClient'
-import type { StudentCourseResponse } from '../../types/api'
+import type { MyEnrollmentResponse, StudentCourseResponse } from '../../types/api'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { Modal } from '../../components/ui/Modal'
@@ -19,13 +19,18 @@ export function CataloguePage() {
   const [enrolling, setEnrolling] = useState<StudentCourseResponse | null>(null)
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [waitlisted, setWaitlisted] = useState(false)
 
   const enrollMutation = useMutation({
-    mutationFn: () => apiClient.post('/api/enrollments', { courseId: enrolling?.id, inviteCode: code }),
-    onSuccess: () => {
+    mutationFn: () => apiClient.post<MyEnrollmentResponse>('/api/enrollments', { courseId: enrolling?.id, inviteCode: code }),
+    onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['student', 'courses'] })
       queryClient.invalidateQueries({ queryKey: ['student', 'enrollments'] })
-      setEnrolling(null)
+      if (res.data.status === 'WAITLISTED') {
+        setWaitlisted(true)
+      } else {
+        setEnrolling(null)
+      }
     },
     onError: (err) => setError(getApiErrorMessage(err)),
   })
@@ -34,6 +39,7 @@ export function CataloguePage() {
     setEnrolling(course)
     setCode('')
     setError(null)
+    setWaitlisted(false)
   }
 
   function handleSubmit(e: FormEvent) {
@@ -73,25 +79,39 @@ export function CataloguePage() {
       </div>
 
       <Modal title={`Nhập mã khóa học: ${enrolling?.title ?? ''}`} open={enrolling !== null} onClose={() => setEnrolling(null)}>
-        <form onSubmit={handleSubmit}>
-          <label className="mb-1 block text-sm font-medium text-slate-700">Mã kích hoạt</label>
-          <Input
-            required
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-            placeholder="VD: KB7GJ4FE"
-            className="mb-4 font-mono"
-          />
-          {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setEnrolling(null)}>
-              Hủy
-            </Button>
-            <Button type="submit" disabled={enrollMutation.isPending}>
-              {enrollMutation.isPending ? 'Đang xác nhận...' : 'Vào học'}
-            </Button>
+        {waitlisted ? (
+          <div>
+            <p className="mb-4 text-sm text-slate-600">
+              Khóa học hiện đã đầy chỗ. Bạn đã được thêm vào <strong>danh sách chờ</strong> — hệ thống sẽ tự động chuyển
+              bạn sang trạng thái học khi có chỗ trống. Xem trạng thái tại "Tiến độ của tôi".
+            </p>
+            <div className="flex justify-end">
+              <Button type="button" onClick={() => setEnrolling(null)}>
+                Đã hiểu
+              </Button>
+            </div>
           </div>
-        </form>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Mã kích hoạt</label>
+            <Input
+              required
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              placeholder="VD: KB7GJ4FE"
+              className="mb-4 font-mono"
+            />
+            {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={() => setEnrolling(null)}>
+                Hủy
+              </Button>
+              <Button type="submit" disabled={enrollMutation.isPending}>
+                {enrollMutation.isPending ? 'Đang xác nhận...' : 'Vào học'}
+              </Button>
+            </div>
+          </form>
+        )}
       </Modal>
     </div>
   )

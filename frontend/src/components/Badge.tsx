@@ -16,6 +16,10 @@ const COLORS: Record<string, string> = {
   COMPLETED: 'bg-green-100 text-green-700',
   WITHDRAWN: 'bg-slate-100 text-slate-600',
   REMOVED: 'bg-red-100 text-red-700',
+  PAID: 'bg-green-100 text-green-700',
+  PARTIAL: 'bg-amber-100 text-amber-700',
+  UNPAID: 'bg-red-100 text-red-700',
+  WAITLISTED: 'bg-blue-100 text-blue-700',
 }
 
 export function Badge({ status }: { status: string }) {

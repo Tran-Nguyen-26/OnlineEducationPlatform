@@ -1,6 +1,7 @@
 package com.oep.coremodel.entity.social;
 
 import com.oep.coremodel.entity.BaseEntity;
+import com.oep.coremodel.entity.course.Lesson;
 import com.oep.coremodel.entity.identity.User;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -29,6 +30,11 @@ public class Message extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "sender_id", nullable = false)
     private User sender;
+
+    /** Null = the course's general Q&A thread; set = a thread scoped to one lesson (see GAPS.md "Nhóm A"). */
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "lesson_id", nullable = true)
+    private Lesson lesson;
 
     @Column(name = "content", nullable = false, columnDefinition = "text")
     private String content;
