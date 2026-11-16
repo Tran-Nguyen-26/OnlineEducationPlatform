@@ -3,6 +3,7 @@ package com.oep.corelms.controller;
 import com.oep.corelms.dto.teacher.CourseContentResponse;
 import com.oep.corelms.dto.teacher.InstructorCourseResponse;
 import com.oep.corelms.dto.teacher.RosterEntryResponse;
+import com.oep.corelms.dto.teacher.TeacherDashboardResponse;
 import com.oep.corelms.service.TeacherCourseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -24,6 +25,11 @@ public class TeacherCourseController {
     @GetMapping("/api/instructors/me/courses")
     public List<InstructorCourseResponse> myCourses(@AuthenticationPrincipal Jwt jwt) {
         return teacherCourseService.listMyCourses(UUID.fromString(jwt.getSubject()));
+    }
+
+    @GetMapping("/api/instructors/me/dashboard")
+    public TeacherDashboardResponse dashboard(@AuthenticationPrincipal Jwt jwt) {
+        return teacherCourseService.dashboard(UUID.fromString(jwt.getSubject()));
     }
 
     @GetMapping("/api/courses/{courseId}/content")

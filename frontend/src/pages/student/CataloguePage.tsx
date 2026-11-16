@@ -20,6 +20,8 @@ export function CataloguePage() {
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [waitlisted, setWaitlisted] = useState(false)
+  const [search, setSearch] = useState('')
+  const [subject, setSubject] = useState('')
 
   const enrollMutation = useMutation({
     mutationFn: () => apiClient.post<MyEnrollmentResponse>('/api/enrollments', { courseId: enrolling?.id, inviteCode: code }),
@@ -54,16 +56,44 @@ export function CataloguePage() {
         Mọi khóa học đều hiện giới thiệu công khai — nhập mã do trung tâm cung cấp để vào học.
       </p>
 
+      <div className="mb-4 flex flex-wrap gap-2">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Tìm theo tên khóa học..."
+          className="h-9 w-64 rounded-md border border-slate-300 px-3 text-sm"
+        />
+        <select value={subject} onChange={(e) => setSubject(e.target.value)} className="h-9 rounded-md border border-slate-300 px-3 text-sm">
+          <option value="">Tất cả môn học</option>
+          {[...new Set((coursesQuery.data ?? []).map((c) => c.subjectName))].map((n) => (
+            <option key={n} value={n}>{n}</option>
+          ))}
+        </select>
+      </div>
+
       {coursesQuery.isLoading && <p className="text-slate-400">Đang tải...</p>}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {coursesQuery.data?.map((course) => (
+        {coursesQuery.data
+          ?.filter((c) => (!subject || c.subjectName === subject) && c.title.toLowerCase().includes(search.trim().toLowerCase()))
+          .map((course) => (
           <div key={course.id} className="flex flex-col rounded-lg border border-slate-200 bg-white p-5">
             <div className="text-xs font-medium uppercase tracking-wide text-slate-400">{course.subjectName}</div>
             <h2 className="mt-1 text-lg font-semibold text-slate-900">{course.title}</h2>
             {course.description && <p className="mt-2 flex-1 text-sm text-slate-500">{course.description}</p>}
+            <div className="mt-3 text-xs text-slate-500">
+              Học phí: {course.feeAmount ? `${course.feeAmount.toLocaleString('vi-VN')} đ` : 'Miễn phí'}
+              {course.capacity ? ` · Sĩ số tối đa ${course.capacity}` : ''}
+              {' · '}{course.learningMode === 'SEQUENTIAL' ? 'Học tuần tự' : 'Học tự do'}
+            </div>
             <div className="mt-4">
-              {course.enrolled ? (
+              {course.completed ? (
+                <Button variant="secondary" className="w-full" onClick={() => navigate('/student/certificates')}>
+                  Đã hoàn thành — xem chứng chỉ
+                </Button>
+              ) : course.waitlisted ? (
+                <p className="rounded-md bg-blue-50 p-2 text-center text-sm text-blue-700">Đang trong danh sách chờ</p>
+              ) : course.enrolled ? (
                 <Button className="w-full" onClick={() => navigate(`/student/courses/${course.id}`)}>
                   Vào học
                 </Button>

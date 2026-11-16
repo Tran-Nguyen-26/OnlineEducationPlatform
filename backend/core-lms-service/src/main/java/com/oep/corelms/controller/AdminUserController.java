@@ -1,6 +1,12 @@
 package com.oep.corelms.controller;
 
+import com.oep.corelms.dto.admin.AdminUserDetailResponse;
 import com.oep.corelms.dto.admin.AdminUserResponse;
+import com.oep.corelms.dto.admin.CreateStudentRequest;
+import com.oep.corelms.dto.admin.PageResponse;
+import com.oep.corelms.dto.student.ProfileResponse;
+import com.oep.corelms.dto.student.UpdateProfileRequest;
+import com.oep.corelms.service.ProfileService;
 import com.oep.corelms.dto.admin.CreateTeacherRequest;
 import com.oep.corelms.dto.admin.CreateTeacherResponse;
 import com.oep.corelms.dto.admin.ResetLinkResponse;
@@ -36,12 +42,42 @@ public class AdminUserController {
     private final AdminUserService adminUserService;
     private final AuthService authService;
     private final AuditLogService auditLogService;
+    private final ProfileService profileService;
 
     @PostMapping("/teachers")
     public CreateTeacherResponse createTeacher(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CreateTeacherRequest request) {
         UUID adminId = UUID.fromString(jwt.getSubject());
         CreateTeacherResponse response = adminUserService.createTeacher(request);
         auditLogService.record(adminId, "CREATE_TEACHER", "USER", response.userId(), Map.of("email", response.email()));
+        return response;
+    }
+
+    @PostMapping("/students")
+    public CreateTeacherResponse createStudent(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CreateStudentRequest request) {
+        CreateTeacherResponse response = adminUserService.createStudent(request);
+        auditLogService.record(UUID.fromString(jwt.getSubject()), "CREATE_STUDENT", "USER", response.userId(), Map.of("email", response.email()));
+        return response;
+    }
+
+    @GetMapping("/users/search")
+    public PageResponse<AdminUserResponse> searchUsers(@RequestParam(required = false) String q,
+                                                        @RequestParam(required = false) UserRole role,
+                                                        @RequestParam(required = false) AccountStatus status,
+                                                        @RequestParam(defaultValue = "0") int page,
+                                                        @RequestParam(defaultValue = "20") int size) {
+        return adminUserService.search(q, role, status, page, size);
+    }
+
+    @GetMapping("/users/{id}")
+    public AdminUserDetailResponse userDetail(@PathVariable UUID id) {
+        return adminUserService.detail(id);
+    }
+
+    @PatchMapping("/users/{id}/profile")
+    public ProfileResponse updateUserProfile(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+                                              @Valid @RequestBody UpdateProfileRequest request) {
+        ProfileResponse response = profileService.update(id, request);
+        auditLogService.record(UUID.fromString(jwt.getSubject()), "UPDATE_USER_PROFILE", "USER", id, Map.of("fullName", request.fullName()));
         return response;
     }
 

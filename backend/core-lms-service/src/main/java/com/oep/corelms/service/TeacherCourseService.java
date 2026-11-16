@@ -6,6 +6,8 @@ import com.oep.corelms.dto.teacher.CourseContentResponse.ContentLesson;
 import com.oep.corelms.dto.teacher.CourseContentResponse.ContentModule;
 import com.oep.corelms.dto.teacher.InstructorCourseResponse;
 import com.oep.corelms.dto.teacher.RosterEntryResponse;
+import com.oep.corelms.dto.teacher.TeacherDashboardResponse;
+import com.oep.coremodel.enums.EnrollmentStatus;
 import com.oep.corelms.repository.CourseInstructorRepository;
 import com.oep.corelms.repository.CourseModuleRepository;
 import com.oep.corelms.repository.CourseRepository;
@@ -48,6 +50,19 @@ public class TeacherCourseService {
         return courseInstructors.findByInstructor_IdOrderByAddedAtDesc(instructorId).stream()
                 .map(link -> InstructorCourseResponse.from(link.getCourse()))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public TeacherDashboardResponse dashboard(UUID instructorId) {
+        var stats = courseInstructors.findByInstructor_IdOrderByAddedAtDesc(instructorId).stream().map(link -> {
+            Course c = link.getCourse();
+            return new TeacherDashboardResponse.CourseStat(c.getId(), c.getTitle(), c.getSubject().getName(), c.getLifecycleStatus().name(),
+                    enrollments.countByCourseIdAndStatus(c.getId(), EnrollmentStatus.ACTIVE),
+                    enrollments.countByCourseIdAndStatus(c.getId(), EnrollmentStatus.COMPLETED),
+                    enrollments.countByCourseIdAndStatus(c.getId(), EnrollmentStatus.WAITLISTED), c.getCapacity());
+        }).toList();
+        int active = (int) stats.stream().mapToLong(TeacherDashboardResponse.CourseStat::activeStudents).sum();
+        return new TeacherDashboardResponse(stats.size(), active, stats);
     }
 
     @Transactional(readOnly = true)

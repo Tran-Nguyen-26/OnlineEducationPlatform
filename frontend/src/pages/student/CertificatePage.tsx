@@ -24,8 +24,8 @@ export function CertificatePage() {
   return (
     <div className="min-h-screen bg-slate-100 p-8 print:bg-white print:p-0">
       <div className="mx-auto mb-6 flex max-w-3xl items-center justify-between print:hidden">
-        <Link to="/student/progress" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:underline">
-          <ArrowLeft size={16} /> Quay lại tiến độ của tôi
+        <Link to="/student/certificates" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:underline">
+          <ArrowLeft size={16} /> Quay lại danh sách chứng chỉ
         </Link>
         <Button onClick={() => window.print()}>
           <Printer size={16} /> In / Lưu PDF

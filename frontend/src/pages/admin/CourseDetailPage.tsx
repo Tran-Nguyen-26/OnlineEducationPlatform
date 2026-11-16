@@ -11,6 +11,8 @@ import { ContentTab } from './course-detail/ContentTab'
 import { QuizzesTab } from './course-detail/QuizzesTab'
 import { AssignmentsTab } from './course-detail/AssignmentsTab'
 import { StudentsTab } from './course-detail/StudentsTab'
+import { GradebookView } from '../../components/GradebookView'
+import { AnnouncementsPanel } from '../../components/AnnouncementsPanel'
 
 const TABS = [
   { key: 'overview', label: 'Tổng quan' },
@@ -18,6 +20,8 @@ const TABS = [
   { key: 'quizzes', label: 'Quiz' },
   { key: 'assignments', label: 'Bài tập' },
   { key: 'students', label: 'Học sinh' },
+  { key: 'gradebook', label: 'Bảng điểm' },
+  { key: 'announcements', label: 'Thông báo' },
 ] as const
 
 type TabKey = (typeof TABS)[number]['key']
@@ -73,6 +77,8 @@ export function CourseDetailPage() {
       {tab === 'quizzes' && <QuizzesTab courseId={courseId} />}
       {tab === 'assignments' && <AssignmentsTab courseId={courseId} />}
       {tab === 'students' && <StudentsTab courseId={courseId} />}
+      {tab === 'gradebook' && <GradebookView courseId={courseId} />}
+      {tab === 'announcements' && <AnnouncementsPanel courseId={courseId} canPost />}
     </div>
   )
 }

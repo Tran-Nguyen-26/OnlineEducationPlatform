@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { Copy, Plus } from 'lucide-react'
 import { apiClient, getApiErrorMessage } from '../../lib/apiClient'
 import type { AdminUserResponse, CreateTeacherResponse } from '../../types/api'
@@ -72,7 +73,7 @@ export function TeachersPage() {
             )}
             {teachers?.map((teacher) => (
               <tr key={teacher.id}>
-                <td className="px-4 py-3 font-medium text-slate-900">{teacher.fullName ?? '—'}</td>
+                <td className="px-4 py-3 font-medium text-slate-900"><Link to={`/admin/users/${teacher.id}`} className="hover:underline">{teacher.fullName ?? '—'}</Link></td>
                 <td className="px-4 py-3 text-slate-500">{teacher.email}</td>
                 <td className="px-4 py-3">
                   <Badge status={teacher.accountStatus} />

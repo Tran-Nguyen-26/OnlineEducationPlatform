@@ -27,6 +27,8 @@ function GradeForm({
     onSuccess: () => {
       setError(null)
       queryClient.invalidateQueries({ queryKey: ['teacher', 'submissions', assignmentId] })
+      queryClient.invalidateQueries({ queryKey: ['teacher', 'pending-grading'] })
+      queryClient.invalidateQueries({ queryKey: ['gradebook'] })
     },
     onError: (err) => setError(getApiErrorMessage(err)),
   })

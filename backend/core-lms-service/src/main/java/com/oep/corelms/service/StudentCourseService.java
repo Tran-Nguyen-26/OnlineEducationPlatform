@@ -27,7 +27,7 @@ public class StudentCourseService {
     @Transactional(readOnly = true)
     public List<StudentCourseResponse> listCatalog(UUID studentId) {
         return courses.findByLifecycleStatusOrderByCreatedAtDesc(CourseLifecycleStatus.PUBLISHED).stream()
-                .map(course -> StudentCourseResponse.from(course, isActivelyEnrolled(course.getId(), studentId)))
+                .map(course -> StudentCourseResponse.from(course, isActivelyEnrolled(course.getId(), studentId), isWaitlisted(course.getId(), studentId), isCompleted(course.getId(), studentId)))
                 .toList();
     }
 
@@ -38,12 +38,20 @@ public class StudentCourseService {
         if (course.getLifecycleStatus() != CourseLifecycleStatus.PUBLISHED) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "Course not found");
         }
-        return StudentCourseResponse.from(course, isActivelyEnrolled(courseId, studentId));
+        return StudentCourseResponse.from(course, isActivelyEnrolled(courseId, studentId), isWaitlisted(courseId, studentId), isCompleted(courseId, studentId));
     }
 
     /** A withdrawn/removed row still exists (unique per course+student) but must not read back as "enrolled". */
     private boolean isActivelyEnrolled(UUID courseId, UUID studentId) {
         return enrollments.existsByCourseIdAndStudentIdAndStatus(courseId, studentId, EnrollmentStatus.ACTIVE);
+    }
+
+    private boolean isCompleted(UUID courseId, UUID studentId) {
+        return enrollments.existsByCourseIdAndStudentIdAndStatus(courseId, studentId, EnrollmentStatus.COMPLETED);
+    }
+
+    private boolean isWaitlisted(UUID courseId, UUID studentId) {
+        return enrollments.existsByCourseIdAndStudentIdAndStatus(courseId, studentId, EnrollmentStatus.WAITLISTED);
     }
 
     @Transactional(readOnly = true)

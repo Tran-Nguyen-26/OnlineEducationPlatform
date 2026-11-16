@@ -21,6 +21,8 @@ export function CoursesPage() {
   })
 
   const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
   const [subjectId, setSubjectId] = useState('')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -72,6 +74,22 @@ export function CoursesPage() {
         <p className="mb-4 text-sm text-amber-600">Hãy tạo ít nhất một môn học trước khi tạo khóa học.</p>
       )}
 
+      <div className="mb-4 flex flex-wrap gap-3">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Tìm theo tên khóa học..."
+          className="h-9 w-72 rounded-md border border-slate-300 px-3 text-sm"
+        />
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-9 rounded-md border border-slate-300 px-3 text-sm">
+          <option value="">Tất cả trạng thái</option>
+          <option value="DRAFT">Lưu nháp</option>
+          <option value="PUBLISHED">Công khai</option>
+          <option value="ARCHIVED">Lưu trữ</option>
+          <option value="DISABLED">Vô hiệu hóa</option>
+        </select>
+      </div>
+
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 text-slate-500">
@@ -80,17 +98,20 @@ export function CoursesPage() {
               <th className="px-4 py-3 font-medium">Môn học</th>
               <th className="px-4 py-3 font-medium">Trạng thái</th>
               <th className="px-4 py-3 font-medium">Sĩ số</th>
+              <th className="px-4 py-3 font-medium">Học phí</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isLoading && (
               <tr>
-                <td className="px-4 py-6 text-slate-400" colSpan={4}>
+                <td className="px-4 py-6 text-slate-400" colSpan={5}>
                   Đang tải...
                 </td>
               </tr>
             )}
-            {courses?.map((course) => (
+            {courses
+              ?.filter((c) => (!statusFilter || c.lifecycleStatus === statusFilter) && c.title.toLowerCase().includes(search.trim().toLowerCase()))
+              .map((course) => (
               <tr key={course.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3">
                   <Link to={`/admin/courses/${course.id}`} className="font-medium text-slate-900 hover:underline">
@@ -102,11 +123,12 @@ export function CoursesPage() {
                   <Badge status={course.lifecycleStatus} />
                 </td>
                 <td className="px-4 py-3 text-slate-500">{course.capacity ?? '—'}</td>
+                <td className="px-4 py-3 text-slate-500">{course.feeAmount ? `${course.feeAmount.toLocaleString('vi-VN')} đ` : 'Miễn phí'}</td>
               </tr>
             ))}
             {courses?.length === 0 && (
               <tr>
-                <td className="px-4 py-6 text-slate-400" colSpan={4}>
+                <td className="px-4 py-6 text-slate-400" colSpan={5}>
                   Chưa có khóa học nào.
                 </td>
               </tr>

@@ -285,7 +285,10 @@ export interface StudentCourseResponse {
   subjectName: string
   capacity: number | null
   learningMode: LearningMode
+  feeAmount: number | null
   enrolled: boolean
+  waitlisted: boolean
+  completed: boolean
 }
 
 export type EnrollmentStatus = 'ACTIVE' | 'COMPLETED' | 'WITHDRAWN' | 'REMOVED' | 'WAITLISTED'
@@ -541,4 +544,127 @@ export interface MessageResponse {
   lessonId: string | null
   content: string
   createdAt: string
+}
+
+export interface MyCertificateResponse {
+  enrollmentId: string
+  certificateNumber: string
+  issuedAt: string
+  courseTitle: string
+  subjectName: string
+}
+
+export interface ProfileResponse {
+  email: string
+  role: UserRole
+  fullName: string | null
+  phone: string | null
+  dateOfBirth: string | null
+  organization: string | null
+  bio: string | null
+}
+
+export interface GradebookColumn { id: string; kind: 'QUIZ' | 'ASSIGNMENT'; title: string; maxScore: number | null; deadline: string | null }
+export interface GradebookCell { score: number | null; attempts: number; status: 'NONE' | 'SUBMITTED' | 'GRADED' }
+export interface GradebookRow {
+  enrollmentId: string
+  studentId: string
+  studentName: string
+  studentEmail: string
+  enrollmentStatus: string
+  cells: Record<string, GradebookCell>
+  averagePercent: number | null
+}
+export interface GradebookResponse { courseId: string; courseTitle: string | null; columns: GradebookColumn[]; rows: GradebookRow[] }
+
+export interface PendingGradingResponse {
+  submissionId: string
+  assignmentId: string
+  assignmentTitle: string
+  courseId: string
+  courseTitle: string
+  studentName: string
+  studentEmail: string
+  status: string
+  late: boolean
+  submittedAt: string
+}
+
+export interface TeacherDashboardResponse {
+  courseCount: number
+  activeStudents: number
+  courses: {
+    courseId: string
+    title: string
+    subjectName: string
+    lifecycleStatus: string
+    activeStudents: number
+    completedStudents: number
+    waitlistedStudents: number
+    capacity: number | null
+  }[]
+}
+
+export interface AnnouncementResponse { id: string; title: string; content: string; authorName: string; authorRole: UserRole; createdAt: string }
+
+export interface PageResponse<T> { items: T[]; page: number; size: number; total: number; totalPages: number }
+
+export interface AdminUserDetailResponse {
+  id: string
+  email: string
+  role: UserRole
+  accountStatus: AccountStatus
+  createdAt: string
+  fullName: string | null
+  phone: string | null
+  dateOfBirth: string | null
+  organization: string | null
+  bio: string | null
+  enrollments: {
+    enrollmentId: string
+    courseId: string
+    courseTitle: string
+    status: EnrollmentStatus
+    enrolledAt: string
+    feeAmount: number | null
+    totalPaid: number | null
+    paymentStatus: PaymentStatus
+  }[]
+  assignedCourses: { courseId: string; courseTitle: string; lifecycleStatus: CourseLifecycleStatus }[]
+}
+
+export interface FinanceSummary { expected: number; collected: number; outstanding: number }
+export interface FinanceCourseRow {
+  courseId: string
+  courseTitle: string
+  feeAmount: number
+  paidEnrollments: number
+  enrollments: number
+  expected: number
+  collected: number
+  outstanding: number
+}
+export interface FinanceOutstandingRow {
+  enrollmentId: string
+  studentId: string
+  studentName: string
+  studentEmail: string
+  courseId: string
+  courseTitle: string
+  enrollmentStatus: string
+  feeAmount: number
+  paid: number
+  due: number
+  paymentStatus: PaymentStatus
+}
+export interface FinancePaymentRow {
+  paymentId: string
+  enrollmentId: string
+  studentName: string
+  studentEmail: string
+  courseTitle: string
+  amount: number
+  note: string | null
+  paidAt: string
+  recordedByEmail: string
 }

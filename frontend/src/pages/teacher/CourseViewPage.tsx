@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { apiClient } from '../../lib/apiClient'
 import type { CourseContentResponse } from '../../types/api'
@@ -9,11 +9,15 @@ import { CourseQaTab } from '../../components/CourseQaTab'
 import { ContentTab } from './course-view/ContentTab'
 import { GradingTab } from './course-view/GradingTab'
 import { RosterTab } from './course-view/RosterTab'
+import { GradebookView } from '../../components/GradebookView'
+import { AnnouncementsPanel } from '../../components/AnnouncementsPanel'
 
 const TABS = [
   { key: 'content', label: 'Nội dung' },
   { key: 'students', label: 'Học sinh' },
-  { key: 'grading', label: 'Chấm điểm' },
+  { key: 'grading', label: 'Chấm bài tập' },
+  { key: 'gradebook', label: 'Bảng điểm' },
+  { key: 'announcements', label: 'Thông báo' },
   { key: 'qa', label: 'Hỏi đáp' },
 ] as const
 
@@ -21,7 +25,9 @@ type TabKey = (typeof TABS)[number]['key']
 
 export function CourseViewPage() {
   const { courseId } = useParams<{ courseId: string }>()
-  const [tab, setTab] = useState<TabKey>('content')
+  const [searchParams] = useSearchParams()
+  const requested = TABS.find((t) => t.key === searchParams.get('tab'))?.key
+  const [tab, setTab] = useState<TabKey>(requested ?? 'content')
 
   const contentQuery = useQuery({
     queryKey: ['teacher', 'courses', courseId, 'content'],
@@ -36,7 +42,7 @@ export function CourseViewPage() {
 
   return (
     <div>
-      <Link to="/teacher" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:underline">
+      <Link to="/teacher/courses" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:underline">
         <ArrowLeft size={16} /> Quay lại danh sách khóa học
       </Link>
       <h1 className="mb-6 text-2xl font-bold text-slate-900">{contentQuery.data?.title}</h1>
@@ -59,6 +65,8 @@ export function CourseViewPage() {
       {tab === 'content' && <ContentTab content={contentQuery.data!} />}
       {tab === 'students' && <RosterTab courseId={courseId} />}
       {tab === 'grading' && <GradingTab courseId={courseId} />}
+      {tab === 'gradebook' && <GradebookView courseId={courseId} />}
+      {tab === 'announcements' && <AnnouncementsPanel courseId={courseId} canPost />}
       {tab === 'qa' && <CourseQaTab courseId={courseId} />}
     </div>
   )

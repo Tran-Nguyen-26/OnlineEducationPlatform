@@ -34,7 +34,7 @@ export function MyProgressPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold text-slate-900">Tiến độ của tôi</h1>
+      <h1 className="mb-1 text-2xl font-bold text-slate-900">Khóa học của tôi</h1>
       <p className="mb-6 text-sm text-slate-500">Tổng hợp tiến độ học tập trên tất cả khóa học đã ghi danh.</p>
 
       {progressQuery.isLoading && <p className="text-slate-400">Đang tải...</p>}
