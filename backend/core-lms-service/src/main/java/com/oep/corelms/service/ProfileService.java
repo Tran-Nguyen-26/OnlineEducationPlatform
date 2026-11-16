@@ -25,6 +25,7 @@ public class ProfileService {
     private final UserRepository users;
     private final UserProfileRepository profiles;
     private final CertificateRepository certificates;
+    private final StorageService storageService;
 
     @Transactional(readOnly = true)
     public ProfileResponse get(UUID userId) {
@@ -59,10 +60,47 @@ public class ProfileService {
     private ProfileResponse toResponse(User user, UserProfile p) {
         return new ProfileResponse(user.getEmail(), user.getRole().name(), p == null ? null : p.getFullName(),
                 p == null ? null : p.getPhone(), p == null ? null : p.getDateOfBirth(),
-                p == null ? null : p.getOrganization(), p == null ? null : p.getBio());
+                p == null ? null : p.getOrganization(), p == null ? null : p.getBio(),
+                p == null || p.getAvatarObjectKey() == null ? null : storageService.presignView(p.getAvatarObjectKey()));
     }
 
     private String blankToNull(String s) {
         return s == null || s.isBlank() ? null : s.trim();
+    }
+
+    private static final java.util.Set<String> IMAGE_TYPES = java.util.Set.of("image/png", "image/jpeg", "image/webp", "image/gif");
+    private static final long MAX_AVATAR_BYTES = 2L * 1024 * 1024;
+
+    public record AvatarUpload(String uploadUrl, String objectKey) {}
+
+    /** Step 1: validate and presign. The key is only attached to the profile after the client confirms the upload. */
+    public AvatarUpload requestAvatarUpload(String fileName, String mimeType, long fileSize) {
+        if (mimeType == null || !IMAGE_TYPES.contains(mimeType)) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "Ảnh đại diện phải là PNG, JPG, WEBP hoặc GIF");
+        }
+        if (fileSize <= 0 || fileSize > MAX_AVATAR_BYTES) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "Ảnh đại diện tối đa 2MB");
+        }
+        String key = storageService.newObjectKey(fileName).replaceFirst("^lesson-contents/", "avatars/");
+        return new AvatarUpload(storageService.presignUpload(key, mimeType), key);
+    }
+
+    @Transactional
+    public ProfileResponse confirmAvatar(UUID userId, String objectKey) {
+        if (objectKey == null || !objectKey.startsWith("avatars/")) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "Invalid avatar key");
+        }
+        User user = users.findById(userId).orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "User not found"));
+        UserProfile profile = profiles.findById(userId).orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Profile not found"));
+        profile.setAvatarObjectKey(objectKey);
+        return toResponse(user, profiles.save(profile));
+    }
+
+    @Transactional
+    public ProfileResponse removeAvatar(UUID userId) {
+        User user = users.findById(userId).orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "User not found"));
+        UserProfile profile = profiles.findById(userId).orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Profile not found"));
+        profile.setAvatarObjectKey(null);
+        return toResponse(user, profiles.save(profile));
     }
 }

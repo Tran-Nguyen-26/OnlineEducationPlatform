@@ -93,16 +93,17 @@ export function QuizTakingModal({ quizId, courseId, start, onClose }: {
               Đúng {result.questionResults.filter((r) => r.correct).length}/{result.questionResults.length} câu
             </p>
           )}
+          {result.pendingManual > 0 && <p className="mb-3 rounded-md bg-amber-50 p-3 text-sm text-amber-800">Có {result.pendingManual} câu tự luận đang chờ giáo viên chấm — điểm hiện tại là điểm tạm tính, bạn sẽ nhận thông báo khi chấm xong.</p>}
           {result.questionResults.length === 0 && result.score !== null && <p className="mb-3 text-sm text-slate-500">Giáo viên không công khai đáp án chi tiết của bài này.</p>}
           <ul className="mb-4 max-h-[50vh] space-y-2 overflow-y-auto text-sm">
             {result.questionResults.map((qr, idx) => {
               const question = start.questions.find((x) => x.questionId === qr.questionId)
               return (
-                <li key={qr.questionId} className={`flex gap-2 rounded-md border p-3 ${qr.correct ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+                <li key={qr.questionId} className={`flex gap-2 rounded-md border p-3 ${qr.correct === null ? 'border-amber-200 bg-amber-50' : qr.correct ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
                   {qr.correct ? <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-green-600" /> : <XCircle size={16} className="mt-0.5 shrink-0 text-red-600" />}
                   <div>
                     <div className="text-slate-800">Câu {idx + 1}: {question?.questionText}</div>
-                    <div className="text-xs text-slate-500">{qr.correct ? 'Đúng' : 'Chưa đúng'} · {qr.awardedScore ?? 0}/{question?.points} điểm</div>
+                    <div className="text-xs text-slate-500">{qr.correct === null ? 'Chờ chấm' : qr.correct ? 'Đúng' : 'Chưa đúng'} · {qr.awardedScore ?? 0}/{question?.points} điểm</div>
                   </div>
                 </li>
               )
@@ -139,7 +140,18 @@ export function QuizTakingModal({ quizId, courseId, start, onClose }: {
           {q && (
             <div className="mb-4 min-h-40">
               <p className="mb-3 text-sm font-medium text-slate-800">Câu {current + 1} ({q.points} điểm): {q.questionText}</p>
-              {q.questionType === 'KEYWORD_FILL' ? (
+              {q.questionType === 'ESSAY' ? (
+                <>
+                  <textarea
+                    value={answers[q.questionId]?.textAnswer ?? ''}
+                    onChange={(e) => setAnswers((p) => ({ ...p, [q.questionId]: { textAnswer: e.target.value } }))}
+                    rows={7}
+                    placeholder="Viết câu trả lời của bạn..."
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  />
+                  <p className="mt-1 text-xs text-slate-400">Câu tự luận do giáo viên chấm — điểm cuối cùng sẽ có sau khi chấm xong.</p>
+                </>
+              ) : q.questionType === 'KEYWORD_FILL' ? (
                 <Input value={answers[q.questionId]?.textAnswer ?? ''} onChange={(e) => setAnswers((p) => ({ ...p, [q.questionId]: { textAnswer: e.target.value } }))} placeholder="Nhập câu trả lời" />
               ) : (
                 <div className="space-y-2">

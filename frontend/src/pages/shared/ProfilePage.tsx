@@ -1,14 +1,39 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { apiClient, getApiErrorMessage } from '../../lib/apiClient'
 import { useAuth } from '../../auth/AuthContext'
 import type { ProfileResponse } from '../../types/api'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
+import { Avatar } from '../../components/Avatar'
 
 export function ProfilePage() {
-  const { refreshMe } = useAuth()
+  const { refreshMe, user } = useAuth()
+  const queryClient = useQueryClient()
+  const [avatarBusy, setAvatarBusy] = useState(false)
+
+  async function uploadAvatar(file: File) {
+    setAvatarBusy(true)
+    setMessage(null)
+    try {
+      const { data } = await apiClient.post<{ uploadUrl: string; objectKey: string }>('/api/users/me/avatar/upload-url', { fileName: file.name, mimeType: file.type, fileSize: file.size })
+      const put = await fetch(data.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file })
+      if (!put.ok) throw new Error('Tải ảnh lên thất bại')
+      await apiClient.post('/api/users/me/avatar/confirm', { objectKey: data.objectKey })
+      await queryClient.invalidateQueries({ queryKey: ['profile'] })
+      setMessage({ ok: true, text: 'Đã cập nhật ảnh đại diện.' })
+    } catch (err) {
+      setMessage({ ok: false, text: getApiErrorMessage(err) })
+    } finally {
+      setAvatarBusy(false)
+    }
+  }
+
+  async function removeAvatar() {
+    await apiClient.delete('/api/users/me/avatar')
+    await queryClient.invalidateQueries({ queryKey: ['profile'] })
+  }
   const query = useQuery({
     queryKey: ['profile'],
     queryFn: () => apiClient.get<ProfileResponse>('/api/users/me/profile').then((r) => r.data),
@@ -55,6 +80,21 @@ export function ProfilePage() {
   return (
     <div className="max-w-xl">
       <h1 className="mb-4 text-2xl font-bold text-slate-900">Hồ sơ cá nhân</h1>
+      <div className="mb-4 flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-5">
+        <Avatar size={72} name={user?.fullName} />
+        <div>
+          <div className="mb-2 text-sm font-medium text-slate-800">Ảnh đại diện</div>
+          <div className="flex items-center gap-3">
+            <label className="inline-flex h-8 cursor-pointer items-center rounded-md bg-slate-100 px-3 text-sm font-medium text-slate-900 hover:bg-slate-200">
+              {avatarBusy ? 'Đang tải lên...' : 'Chọn ảnh'}
+              <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" disabled={avatarBusy}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); e.target.value = '' }} />
+            </label>
+            {query.data?.avatarUrl && <button type="button" className="text-sm text-red-600 hover:underline" onClick={removeAvatar}>Xóa ảnh</button>}
+          </div>
+          <p className="mt-1 text-xs text-slate-400">PNG, JPG, WEBP hoặc GIF, tối đa 2MB.</p>
+        </div>
+      </div>
       <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-slate-200 bg-white p-6">
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">Email (không đổi được)</label>

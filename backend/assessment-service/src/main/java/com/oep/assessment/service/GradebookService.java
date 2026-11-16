@@ -36,6 +36,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.oep.assessment.repository.CompletionWaiverRepository;
+import com.oep.assessment.repository.CourseRepository;
+import com.oep.coremodel.entity.enrollment.CompletionWaiver;
+import com.oep.coremodel.grading.FinalGrade;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -47,6 +51,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /** Course gradebook (quizzes + assignments × students) and the cross-course "needs grading" queue, for assigned instructors and admins. */
 @Service
@@ -60,6 +65,8 @@ public class GradebookService {
     private final QuizAttemptRepository attempts;
     private final QuizResultRepository quizResults;
     private final QuizAnswerRepository quizAnswers;
+    private final CompletionWaiverRepository waivers;
+    private final CourseRepository courses;
     private final AssignmentRepository assignments;
     private final AssignmentSubmissionRepository submissions;
     private final AssignmentGradeRepository grades;
@@ -86,39 +93,59 @@ public class GradebookService {
             maxByColumn.put(a.getId(), a.getMaxScore());
         }
 
-        String courseTitle = courseQuizzes.isEmpty() && courseAssignments.isEmpty() ? null
-                : (courseQuizzes.isEmpty() ? courseAssignments.get(0).getCourse() : courseQuizzes.get(0).getCourse()).getTitle();
+        Course course = courses.findById(courseId).orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Course not found"));
 
         List<GradebookResponse.Row> rows = new ArrayList<>();
         for (Enrollment e : enrollments.findByCourse_IdAndStatusIn(courseId, GRADED_ROSTER)) {
             Map<UUID, GradebookResponse.Cell> cells = new LinkedHashMap<>();
-            List<BigDecimal> percents = new ArrayList<>();
+            Set<UUID> waived = waivers.findByEnrollment_Id(e.getId()).stream().map(CompletionWaiver::getTargetId).collect(Collectors.toSet());
+            List<Double> quizPercents = new ArrayList<>();
+            List<Double> assignmentPercents = new ArrayList<>();
+            boolean pending = false;
 
             for (Quiz q : courseQuizzes) {
                 List<QuizAttempt> mine = attempts.findByQuiz_IdAndEnrollment_IdOrderByAttemptNumberAsc(q.getId(), e.getId());
                 BigDecimal best = bestScore(q, mine);
-                cells.put(q.getId(), new GradebookResponse.Cell(best, mine.size(), mine.isEmpty() ? "NONE" : best == null ? "SUBMITTED" : "GRADED"));
-                addPercent(percents, best, maxByColumn.get(q.getId()));
+                boolean essayPending = mine.stream().anyMatch(a -> quizAnswers.hasPendingEssay(a.getId()));
+                String status = mine.isEmpty() ? "NONE" : (best == null || essayPending) ? "SUBMITTED" : "GRADED";
+                cells.put(q.getId(), new GradebookResponse.Cell(best, mine.size(), status));
+                if (essayPending) pending = true;
+                if (!waived.contains(q.getId())) {
+                    quizPercents.add(percentOf(best, maxByColumn.get(q.getId())));
+                }
             }
             for (Assignment a : courseAssignments) {
                 AssignmentSubmission sub = submissions.findByAssignment_IdAndEnrollment_Id(a.getId(), e.getId()).orElse(null);
+                BigDecimal score = null;
                 if (sub == null) {
                     cells.put(a.getId(), new GradebookResponse.Cell(null, 0, "NONE"));
-                    continue;
+                } else {
+                    score = grades.findBySubmission_Id(sub.getId()).map(AssignmentGrade::getScore).orElse(null);
+                    cells.put(a.getId(), new GradebookResponse.Cell(score, sub.getSubmissionCount(), score == null ? "SUBMITTED" : "GRADED"));
+                    if (score == null) pending = true;
                 }
-                BigDecimal score = grades.findBySubmission_Id(sub.getId()).map(AssignmentGrade::getScore).orElse(null);
-                cells.put(a.getId(), new GradebookResponse.Cell(score, sub.getSubmissionCount(), score == null ? "SUBMITTED" : "GRADED"));
-                addPercent(percents, score, a.getMaxScore());
+                if (!waived.contains(a.getId())) {
+                    assignmentPercents.add(percentOf(score, a.getMaxScore()));
+                }
             }
+
+            FinalGrade.Result fg = FinalGrade.compute(quizPercents, assignmentPercents, course.getQuizWeightPercent());
+            Boolean passed = course.getPassingPercent() == null || fg.finalPercent() == null ? null
+                    : (!pending && fg.finalPercent() >= course.getPassingPercent());
 
             User student = e.getStudent();
             String name = userProfiles.findById(student.getId()).map(UserProfile::getFullName).orElse(student.getEmail());
-            BigDecimal avg = percents.isEmpty() ? null
-                    : percents.stream().reduce(BigDecimal.ZERO, BigDecimal::add).divide(BigDecimal.valueOf(percents.size()), 1, RoundingMode.HALF_UP);
-            rows.add(new GradebookResponse.Row(e.getId(), student.getId(), name, student.getEmail(), e.getStatus().name(), cells, avg));
+            BigDecimal avg = fg.finalPercent() == null ? null : BigDecimal.valueOf(fg.finalPercent());
+            rows.add(new GradebookResponse.Row(e.getId(), student.getId(), name, student.getEmail(), e.getStatus().name(), cells, avg,
+                    fg.quizPercent(), fg.assignmentPercent(), fg.finalPercent(), passed, pending));
         }
         rows.sort(Comparator.comparing(GradebookResponse.Row::studentName, String.CASE_INSENSITIVE_ORDER));
-        return new GradebookResponse(courseId, courseTitle, columns, rows);
+        return new GradebookResponse(courseId, course.getTitle(), course.getQuizWeightPercent(), course.getPassingPercent(), columns, rows);
+    }
+
+    private static double percentOf(BigDecimal score, BigDecimal max) {
+        if (score == null || max == null || max.signum() <= 0) return 0.0;
+        return score.doubleValue() * 100.0 / max.doubleValue();
     }
 
     /** Submissions still waiting for a first grade or a regrade; instructors see only their courses, admins see all. */

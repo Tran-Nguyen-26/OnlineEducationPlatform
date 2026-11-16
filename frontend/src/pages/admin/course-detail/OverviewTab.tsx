@@ -18,7 +18,10 @@ import { Modal } from '../../../components/ui/Modal'
 import { Badge } from '../../../components/Badge'
 
 function toDateTimeLocal(iso: string | null): string {
-  return iso ? iso.slice(0, 16) : ''
+  if (!iso) return ''
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 const NEXT_STATUSES: Record<CourseLifecycleStatus, CourseLifecycleStatus[]> = {
@@ -74,6 +77,8 @@ export function OverviewTab({ course }: { course: CourseResponse }) {
   const [editStartAt, setEditStartAt] = useState('')
   const [editEndAt, setEditEndAt] = useState('')
   const [editFeeAmount, setEditFeeAmount] = useState('')
+  const [editQuizWeight, setEditQuizWeight] = useState('50')
+  const [editPassing, setEditPassing] = useState('')
   const [editError, setEditError] = useState<string | null>(null)
 
   function openEdit() {
@@ -85,6 +90,8 @@ export function OverviewTab({ course }: { course: CourseResponse }) {
     setEditStartAt(toDateTimeLocal(course.startAt))
     setEditEndAt(toDateTimeLocal(course.endAt))
     setEditFeeAmount(course.feeAmount != null ? String(course.feeAmount) : '')
+    setEditQuizWeight(String(course.quizWeightPercent ?? 50))
+    setEditPassing(course.passingPercent != null ? String(course.passingPercent) : '')
     setEditError(null)
     setEditOpen(true)
   }
@@ -100,6 +107,8 @@ export function OverviewTab({ course }: { course: CourseResponse }) {
         endAt: editEndAt ? new Date(editEndAt).toISOString() : null,
         learningMode: editLearningMode,
         feeAmount: editFeeAmount ? Number(editFeeAmount) : null,
+        quizWeightPercent: Number(editQuizWeight),
+        passingPercent: editPassing ? Number(editPassing) : null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courses', courseId] })
@@ -441,6 +450,20 @@ export function OverviewTab({ course }: { course: CourseResponse }) {
             onChange={(e) => setEditFeeAmount(e.target.value)}
             className="mb-4"
           />
+          <div className="mb-4 mt-4 rounded-md border border-slate-200 bg-slate-50 p-3">
+            <div className="mb-2 text-sm font-medium text-slate-700">Cách tính điểm tổng kết</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs text-slate-600">Trọng số quiz (%) — bài tập chiếm phần còn lại</label>
+                <Input type="number" min={0} max={100} value={editQuizWeight} onChange={(e) => setEditQuizWeight(e.target.value)} />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-slate-600">Điểm đạt tối thiểu (%) — để trống = không yêu cầu</label>
+                <Input type="number" min={0} max={100} value={editPassing} onChange={(e) => setEditPassing(e.target.value)} />
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-slate-400">Chứng chỉ chỉ cấp khi học sinh tự hoàn thành khóa và đạt điểm này (Admin vẫn có thể hoàn thành thủ công).</p>
+          </div>
 
           {editError && <p className="mb-4 text-sm text-red-600">{editError}</p>}
 

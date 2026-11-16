@@ -22,7 +22,10 @@ public record CourseResponse(
         BigDecimal feeAmount,
         String createdByEmail,
         Instant createdAt,
-        Instant updatedAt) {
+        Instant updatedAt,
+        int quizWeightPercent,
+        Integer passingPercent,
+        String phase) {
 
     public static CourseResponse from(Course course) {
         return new CourseResponse(
@@ -39,6 +42,9 @@ public record CourseResponse(
                 course.getFeeAmount(),
                 course.getCreatedBy().getEmail(),
                 course.getCreatedAt(),
-                course.getUpdatedAt());
+                course.getUpdatedAt(),
+                course.getQuizWeightPercent(),
+                course.getPassingPercent(),
+                course.currentPhase().name());
     }
 }

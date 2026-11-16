@@ -45,6 +45,9 @@ public class EnrollmentService {
         if (course.getLifecycleStatus() != CourseLifecycleStatus.PUBLISHED) {
             throw new BusinessException(ErrorCode.COURSE_NOT_OPEN, "Course is not open for enrollment");
         }
+        if (course.currentPhase() == com.oep.coremodel.enums.CoursePhase.ENDED) {
+            throw new BusinessException(ErrorCode.COURSE_NOT_OPEN, "Khóa học đã kết thúc, không nhận ghi danh");
+        }
         CourseInviteCode ic = inviteCode == null ? null : inviteCodes.findByCode(inviteCode).orElse(null);
         boolean valid = ic != null && ic.isActive()
                 && ic.getCourse().getId().equals(courseId)

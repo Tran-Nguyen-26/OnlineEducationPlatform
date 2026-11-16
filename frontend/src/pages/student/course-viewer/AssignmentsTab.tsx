@@ -5,6 +5,7 @@ import { apiClient, getApiErrorMessage } from '../../../lib/apiClient'
 import type { MySubmissionResponse, StudentAssignmentResponse, UploadUrlResponse } from '../../../types/api'
 import { Button } from '../../../components/ui/Button'
 import { Badge } from '../../../components/Badge'
+import { AppealModal } from '../../../components/AppealModal'
 
 export function AssignmentRow({ courseId, assignment }: { courseId: string; assignment: StudentAssignmentResponse }) {
   const queryClient = useQueryClient()
@@ -12,6 +13,7 @@ export function AssignmentRow({ courseId, assignment }: { courseId: string; assi
   const [text, setText] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [appealing, setAppealing] = useState(false)
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['student', 'assignments', courseId] })
@@ -99,6 +101,9 @@ export function AssignmentRow({ courseId, assignment }: { courseId: string; assi
               {mySubmissionQuery.data.feedback && (
                 <p className="mt-2 text-xs text-slate-500">Nhận xét: {mySubmissionQuery.data.feedback}</p>
               )}
+              {assignment.graded && (
+                <button className="mt-2 text-xs text-blue-600 hover:underline" onClick={() => setAppealing(true)}>Yêu cầu phúc khảo điểm</button>
+              )}
             </div>
           )}
 
@@ -140,6 +145,7 @@ export function AssignmentRow({ courseId, assignment }: { courseId: string; assi
           )}
         </div>
       )}
+      {appealing && mySubmissionQuery.data && <AppealModal targetType="ASSIGNMENT_SUBMISSION" targetId={mySubmissionQuery.data.id} title={assignment.title} onClose={() => setAppealing(false)} />}
     </div>
   )
 }

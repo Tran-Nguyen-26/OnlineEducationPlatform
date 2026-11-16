@@ -34,7 +34,7 @@ public class TeacherCourseController {
 
     @GetMapping("/api/courses/{courseId}/content")
     public CourseContentResponse content(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId) {
-        return teacherCourseService.getContent(courseId, UUID.fromString(jwt.getSubject()));
+        return teacherCourseService.getContent(courseId, UUID.fromString(jwt.getSubject()), "ADMIN".equals(jwt.getClaimAsString("role")));
     }
 
     @GetMapping("/api/instructors/courses/{courseId}/students")

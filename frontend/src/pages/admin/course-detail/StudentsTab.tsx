@@ -7,6 +7,7 @@ import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { ENTRY_LABEL, printReceipt } from '../../../lib/receipt'
 import { Modal } from '../../../components/ui/Modal'
+import { WaiverModal } from './WaiverModal'
 
 function formatVnd(amount: number | null): string {
   if (amount == null) return '—'
@@ -231,6 +232,7 @@ export function StudentsTab({ courseId }: { courseId: string }) {
   const [removing, setRemoving] = useState<AdminEnrollmentResponse | null>(null)
   const [removeError, setRemoveError] = useState<string | null>(null)
   const [paying, setPaying] = useState<AdminEnrollmentResponse | null>(null)
+  const [waiving, setWaiving] = useState<AdminEnrollmentResponse | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
 
@@ -311,6 +313,9 @@ export function StudentsTab({ courseId }: { courseId: string }) {
                 <td className="px-4 py-3 text-right">
                   {row.status === 'ACTIVE' && (
                     <div className="flex justify-end gap-3">
+                      <button className="text-sm text-slate-500 hover:text-blue-700" onClick={() => setWaiving(row)}>
+                        Miễn trừ
+                      </button>
                       <button
                         className="text-sm text-slate-500 hover:text-green-700"
                         disabled={statusMutation.isPending}
@@ -383,6 +388,7 @@ export function StudentsTab({ courseId }: { courseId: string }) {
         </div>
       </Modal>
 
+      {waiving && <WaiverModal enrollment={waiving} onClose={() => setWaiving(null)} />}
       {paying && <PaymentModal courseId={courseId} enrollment={paying} onClose={() => setPaying(null)} />}
       {bulkOpen && <BulkEnrollModal courseId={courseId} onClose={() => setBulkOpen(false)} />}
     </div>

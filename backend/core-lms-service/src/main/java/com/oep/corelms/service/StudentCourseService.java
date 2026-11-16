@@ -23,12 +23,14 @@ public class StudentCourseService {
 
     private final CourseRepository courses;
     private final EnrollmentRepository enrollments;
+    private final com.oep.corelms.repository.CourseInstructorRepository courseInstructors;
+    private final com.oep.corelms.repository.UserProfileRepository userProfiles;
     private final com.oep.corelms.repository.CoursePrerequisiteRepository coursePrerequisites;
 
     @Transactional(readOnly = true)
     public List<StudentCourseResponse> listCatalog(UUID studentId) {
         return courses.findByLifecycleStatusOrderByCreatedAtDesc(CourseLifecycleStatus.PUBLISHED).stream()
-                .map(course -> StudentCourseResponse.from(course, isActivelyEnrolled(course.getId(), studentId), isWaitlisted(course.getId(), studentId), isCompleted(course.getId(), studentId), prerequisitesOf(course.getId(), studentId)))
+                .map(course -> StudentCourseResponse.from(course, isActivelyEnrolled(course.getId(), studentId), isWaitlisted(course.getId(), studentId), isCompleted(course.getId(), studentId), prerequisitesOf(course.getId(), studentId), instructorNames(course.getId())))
                 .toList();
     }
 
@@ -39,7 +41,7 @@ public class StudentCourseService {
         if (course.getLifecycleStatus() != CourseLifecycleStatus.PUBLISHED) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "Course not found");
         }
-        return StudentCourseResponse.from(course, isActivelyEnrolled(courseId, studentId), isWaitlisted(courseId, studentId), isCompleted(courseId, studentId), prerequisitesOf(courseId, studentId));
+        return StudentCourseResponse.from(course, isActivelyEnrolled(courseId, studentId), isWaitlisted(courseId, studentId), isCompleted(courseId, studentId), prerequisitesOf(courseId, studentId), instructorNames(courseId));
     }
 
     /** A withdrawn/removed row still exists (unique per course+student) but must not read back as "enrolled". */
@@ -65,6 +67,12 @@ public class StudentCourseService {
                 .map(p -> new StudentCourseResponse.Prerequisite(p.getPrerequisiteCourse().getId(), p.getPrerequisiteCourse().getTitle(),
                         enrollments.existsByCourseIdAndStudentIdAndStatus(p.getPrerequisiteCourse().getId(), studentId,
                                 com.oep.coremodel.enums.EnrollmentStatus.COMPLETED)))
+                .toList();
+    }
+
+    private java.util.List<String> instructorNames(java.util.UUID courseId) {
+        return courseInstructors.findByCourse_Id(courseId).stream()
+                .map(ci -> userProfiles.findById(ci.getInstructor().getId()).map(p -> p.getFullName()).orElse(ci.getInstructor().getEmail()))
                 .toList();
     }
 }

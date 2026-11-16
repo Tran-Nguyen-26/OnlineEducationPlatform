@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft, Award, Bell, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, ClipboardList, Circle, FileQuestion, Menu, MessageCircle, Lock, Search, X,
 } from 'lucide-react'
-import { apiClient } from '../../lib/apiClient'
+import { apiClient, getApiErrorMessage } from '../../lib/apiClient'
 import { extractHeadings } from '../../lib/markdown'
 import type { CourseOutlineResponse, StudentAssignmentResponse, StudentQuizResponse } from '../../types/api'
 import { cn } from '../../lib/cn'
@@ -95,7 +95,7 @@ export function CourseViewerPage() {
   if (outlineQuery.isError || !outline) {
     return (
       <div className="p-8">
-        <p className="mb-3 text-red-600">Không thể tải khóa học — bạn có thể chưa ghi danh hoặc đang ở danh sách chờ.</p>
+        <p className="mb-3 text-red-600">{outlineQuery.isError ? getApiErrorMessage(outlineQuery.error) : 'Không thể tải khóa học.'}</p>
         <Link to="/student/explore" className="text-sm text-blue-600 hover:underline">Về danh mục khóa học</Link>
       </div>
     )

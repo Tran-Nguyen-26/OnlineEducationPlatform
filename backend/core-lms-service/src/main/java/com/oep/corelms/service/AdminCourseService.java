@@ -42,6 +42,11 @@ public class AdminCourseService {
         course.setEndAt(request.endAt());
         course.setLearningMode(request.learningMode() == null ? LearningMode.FREE_NAVIGATION : request.learningMode());
         course.setFeeAmount(request.feeAmount());
+        if (request.quizWeightPercent() != null) course.setQuizWeightPercent(request.quizWeightPercent());
+        course.setPassingPercent(request.passingPercent());
+        if (request.startAt() != null && request.endAt() != null && request.endAt().isBefore(request.startAt())) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "Ngày kết thúc phải sau ngày bắt đầu");
+        }
         course.setLifecycleStatus(CourseLifecycleStatus.DRAFT);
         course.setCreatedBy(users.getReferenceById(adminId));
 
@@ -72,6 +77,11 @@ public class AdminCourseService {
         course.setEndAt(request.endAt());
         course.setLearningMode(request.learningMode());
         course.setFeeAmount(request.feeAmount());
+        if (request.quizWeightPercent() != null) course.setQuizWeightPercent(request.quizWeightPercent());
+        course.setPassingPercent(request.passingPercent());
+        if (request.startAt() != null && request.endAt() != null && request.endAt().isBefore(request.startAt())) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "Ngày kết thúc phải sau ngày bắt đầu");
+        }
 
         return CourseResponse.from(courses.saveAndFlush(course));
     }

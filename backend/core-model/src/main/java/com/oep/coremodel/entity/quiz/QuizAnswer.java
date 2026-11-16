@@ -39,6 +39,10 @@ public class QuizAnswer extends BaseEntity {
     @Column(name = "is_correct", nullable = true)
     private Boolean correct;
 
+    /** Instructor comment on a manually graded (essay) answer. */
+    @Column(name = "feedback", nullable = true, columnDefinition = "text")
+    private String feedback;
+
     @Column(name = "awarded_score", nullable = true, precision = 5, scale = 2)
     private BigDecimal awardedScore;
 }

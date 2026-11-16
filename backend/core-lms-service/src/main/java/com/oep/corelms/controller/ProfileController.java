@@ -36,4 +36,23 @@ public class ProfileController {
     public List<MyCertificateResponse> myCertificates(@AuthenticationPrincipal Jwt jwt) {
         return profileService.myCertificates(UUID.fromString(jwt.getSubject()));
     }
+
+    public record AvatarRequest(String fileName, String mimeType, long fileSize) {}
+
+    public record ConfirmAvatarRequest(String objectKey) {}
+
+    @org.springframework.web.bind.annotation.PostMapping("/api/users/me/avatar/upload-url")
+    public ProfileService.AvatarUpload avatarUploadUrl(@RequestBody AvatarRequest r) {
+        return profileService.requestAvatarUpload(r.fileName(), r.mimeType(), r.fileSize());
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/api/users/me/avatar/confirm")
+    public ProfileResponse confirmAvatar(@AuthenticationPrincipal Jwt jwt, @RequestBody ConfirmAvatarRequest r) {
+        return profileService.confirmAvatar(UUID.fromString(jwt.getSubject()), r.objectKey());
+    }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/api/users/me/avatar")
+    public ProfileResponse removeAvatar(@AuthenticationPrincipal Jwt jwt) {
+        return profileService.removeAvatar(UUID.fromString(jwt.getSubject()));
+    }
 }

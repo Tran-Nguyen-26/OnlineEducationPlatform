@@ -1,8 +1,9 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { Bell, BookOpen, GraduationCap, LayoutDashboard, LogOut, BarChart3, Megaphone, Receipt, ScrollText, User, Users as UsersIcon } from 'lucide-react'
+import { Bell, BookOpen, GraduationCap, LayoutDashboard, LogOut, BarChart3, ClipboardCheck, Megaphone, Receipt, ScrollText, User, Users as UsersIcon } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { cn } from '../lib/cn'
 import { NotificationBell } from '../components/NotificationBell'
+import { Avatar } from '../components/Avatar'
 
 const NAV_ITEMS = [
   { to: '/admin', label: 'Tổng quan', icon: LayoutDashboard, end: true },
@@ -11,6 +12,7 @@ const NAV_ITEMS = [
   { to: '/admin/teachers', label: 'Giáo viên', icon: UsersIcon },
   { to: '/admin/users', label: 'Người dùng', icon: UsersIcon },
   { to: '/admin/reports', label: 'Báo cáo & thống kê', icon: BarChart3 },
+  { to: '/admin/grading', label: 'Chấm bài & phúc khảo', icon: ClipboardCheck },
   { to: '/admin/finance', label: 'Học phí & công nợ', icon: Receipt },
   { to: '/admin/broadcast', label: 'Thông báo hệ thống', icon: Megaphone },
   { to: '/admin/audit-logs', label: 'Nhật ký', icon: ScrollText },
@@ -47,7 +49,10 @@ export function AdminLayout() {
           ))}
         </nav>
         <div className="border-t border-slate-200 p-3">
-          <div className="truncate px-2 text-sm font-medium text-slate-900">{user?.fullName ?? user?.email}</div>
+          <div className="flex items-center gap-2 px-2">
+            <Avatar size={32} name={user?.fullName ?? user?.email} />
+            <div className="min-w-0 truncate text-sm font-medium text-slate-900">{user?.fullName ?? user?.email}</div>
+          </div>
           <div className="truncate px-2 text-xs text-slate-500">{user?.email}</div>
           <button
             onClick={logout}

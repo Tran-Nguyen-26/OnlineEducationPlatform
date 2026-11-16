@@ -86,7 +86,12 @@ export interface CourseResponse {
   createdByEmail: string
   createdAt: string
   updatedAt: string
+  quizWeightPercent: number
+  passingPercent: number | null
+  phase: CoursePhase
 }
+
+export type CoursePhase = 'UPCOMING' | 'ONGOING' | 'ENDED'
 
 export interface CoursePrerequisiteResponse {
   prerequisiteCourseId: string
@@ -241,9 +246,10 @@ export interface QuizResponse {
   showCorrectAnswers: boolean
   locked: boolean
   questionCount: number
+  randomQuestionCount: number | null
 }
 
-export type QuestionType = 'TRUE_FALSE' | 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'KEYWORD_FILL'
+export type QuestionType = 'TRUE_FALSE' | 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'KEYWORD_FILL' | 'ESSAY'
 
 export interface OptionResponse {
   id: string
@@ -292,6 +298,10 @@ export interface StudentCourseResponse {
   waitlisted: boolean
   completed: boolean
   prerequisites: { courseId: string; title: string; met: boolean }[]
+  phase: CoursePhase
+  startAt: string | null
+  endAt: string | null
+  instructors: string[]
 }
 
 export type EnrollmentStatus = 'ACTIVE' | 'COMPLETED' | 'WITHDRAWN' | 'REMOVED' | 'WAITLISTED'
@@ -414,6 +424,7 @@ export interface AttemptSummaryResponse {
   status: QuizAttemptStatus
   submittedAt: string | null
   score: number | null
+  pendingManual: boolean
 }
 
 export interface AttemptResultResponse {
@@ -423,6 +434,7 @@ export interface AttemptResultResponse {
   submittedAt: string
   score: number | null
   questionResults: { questionId: string; correct: boolean | null; awardedScore: number | null }[]
+  pendingManual: number
 }
 
 export interface StudentAssignmentResponse {
@@ -572,6 +584,7 @@ export interface ProfileResponse {
   dateOfBirth: string | null
   organization: string | null
   bio: string | null
+  avatarUrl: string | null
 }
 
 export interface GradebookColumn { id: string; kind: 'QUIZ' | 'ASSIGNMENT'; title: string; maxScore: number | null; deadline: string | null }
@@ -584,8 +597,13 @@ export interface GradebookRow {
   enrollmentStatus: string
   cells: Record<string, GradebookCell>
   averagePercent: number | null
+  quizPercent: number | null
+  assignmentPercent: number | null
+  finalPercent: number | null
+  passed: boolean | null
+  pending: boolean
 }
-export interface GradebookResponse { courseId: string; courseTitle: string | null; columns: GradebookColumn[]; rows: GradebookRow[] }
+export interface GradebookResponse { courseId: string; courseTitle: string | null; quizWeightPercent: number; passingPercent: number | null; columns: GradebookColumn[]; rows: GradebookRow[] }
 
 export interface PendingGradingResponse {
   submissionId: string
@@ -720,5 +738,31 @@ export interface ReportOverview {
 export interface CourseCompletionResponse {
   enrollmentStatus: EnrollmentStatus; requiredLessons: number; completedRequiredLessons: number
   quizzes: number; attemptedQuizzes: number; assignments: number; submittedAssignments: number
+  quizPercent: number | null; assignmentPercent: number | null; finalPercent: number | null
+  passingPercent: number | null; passed: boolean | null; pendingGrading: number; waived: number; phase: CoursePhase
   eligible: boolean; completed: boolean
 }
+
+export interface PendingEssay {
+  answerId: string; attemptId: string; quizId: string; quizTitle: string; courseId: string; courseTitle: string
+  studentName: string; studentEmail: string; questionText: string; maxPoints: number; textAnswer: string | null; submittedAt: string
+}
+export interface AppealResponse {
+  id: string; targetType: 'ASSIGNMENT_SUBMISSION' | 'QUIZ_ATTEMPT'; targetId: string; targetTitle: string; courseId: string; courseTitle: string
+  studentName: string; studentEmail: string; reason: string; status: 'OPEN' | 'ACCEPTED' | 'REJECTED'; response: string | null
+  createdAt: string; resolvedAt: string | null
+}
+export interface CourseOverview {
+  id: string; title: string; description: string | null; subjectName: string; feeAmount: number | null; learningMode: LearningMode
+  capacity: number | null; enrolledCount: number; phase: CoursePhase; startAt: string | null; endAt: string | null
+  instructors: { name: string; organization: string | null; bio: string | null }[]
+  prerequisites: { courseId: string; title: string; met: boolean }[]
+  modules: { title: string; lessons: string[] }[]
+  lessonCount: number; quizCount: number; assignmentCount: number; sessionCount: number
+  quizWeightPercent: number; passingPercent: number | null; myStatus: EnrollmentStatus | null
+}
+export interface CalendarEvent {
+  type: 'SESSION' | 'QUIZ_DEADLINE' | 'ASSIGNMENT_DEADLINE'; itemId: string; title: string; courseId: string; courseTitle: string
+  at: string; endsAt: string | null; location: string | null; done: boolean
+}
+export interface WaiverItem { type: 'QUIZ' | 'ASSIGNMENT'; id: string; title: string; deadline: string | null; done: boolean; waived: boolean; waiverId: string | null; reason: string | null }

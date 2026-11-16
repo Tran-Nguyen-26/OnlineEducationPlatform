@@ -20,12 +20,17 @@ const COLORS: Record<string, string> = {
   PARTIAL: 'bg-amber-100 text-amber-700',
   UNPAID: 'bg-red-100 text-red-700',
   WAITLISTED: 'bg-blue-100 text-blue-700',
+  OPEN: 'bg-amber-100 text-amber-700',
+  ACCEPTED: 'bg-green-100 text-green-700',
+  REJECTED: 'bg-red-100 text-red-700',
 }
+
+const LABELS: Record<string, string> = { OPEN: 'Đang chờ xử lý', ACCEPTED: 'Được chấp nhận', REJECTED: 'Không chấp nhận' }
 
 export function Badge({ status }: { status: string }) {
   return (
     <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', COLORS[status] ?? 'bg-slate-100 text-slate-600')}>
-      {status}
+      {LABELS[status] ?? status}
     </span>
   )
 }

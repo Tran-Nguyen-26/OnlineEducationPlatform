@@ -9,4 +9,5 @@ import java.util.UUID;
 public interface AssignmentSubmissionRepository extends JpaRepository<AssignmentSubmission, UUID> {
     boolean existsByAssignment_IdAndEnrollment_Id(UUID assignmentId, UUID enrollmentId);
     java.util.List<com.oep.coremodel.entity.assignment.AssignmentSubmission> findByAssignment_Course_IdInAndStatusIn(java.util.Collection<UUID> courseIds, java.util.Collection<com.oep.coremodel.enums.AssignmentStatus> statuses);
+    java.util.Optional<com.oep.coremodel.entity.assignment.AssignmentSubmission> findByAssignment_IdAndEnrollment_Id(UUID assignmentId, UUID enrollmentId);
 }

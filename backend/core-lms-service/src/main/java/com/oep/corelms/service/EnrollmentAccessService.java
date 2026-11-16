@@ -35,4 +35,13 @@ public class EnrollmentAccessService {
         }
         return enrollment;
     }
+
+    /** Progress can only change while the course is running (between its start and end dates, when set). */
+    public void requireRunning(com.oep.coremodel.entity.course.Course course) {
+        switch (course.currentPhase()) {
+            case UPCOMING -> throw new BusinessException(ErrorCode.COURSE_NOT_OPEN, "Khóa học chưa bắt đầu");
+            case ENDED -> throw new BusinessException(ErrorCode.COURSE_NOT_OPEN, "Khóa học đã kết thúc — chỉ có thể xem lại");
+            default -> { }
+        }
+    }
 }

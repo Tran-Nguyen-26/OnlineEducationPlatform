@@ -18,6 +18,7 @@ public class WaitlistService {
 
     private final CourseRepository courses;
     private final EnrollmentRepository enrollments;
+    private final EventNotifier notifier;
 
     @Transactional
     public void promoteNext(UUID courseId) {
@@ -36,5 +37,8 @@ public class WaitlistService {
     private void promote(Enrollment enrollment) {
         enrollment.setStatus(EnrollmentStatus.ACTIVE);
         enrollments.save(enrollment);
+        notifier.send(enrollment.getStudent().getId(), "WAITLIST_PROMOTED", "Bạn đã có chỗ trong khóa học",
+                "Khóa \"" + enrollment.getCourse().getTitle() + "\" vừa có chỗ trống — bạn đã được chuyển từ danh sách chờ vào lớp.",
+                "waitlist:" + enrollment.getId() + ":" + System.currentTimeMillis(), enrollment.getCourse().getId());
     }
 }

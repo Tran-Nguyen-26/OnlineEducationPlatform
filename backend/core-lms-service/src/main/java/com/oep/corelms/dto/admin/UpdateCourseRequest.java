@@ -20,5 +20,7 @@ public record UpdateCourseRequest(
         Instant startAt,
         Instant endAt,
         @NotNull LearningMode learningMode,
-        @DecimalMin("0.00") BigDecimal feeAmount) {
+        @DecimalMin("0.00") BigDecimal feeAmount,
+        @jakarta.validation.constraints.Min(0) @jakarta.validation.constraints.Max(100) Integer quizWeightPercent,
+        @jakarta.validation.constraints.Min(0) @jakarta.validation.constraints.Max(100) Integer passingPercent) {
 }

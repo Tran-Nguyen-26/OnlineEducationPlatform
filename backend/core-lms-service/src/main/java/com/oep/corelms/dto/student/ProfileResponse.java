@@ -9,5 +9,6 @@ public record ProfileResponse(
         String phone,
         LocalDate dateOfBirth,
         String organization,
-        String bio) {
+        String bio,
+        String avatarUrl) {
 }

@@ -8,4 +8,5 @@ import java.util.UUID;
 
 public interface AssignmentRepository extends JpaRepository<Assignment, UUID> {
     List<Assignment> findByCourse_IdOrderByCreatedAtDesc(UUID courseId);
+    List<com.oep.coremodel.entity.assignment.Assignment> findByDeadlineBetween(java.time.Instant from, java.time.Instant to);
 }

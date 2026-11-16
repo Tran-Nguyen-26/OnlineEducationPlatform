@@ -20,11 +20,13 @@ import { ReportsPage } from './pages/admin/ReportsPage'
 import { BroadcastPage } from './pages/admin/BroadcastPage'
 import { UserDetailPage } from './pages/admin/UserDetailPage'
 import { StudentLayout } from './layouts/StudentLayout'
+import { CourseOverviewPage } from './pages/student/CourseOverviewPage'
 import { CataloguePage } from './pages/student/CataloguePage'
 import { CourseViewerPage } from './pages/student/CourseViewerPage'
 import { MyProgressPage } from './pages/student/MyProgressPage'
 import { CertificatePage } from './pages/student/CertificatePage'
 import { DashboardPage as StudentDashboardPage } from './pages/student/DashboardPage'
+import { CalendarPage } from './pages/student/CalendarPage'
 import { TasksPage } from './pages/student/TasksPage'
 import { GradesPage } from './pages/student/GradesPage'
 import { CertificatesPage } from './pages/student/CertificatesPage'
@@ -78,6 +80,7 @@ function App() {
           <Route path="users/:userId" element={<UserDetailPage />} />
           <Route path="finance" element={<FinancePage />} />
           <Route path="reports" element={<ReportsPage />} />
+          <Route path="grading" element={<PendingGradingPage />} />
           <Route path="broadcast" element={<BroadcastPage />} />
           <Route path="audit-logs" element={<AuditLogPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
@@ -92,7 +95,9 @@ function App() {
           <Route path="my-courses" element={<MyProgressPage />} />
           <Route path="progress" element={<Navigate to="/student/my-courses" replace />} />
           <Route path="explore" element={<CataloguePage />} />
+          <Route path="explore/:courseId" element={<CourseOverviewPage />} />
           <Route path="tasks" element={<TasksPage />} />
+          <Route path="calendar" element={<CalendarPage />} />
           <Route path="grades" element={<GradesPage />} />
           <Route path="certificates" element={<CertificatesPage />} />
           <Route path="certificates/:enrollmentId" element={<CertificatePage />} />

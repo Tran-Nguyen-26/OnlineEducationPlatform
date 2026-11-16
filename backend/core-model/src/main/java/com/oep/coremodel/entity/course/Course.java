@@ -49,6 +49,14 @@ public class Course extends BaseEntity {
     @Column(name = "end_at", nullable = true)
     private Instant endAt;
 
+    /** Share of the final grade coming from quizzes (assignments get the remainder). */
+    @Column(name = "quiz_weight_percent", nullable = false, columnDefinition = "integer not null default 50")
+    private int quizWeightPercent = 50;
+
+    /** Minimum final percentage (0-100) required to pass / earn the certificate; null = no threshold. */
+    @Column(name = "passing_percent", nullable = true)
+    private Integer passingPercent;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "learning_mode", nullable = false, length = 40)
     private LearningMode learningMode = LearningMode.FREE_NAVIGATION;
@@ -64,4 +72,12 @@ public class Course extends BaseEntity {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    /** UPCOMING until startAt, ENDED after endAt, otherwise ONGOING (missing dates never restrict). */
+    public com.oep.coremodel.enums.CoursePhase currentPhase() {
+        Instant now = Instant.now();
+        if (startAt != null && now.isBefore(startAt)) return com.oep.coremodel.enums.CoursePhase.UPCOMING;
+        if (endAt != null && now.isAfter(endAt)) return com.oep.coremodel.enums.CoursePhase.ENDED;
+        return com.oep.coremodel.enums.CoursePhase.ONGOING;
+    }
 }

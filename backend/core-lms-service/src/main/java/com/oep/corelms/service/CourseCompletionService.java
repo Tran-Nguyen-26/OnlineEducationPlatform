@@ -37,10 +37,7 @@ public class CourseCompletionService {
     private final CourseModuleRepository modules;
     private final LessonRepository lessons;
     private final LessonProgressRepository lessonProgress;
-    private final QuizRepository quizzes;
-    private final QuizAttemptRepository quizAttempts;
-    private final AssignmentRepository assignments;
-    private final AssignmentSubmissionRepository submissions;
+    private final FinalGradeService finalGrades;
     private final CertificateService certificateService;
     private final WaitlistService waitlistService;
 
@@ -61,7 +58,10 @@ public class CourseCompletionService {
         CourseCompletionResponse check = evaluate(courseId, e);
         if (!check.eligible()) {
             throw new BusinessException(ErrorCode.COMPLETION_RULE_NOT_MET,
-                    "Bạn chưa đáp ứng đủ yêu cầu hoàn thành khóa học (bài học bắt buộc, quiz, bài tập)");
+                    check.passed() != null && !check.passed() && check.pendingGrading() == 0 && check.attemptedQuizzes() == check.quizzes()
+                            && check.submittedAssignments() == check.assignments()
+                            ? "Điểm tổng kết chưa đạt mức tối thiểu (" + check.passingPercent() + "%)"
+                            : "Bạn chưa đáp ứng đủ yêu cầu hoàn thành khóa học (bài học bắt buộc, quiz, bài tập, chấm điểm)");
         }
         e.setStatus(EnrollmentStatus.COMPLETED);
         e.setCompletedAt(Instant.now());
@@ -85,15 +85,15 @@ public class CourseCompletionService {
                 .map(p -> p.getLesson().getId()).collect(Collectors.toSet());
         int doneRequired = (int) required.stream().filter(l -> done.contains(l.getId())).count();
 
-        var courseQuizzes = quizzes.findByCourse_IdOrderByCreatedAtDesc(courseId).stream().filter(q -> !q.isLocked()).toList();
-        int attempted = (int) courseQuizzes.stream().filter(q -> quizAttempts.existsByQuiz_IdAndEnrollment_Id(q.getId(), e.getId())).count();
-        var courseAssignments = assignments.findByCourse_IdOrderByCreatedAtDesc(courseId);
-        int submitted = (int) courseAssignments.stream().filter(a -> submissions.existsByAssignment_IdAndEnrollment_Id(a.getId(), e.getId())).count();
-
+        var course = e.getCourse();
+        FinalGradeService.Standing st = finalGrades.standing(course, e);
         boolean completed = e.getStatus() == EnrollmentStatus.COMPLETED;
-        boolean eligible = doneRequired == required.size() && attempted == courseQuizzes.size() && submitted == courseAssignments.size()
-                && !required.isEmpty();
-        return new CourseCompletionResponse(e.getStatus().name(), required.size(), doneRequired, courseQuizzes.size(), attempted,
-                courseAssignments.size(), submitted, eligible, completed);
+        boolean passOk = course.getPassingPercent() == null || Boolean.TRUE.equals(st.passed());
+        boolean eligible = doneRequired == required.size() && !required.isEmpty()
+                && st.quizzesAttempted() == st.quizzesTotal() && st.assignmentsSubmitted() == st.assignmentsTotal()
+                && st.pendingCount() == 0 && passOk;
+        return new CourseCompletionResponse(e.getStatus().name(), required.size(), doneRequired, st.quizzesTotal(), st.quizzesAttempted(),
+                st.assignmentsTotal(), st.assignmentsSubmitted(), st.quizPercent(), st.assignmentPercent(), st.finalPercent(),
+                course.getPassingPercent(), st.passed(), st.pendingCount(), st.waivedCount(), course.currentPhase().name(), eligible, completed);
     }
 }

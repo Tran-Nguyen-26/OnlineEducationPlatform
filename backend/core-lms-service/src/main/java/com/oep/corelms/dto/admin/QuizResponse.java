@@ -21,7 +21,8 @@ public record QuizResponse(
         boolean showScore,
         boolean showCorrectAnswers,
         boolean locked,
-        int questionCount) {
+        int questionCount,
+        Integer randomQuestionCount) {
 
     public static QuizResponse from(Quiz quiz, int questionCount) {
         return new QuizResponse(
@@ -39,6 +40,7 @@ public record QuizResponse(
                 Boolean.TRUE.equals(quiz.getShowScore()),
                 Boolean.TRUE.equals(quiz.getShowCorrectAnswers()),
                 quiz.isLocked(),
-                questionCount);
+                questionCount,
+                quiz.getRandomQuestionCount());
     }
 }

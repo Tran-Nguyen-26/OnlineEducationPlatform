@@ -8,7 +8,7 @@ import { QuizAnalyticsModal } from './QuizAnalyticsModal'
 
 function cellText(cell: GradebookCell | undefined): string {
   if (!cell || cell.status === 'NONE') return '—'
-  if (cell.status === 'SUBMITTED') return 'Chờ chấm'
+  if (cell.status === 'SUBMITTED') return cell.score != null ? `${cell.score} (chờ chấm)` : 'Chờ chấm'
   return `${cell.score}${cell.attempts > 1 ? ` (${cell.attempts} lần)` : ''}`
 }
 
@@ -24,7 +24,7 @@ export function GradebookView({ courseId }: { courseId: string }) {
   function exportCsv() {
     if (!data) return
     downloadCsv(`bang-diem-${courseId}.csv`, [
-      ['Họ tên', 'Email', 'Trạng thái', ...data.columns.map((c) => `${c.kind === 'QUIZ' ? 'Quiz' : 'Bài tập'}: ${c.title} (/${c.maxScore ?? ''})`), 'Điểm TB (%)'],
+      ['Họ tên', 'Email', 'Trạng thái', ...data.columns.map((c) => `${c.kind === 'QUIZ' ? 'Quiz' : 'Bài tập'}: ${c.title} (/${c.maxScore ?? ''})`), 'Điểm quiz (%)', 'Điểm bài tập (%)', 'Tổng kết (%)', 'Kết quả'],
       ...data.rows.map((r) => [
         r.studentName,
         r.studentEmail,
@@ -33,7 +33,8 @@ export function GradebookView({ courseId }: { courseId: string }) {
           const cell = r.cells[c.id]
           return cell?.status === 'GRADED' ? cell.score : cell?.status === 'SUBMITTED' ? 'Chờ chấm' : ''
         }),
-        r.averagePercent,
+        r.quizPercent, r.assignmentPercent, r.finalPercent,
+        r.passed === null ? '' : r.pending ? 'Chờ chấm' : r.passed ? 'Đạt' : 'Chưa đạt',
       ]),
     ])
   }
@@ -46,7 +47,7 @@ export function GradebookView({ courseId }: { courseId: string }) {
     <div>
       <div className="mb-3 flex items-center justify-between">
         <p className="text-sm text-slate-500">
-          Điểm quiz theo chính sách tính điểm của từng quiz; bài tập là điểm đã chấm. Điểm TB (%) tính trên các mục đã có điểm.
+          Điểm quiz theo chính sách của từng quiz. Tổng kết = quiz {data.quizWeightPercent}% + bài tập {100 - data.quizWeightPercent}% (mục chưa làm tính 0, mục được miễn trừ bị loại){data.passingPercent != null ? `; đạt từ ${data.passingPercent}%` : ''}.
         </p>
         <Button size="sm" variant="secondary" onClick={exportCsv} disabled={data.rows.length === 0}>
           Xuất CSV
@@ -69,7 +70,10 @@ export function GradebookView({ courseId }: { courseId: string }) {
                   </div>
                 </th>
               ))}
-              <th className="px-4 py-3 font-medium">TB (%)</th>
+              <th className="px-4 py-3 font-medium">Quiz %</th>
+              <th className="px-4 py-3 font-medium">Bài tập %</th>
+              <th className="px-4 py-3 font-medium">Tổng kết %</th>
+              {data.passingPercent != null && <th className="px-4 py-3 font-medium">Kết quả</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -82,12 +86,19 @@ export function GradebookView({ courseId }: { courseId: string }) {
                 {data.columns.map((c) => (
                   <td key={c.id} className="px-4 py-3 text-slate-700">{cellText(r.cells[c.id])}</td>
                 ))}
-                <td className="px-4 py-3 font-medium text-slate-900">{r.averagePercent ?? '—'}</td>
+                <td className="px-4 py-3 text-slate-600">{r.quizPercent ?? '—'}</td>
+                <td className="px-4 py-3 text-slate-600">{r.assignmentPercent ?? '—'}</td>
+                <td className="px-4 py-3 font-medium text-slate-900">{r.finalPercent ?? '—'}</td>
+                {data.passingPercent != null && (
+                  <td className="px-4 py-3">
+                    {r.pending ? <span className="text-amber-600">Chờ chấm</span> : r.passed ? <span className="font-medium text-green-700">Đạt</span> : <span className="font-medium text-red-600">Chưa đạt</span>}
+                  </td>
+                )}
               </tr>
             ))}
             {data.rows.length === 0 && (
               <tr>
-                <td className="px-4 py-6 text-slate-400" colSpan={data.columns.length + 2}>Chưa có học sinh nào trong khóa.</td>
+                <td className="px-4 py-6 text-slate-400" colSpan={data.columns.length + 5}>Chưa có học sinh nào trong khóa.</td>
               </tr>
             )}
           </tbody>

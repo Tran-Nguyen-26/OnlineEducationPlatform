@@ -66,8 +66,10 @@ public class TeacherCourseService {
     }
 
     @Transactional(readOnly = true)
-    public CourseContentResponse getContent(UUID courseId, UUID instructorId) {
-        accessService.requireAssignedInstructor(courseId, instructorId);
+    public CourseContentResponse getContent(UUID courseId, UUID instructorId, boolean admin) {
+        if (!admin) {
+            accessService.requireAssignedInstructor(courseId, instructorId);
+        }
         Course course = courses.findById(courseId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Course not found"));
 

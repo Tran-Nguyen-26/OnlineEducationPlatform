@@ -28,6 +28,7 @@ public class CertificateService {
     private final CertificateRepository certificates;
     private final EnrollmentRepository enrollments;
     private final UserProfileRepository userProfiles;
+    private final EventNotifier notifier;
 
     /** No-op if a certificate for this enrollment already exists (e.g. Admin flips status back and forth). */
     @Transactional
@@ -39,6 +40,9 @@ public class CertificateService {
         certificate.setEnrollment(enrollment);
         certificate.setCertificateNumber(generateUniqueNumber());
         certificates.save(certificate);
+        notifier.send(enrollment.getStudent().getId(), "CERTIFICATE_ISSUED", "Bạn đã nhận chứng chỉ",
+                "Chúc mừng! Chứng chỉ khóa \"" + enrollment.getCourse().getTitle() + "\" (" + certificate.getCertificateNumber() + ") đã sẵn sàng.",
+                "certificate:" + enrollment.getId(), enrollment.getCourse().getId());
     }
 
     @Transactional(readOnly = true)

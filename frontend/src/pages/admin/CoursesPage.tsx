@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { Modal } from '../../components/ui/Modal'
 import { Badge } from '../../components/Badge'
+import { PhaseBadge } from '../../components/PhaseBadge'
 
 export function CoursesPage() {
   const queryClient = useQueryClient()
@@ -28,6 +29,10 @@ export function CoursesPage() {
   const [description, setDescription] = useState('')
   const [capacity, setCapacity] = useState('')
   const [feeAmount, setFeeAmount] = useState('')
+  const [startAt, setStartAt] = useState('')
+  const [endAt, setEndAt] = useState('')
+  const [quizWeight, setQuizWeight] = useState('50')
+  const [passing, setPassing] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   function openCreate() {
@@ -36,6 +41,10 @@ export function CoursesPage() {
     setDescription('')
     setCapacity('')
     setFeeAmount('')
+    setStartAt('')
+    setEndAt('')
+    setQuizWeight('50')
+    setPassing('')
     setError(null)
     setOpen(true)
   }
@@ -48,6 +57,10 @@ export function CoursesPage() {
         description: description || null,
         capacity: capacity ? Number(capacity) : null,
         feeAmount: feeAmount ? Number(feeAmount) : null,
+        startAt: startAt ? new Date(startAt).toISOString() : null,
+        endAt: endAt ? new Date(endAt).toISOString() : null,
+        quizWeightPercent: Number(quizWeight),
+        passingPercent: passing ? Number(passing) : null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courses'] })
@@ -99,12 +112,13 @@ export function CoursesPage() {
               <th className="px-4 py-3 font-medium">Trạng thái</th>
               <th className="px-4 py-3 font-medium">Sĩ số</th>
               <th className="px-4 py-3 font-medium">Học phí</th>
+              <th className="px-4 py-3 font-medium">Thời gian</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isLoading && (
               <tr>
-                <td className="px-4 py-6 text-slate-400" colSpan={5}>
+                <td className="px-4 py-6 text-slate-400" colSpan={6}>
                   Đang tải...
                 </td>
               </tr>
@@ -124,11 +138,12 @@ export function CoursesPage() {
                 </td>
                 <td className="px-4 py-3 text-slate-500">{course.capacity ?? '—'}</td>
                 <td className="px-4 py-3 text-slate-500">{course.feeAmount ? `${course.feeAmount.toLocaleString('vi-VN')} đ` : 'Miễn phí'}</td>
+                <td className="px-4 py-3 text-xs"><PhaseBadge phase={course.phase} /></td>
               </tr>
             ))}
             {courses?.length === 0 && (
               <tr>
-                <td className="px-4 py-6 text-slate-400" colSpan={5}>
+                <td className="px-4 py-6 text-slate-400" colSpan={6}>
                   Chưa có khóa học nào.
                 </td>
               </tr>
@@ -164,6 +179,26 @@ export function CoursesPage() {
 
           <label className="mb-1 block text-sm font-medium text-slate-700">Học phí (VNĐ, tùy chọn)</label>
           <Input type="number" min={0} step={1000} value={feeAmount} onChange={(e) => setFeeAmount(e.target.value)} className="mb-4" />
+
+          <div className="mb-4 grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Khai giảng (tùy chọn)</label>
+              <Input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Kết thúc (tùy chọn)</label>
+              <Input type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Trọng số quiz (%)</label>
+              <Input type="number" min={0} max={100} value={quizWeight} onChange={(e) => setQuizWeight(e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Điểm đạt tối thiểu (%)</label>
+              <Input type="number" min={0} max={100} value={passing} onChange={(e) => setPassing(e.target.value)} />
+            </div>
+          </div>
+          <p className="-mt-2 mb-4 text-xs text-slate-400">Chưa khai giảng: học sinh ghi danh được nhưng chưa vào học. Sau ngày kết thúc: ngừng ghi danh và chỉ xem lại.</p>
 
           {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 

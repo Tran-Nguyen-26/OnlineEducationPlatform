@@ -13,7 +13,8 @@ public record AttemptResultResponse(
         QuizAttemptStatus status,
         Instant submittedAt,
         BigDecimal score,
-        List<QuestionResult> questionResults) {
+        List<QuestionResult> questionResults,
+        int pendingManual) {
 
     public record QuestionResult(UUID questionId, Boolean correct, BigDecimal awardedScore) {
     }

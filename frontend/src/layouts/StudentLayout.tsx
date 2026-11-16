@@ -1,16 +1,18 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Award, Bell, BookOpen, ClipboardList, Compass, GraduationCap, Home, LogOut, Receipt, Star, User } from 'lucide-react'
+import { Award, Bell, BookOpen, CalendarDays, ClipboardList, Compass, GraduationCap, Home, LogOut, Receipt, Star, User } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { cn } from '../lib/cn'
 import { apiClient } from '../lib/apiClient'
 import type { NotificationResponse } from '../types/api'
 import { NotificationBell } from '../components/NotificationBell'
+import { Avatar } from '../components/Avatar'
 
 const NAV = [
   { to: '/student', label: 'Trang chủ', icon: Home, end: true },
   { to: '/student/my-courses', label: 'Khóa học của tôi', icon: BookOpen },
   { to: '/student/explore', label: 'Khám phá khóa học', icon: Compass },
+  { to: '/student/calendar', label: 'Lịch của tôi', icon: CalendarDays },
   { to: '/student/tasks', label: 'Bài tập & Quiz', icon: ClipboardList },
   { to: '/student/grades', label: 'Điểm số', icon: Star },
   { to: '/student/certificates', label: 'Chứng chỉ', icon: Award },
@@ -59,7 +61,10 @@ export function StudentLayout() {
           ))}
         </nav>
         <div className="border-t border-slate-200 p-3">
-          <div className="truncate px-2 text-sm font-medium text-slate-900">{user?.fullName ?? user?.email}</div>
+          <div className="flex items-center gap-2 px-2">
+            <Avatar size={32} name={user?.fullName ?? user?.email} />
+            <div className="min-w-0 truncate text-sm font-medium text-slate-900">{user?.fullName ?? user?.email}</div>
+          </div>
           <div className="truncate px-2 text-xs text-slate-500">{user?.email}</div>
           <button
             onClick={logout}

@@ -7,12 +7,14 @@ import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { Modal } from '../../../components/ui/Modal'
 import { QuestionBankModal } from './QuestionBankModal'
+import { QuizFormModal } from './QuizFormModal'
 
 const QUESTION_TYPE_LABEL: Record<QuestionType, string> = {
   SINGLE_CHOICE: 'Một đáp án đúng',
   MULTIPLE_CHOICE: 'Nhiều đáp án đúng',
   TRUE_FALSE: 'Đúng / Sai',
   KEYWORD_FILL: 'Điền từ',
+  ESSAY: 'Tự luận (chấm tay)',
 }
 
 const CHOICE_TYPES: QuestionType[] = ['SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'TRUE_FALSE']
@@ -57,6 +59,7 @@ export function QuizItem({ quiz, courseId }: { quiz: QuizResponse; courseId: str
   // --- Add question modal ---
   const [open, setOpen] = useState(false)
   const [bankOpen, setBankOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
   const [questionType, setQuestionType] = useState<QuestionType>('SINGLE_CHOICE')
   const [questionText, setQuestionText] = useState('')
   const [keywordAnswer, setKeywordAnswer] = useState('')
@@ -136,9 +139,10 @@ export function QuizItem({ quiz, courseId }: { quiz: QuizResponse; courseId: str
         <button onClick={() => setExpanded((v) => !v)} className="flex flex-1 items-center gap-2 text-left">
           {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           <span className="font-medium text-slate-900">{quiz.title}</span>
-          <span className="text-xs text-slate-400">{quiz.questionCount} câu hỏi · tối đa {quiz.maxAttempts} lần làm</span>
+          <span className="text-xs text-slate-400">{quiz.questionCount} câu hỏi{quiz.randomQuestionCount ? ` (rút ${quiz.randomQuestionCount})` : ''} · tối đa {quiz.maxAttempts} lần làm</span>
         </button>
         <div className="flex items-center gap-2">
+          {!quiz.locked && <button onClick={() => setEditOpen(true)} className="px-1 text-xs text-blue-600 hover:underline">Sửa</button>}
           {quiz.locked && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Đã khóa</span>}
           <button
             onClick={() => lockMutation.mutate(!quiz.locked)}
@@ -199,6 +203,8 @@ export function QuizItem({ quiz, courseId }: { quiz: QuizResponse; courseId: str
           {quiz.locked && <p className="text-xs text-slate-400">Quiz đang khóa — mở khóa để thêm/sửa câu hỏi.</p>}
         </div>
       )}
+
+      <QuizFormModal courseId={courseId} quiz={quiz} open={editOpen} onClose={() => setEditOpen(false)} />
 
       {bankOpen && (
         <QuestionBankModal courseId={courseId} quizId={quiz.id} nextPosition={questionsQuery.data?.length ?? 0}

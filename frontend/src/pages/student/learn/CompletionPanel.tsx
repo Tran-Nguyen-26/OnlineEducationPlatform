@@ -26,6 +26,8 @@ export function CompletionPanel({ courseId }: { courseId: string }) {
     { ok: d.completedRequiredLessons === d.requiredLessons && d.requiredLessons > 0, text: `Hoàn thành bài học bắt buộc (${d.completedRequiredLessons}/${d.requiredLessons})` },
     { ok: d.attemptedQuizzes === d.quizzes, text: `Làm tất cả quiz (${d.attemptedQuizzes}/${d.quizzes})` },
     { ok: d.submittedAssignments === d.assignments, text: `Nộp tất cả bài tập (${d.submittedAssignments}/${d.assignments})` },
+    { ok: d.pendingGrading === 0, text: d.pendingGrading === 0 ? 'Không còn bài nào chờ chấm' : `${d.pendingGrading} mục đang chờ giáo viên chấm` },
+    ...(d.passingPercent != null ? [{ ok: d.passed === true, text: `Điểm tổng kết đạt tối thiểu ${d.passingPercent}% (hiện ${d.finalPercent ?? 0}%)` }] : []),
   ]
 
   return (
@@ -34,10 +36,18 @@ export function CompletionPanel({ courseId }: { courseId: string }) {
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-5 text-emerald-900">
           <div className="mb-1 flex items-center gap-2 font-semibold"><Award size={20} /> Bạn đã hoàn thành khóa học!</div>
           <p className="mb-3 text-sm">Chứng chỉ đã được cấp. Bạn vẫn có thể xem lại toàn bộ nội dung khóa học.</p>
+          <p className="mb-3 text-sm">Điểm tổng kết: <strong>{d.finalPercent ?? '—'}%</strong></p>
           <Link to="/student/certificates" className="text-sm font-medium text-emerald-800 underline">Xem chứng chỉ</Link>
         </div>
       ) : (
         <>
+          <div className="mb-5 grid grid-cols-3 gap-3 text-center">
+            <div className="rounded-lg border border-slate-200 bg-white p-3"><div className="text-xs text-slate-500">Quiz</div><div className="text-xl font-semibold text-slate-900">{d.quizPercent ?? '—'}{d.quizPercent != null && '%'}</div></div>
+            <div className="rounded-lg border border-slate-200 bg-white p-3"><div className="text-xs text-slate-500">Bài tập</div><div className="text-xl font-semibold text-slate-900">{d.assignmentPercent ?? '—'}{d.assignmentPercent != null && '%'}</div></div>
+            <div className="rounded-lg border border-slate-900 bg-slate-900 p-3 text-white"><div className="text-xs text-slate-300">Tổng kết</div><div className="text-xl font-semibold">{d.finalPercent ?? '—'}{d.finalPercent != null && '%'}</div></div>
+          </div>
+          {d.waived > 0 && <p className="mb-3 text-xs text-slate-500">{d.waived} mục đã được Admin miễn trừ cho bạn.</p>}
+          {d.phase === 'ENDED' && <p className="mb-3 text-xs text-amber-700">Khóa học đã kết thúc.</p>}
           <p className="mb-4 text-slate-600">Hoàn thành các yêu cầu sau để kết thúc khóa học và nhận chứng chỉ:</p>
           <ul className="mb-6 space-y-2">
             {rows.map((r) => (

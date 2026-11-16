@@ -4,11 +4,13 @@ import { apiClient, getApiErrorMessage } from '../../../lib/apiClient'
 import type { AttemptSummaryResponse, StartAttemptResponse, StudentQuizResponse } from '../../../types/api'
 import { Button } from '../../../components/ui/Button'
 import { QuizTakingModal } from './QuizTakingModal'
+import { AppealModal } from '../../../components/AppealModal'
 
 export function QuizRow({ courseId, quiz }: { courseId: string; quiz: StudentQuizResponse }) {
   const [active, setActive] = useState<StartAttemptResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showHistory, setShowHistory] = useState(false)
+  const [appeal, setAppeal] = useState<AttemptSummaryResponse | null>(null)
 
   const historyQuery = useQuery({
     queryKey: ['student', 'quiz-attempts', quiz.id],
@@ -49,11 +51,16 @@ export function QuizRow({ courseId, quiz }: { courseId: string; quiz: StudentQui
           {historyQuery.data?.map((a) => (
             <li key={a.attemptId}>
               Lần {a.attemptNumber}: {a.status} {a.score !== null ? `— ${a.score} điểm` : ''}
+              {a.pendingManual && <span className="ml-1 text-amber-600">(chờ chấm tự luận)</span>}
+              {a.status !== 'IN_PROGRESS' && a.score !== null && !a.pendingManual && (
+                <button className="ml-2 text-blue-600 hover:underline" onClick={() => setAppeal(a)}>Phúc khảo</button>
+              )}
             </li>
           ))}
           {historyQuery.data?.length === 0 && <li>Chưa có lần làm nào.</li>}
         </ul>
       )}
+      {appeal && <AppealModal targetType="QUIZ_ATTEMPT" targetId={appeal.attemptId} title={`${quiz.title} (lần ${appeal.attemptNumber})`} onClose={() => setAppeal(null)} />}
       {active && <QuizTakingModal quizId={quiz.id} courseId={courseId} start={active} onClose={() => setActive(null)} />}
     </div>
   )

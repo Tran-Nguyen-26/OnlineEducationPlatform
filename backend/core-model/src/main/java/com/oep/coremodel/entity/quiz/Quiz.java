@@ -66,6 +66,10 @@ public class Quiz extends BaseEntity {
     @Column(name = "show_correct_answers", nullable = true)
     private Boolean showCorrectAnswers = false;
 
+    /** When set (and smaller than the pool), each attempt draws this many random questions from the quiz's questions. */
+    @Column(name = "random_question_count", nullable = true)
+    private Integer randomQuestionCount;
+
     @Column(name = "is_locked", nullable = false)
     private boolean locked = false;
 

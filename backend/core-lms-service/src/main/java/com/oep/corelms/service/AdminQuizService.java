@@ -41,7 +41,7 @@ public class AdminQuizService {
         quiz.setCreatedBy(users.getReferenceById(adminId));
         applyFields(quiz, request.title(), request.description(), request.timeLimitSeconds(), request.deadline(),
                 request.maxAttempts(), request.gradingPolicy(), request.randomizeQuestions(), request.randomizeAnswers(),
-                request.showScore(), request.showCorrectAnswers());
+                request.showScore(), request.showCorrectAnswers(), request.randomQuestionCount());
 
         return QuizResponse.from(quizzes.saveAndFlush(quiz), 0);
     }
@@ -62,7 +62,7 @@ public class AdminQuizService {
         quiz.setLesson(resolveLesson(request.lessonId()));
         applyFields(quiz, request.title(), request.description(), request.timeLimitSeconds(), request.deadline(),
                 request.maxAttempts(), request.gradingPolicy(), request.randomizeQuestions(), request.randomizeAnswers(),
-                request.showScore(), request.showCorrectAnswers());
+                request.showScore(), request.showCorrectAnswers(), request.randomQuestionCount());
 
         int questionCount = quizQuestions.findByQuiz_IdOrderByPositionAsc(quizId).size();
         return QuizResponse.from(quizzes.saveAndFlush(quiz), questionCount);
@@ -96,7 +96,7 @@ public class AdminQuizService {
     private void applyFields(Quiz quiz, String title, String description, Integer timeLimitSeconds,
                               java.time.Instant deadline, Integer maxAttempts,
                               com.oep.coremodel.enums.QuizGradingPolicy gradingPolicy, Boolean randomizeQuestions,
-                              Boolean randomizeAnswers, Boolean showScore, Boolean showCorrectAnswers) {
+                              Boolean randomizeAnswers, Boolean showScore, Boolean showCorrectAnswers, Integer randomQuestionCount) {
         quiz.setTitle(title);
         quiz.setDescription(description);
         quiz.setTimeLimitSeconds(timeLimitSeconds);
@@ -107,5 +107,6 @@ public class AdminQuizService {
         if (randomizeAnswers != null) quiz.setRandomizeAnswers(randomizeAnswers);
         if (showScore != null) quiz.setShowScore(showScore);
         if (showCorrectAnswers != null) quiz.setShowCorrectAnswers(showCorrectAnswers);
+        quiz.setRandomQuestionCount(randomQuestionCount);
     }
 }

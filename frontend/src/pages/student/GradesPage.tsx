@@ -1,7 +1,15 @@
+import { useQuery } from '@tanstack/react-query'
+import { apiClient } from '../../lib/apiClient'
+import type { AppealResponse } from '../../types/api'
+import { Badge } from '../../components/Badge'
 import { useCourseTasks } from './useCourseTasks'
 
 export function GradesPage() {
   const { tasks, progress, loading } = useCourseTasks()
+  const appeals = useQuery({
+    queryKey: ['student', 'appeals'],
+    queryFn: () => apiClient.get<AppealResponse[]>('/api/appeals/mine').then((r) => r.data),
+  })
 
   return (
     <div>
@@ -32,6 +40,22 @@ export function GradesPage() {
             </div>
           )
         })}
+      </div>
+
+      <h2 className="mt-10 mb-2 text-lg font-semibold text-slate-900">Yêu cầu phúc khảo của tôi</h2>
+      <p className="mb-3 text-sm text-slate-500">Muốn xem lại một điểm? Mở bài tập hoặc lịch sử quiz trong khóa học và chọn "Phúc khảo".</p>
+      <div className="space-y-2">
+        {appeals.data?.map((a) => (
+          <div key={a.id} className="rounded-lg border border-slate-200 bg-white p-4 text-sm">
+            <div className="flex items-center justify-between">
+              <div className="font-medium text-slate-900">{a.targetTitle} <span className="font-normal text-slate-400">· {a.courseTitle}</span></div>
+              <Badge status={a.status} />
+            </div>
+            <p className="mt-1 text-slate-600">Lý do: {a.reason}</p>
+            {a.response && <p className="mt-1 text-slate-700"><span className="font-medium">Phản hồi:</span> {a.response}</p>}
+          </div>
+        ))}
+        {appeals.data?.length === 0 && <p className="text-sm text-slate-400">Bạn chưa gửi yêu cầu phúc khảo nào.</p>}
       </div>
     </div>
   )

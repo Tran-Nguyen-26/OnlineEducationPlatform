@@ -9,6 +9,9 @@ import com.oep.assessment.dto.UploadUrlResponse;
 import com.oep.assessment.repository.AssignmentGradeRepository;
 import com.oep.assessment.repository.AssignmentRepository;
 import com.oep.assessment.repository.AssignmentSubmissionRepository;
+import com.oep.assessment.repository.CourseInstructorRepository;
+import com.oep.assessment.repository.UserProfileRepository;
+import com.oep.coremodel.enums.AssignmentStatus;
 import com.oep.assessment.repository.EnrollmentRepository;
 import com.oep.assessment.repository.SubmissionFileRepository;
 import com.oep.coremodel.entity.assignment.Assignment;
@@ -40,6 +43,9 @@ public class AssignmentSubmissionService {
     private final AssignmentGradeRepository assignmentGrades;
     private final EnrollmentRepository enrollments;
     private final StorageService storageService;
+    private final NotificationPublisher notifications;
+    private final CourseInstructorRepository courseInstructors;
+    private final UserProfileRepository userProfiles;
 
     @Transactional(readOnly = true)
     public List<StudentAssignmentResponse> listForCourse(UUID courseId, UUID studentId) {
@@ -60,6 +66,7 @@ public class AssignmentSubmissionService {
     public MySubmissionResponse submitText(UUID assignmentId, UUID studentId, String textContent) {
         Assignment assignment = findAssignment(assignmentId);
         Enrollment enrollment = requireEnrollment(assignment.getCourse().getId(), studentId);
+        CoursePhaseGuard.requireOpen(assignment.getCourse());
 
         if (textContent != null && !textContent.isBlank() && !assignment.isAllowText()) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "This assignment does not accept text submissions");
@@ -83,10 +90,13 @@ public class AssignmentSubmissionService {
             }
             submission.setSubmissionCount(submission.getSubmissionCount() + 1);
         }
+        boolean regrade = submission.getStatus() == AssignmentStatus.GRADED;
         submission.setTextContent(textContent);
         submission.setSubmittedAt(Instant.now());
         submission.setLate(late);
+        submission.setStatus(regrade ? AssignmentStatus.PENDING_REGRADE : AssignmentStatus.SUBMITTED);
         submission = submissions.save(submission);
+        notifyInstructors(assignment, enrollment, submission);
         return toSubmissionResponse(submission);
     }
 
@@ -185,5 +195,19 @@ public class AssignmentSubmissionService {
             throw new BusinessException(ErrorCode.NOT_ENROLLED, "Enrollment is not active");
         }
         return enrollment;
+    }
+
+    /** Tells every instructor assigned to the course that new work is waiting (idempotent per submission + count). */
+    private void notifyInstructors(Assignment assignment, Enrollment enrollment, AssignmentSubmission submission) {
+        UUID courseId = assignment.getCourse().getId();
+        String who = userProfiles.findById(enrollment.getStudent().getId()).map(p -> p.getFullName()).orElse(enrollment.getStudent().getEmail());
+        for (var ci : courseInstructors.findAll()) {
+            if (ci.getCourse().getId().equals(courseId)) {
+                notifications.send(ci.getInstructor().getId(), "ASSIGNMENT_SUBMITTED",
+                        "Bài nộp mới — " + assignment.getCourse().getTitle(),
+                        who + " vừa nộp \"" + assignment.getTitle() + "\"" + (submission.isLate() ? " (nộp muộn)" : ""),
+                        "submission:" + submission.getId() + ":" + submission.getSubmissionCount() + ":" + ci.getInstructor().getId(), courseId);
+            }
+        }
     }
 }

@@ -4,5 +4,7 @@ public enum QuestionType {
     TRUE_FALSE,
     SINGLE_CHOICE,
     MULTIPLE_CHOICE,
-    KEYWORD_FILL
+    KEYWORD_FILL,
+    /** Free-text answer graded by hand by an instructor/admin. */
+    ESSAY
 }

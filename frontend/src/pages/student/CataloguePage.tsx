@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { KeyRound } from 'lucide-react'
 import { apiClient, getApiErrorMessage } from '../../lib/apiClient'
 import type { MyEnrollmentResponse, StudentCourseResponse } from '../../types/api'
 import { Button } from '../../components/ui/Button'
+import { PhaseBadge } from '../../components/PhaseBadge'
 import { Input } from '../../components/ui/Input'
 import { Modal } from '../../components/ui/Modal'
 
@@ -79,7 +80,11 @@ export function CataloguePage() {
           .map((course) => (
           <div key={course.id} className="flex flex-col rounded-lg border border-slate-200 bg-white p-5">
             <div className="text-xs font-medium uppercase tracking-wide text-slate-400">{course.subjectName}</div>
-            <h2 className="mt-1 text-lg font-semibold text-slate-900">{course.title}</h2>
+            <h2 className="mt-1 text-lg font-semibold text-slate-900"><Link to={`/student/explore/${course.id}`} className="hover:underline">{course.title}</Link></h2>
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+              <PhaseBadge phase={course.phase} />
+              {course.instructors.length > 0 && <span>GV: {course.instructors.join(', ')}</span>}
+            </div>
             {course.description && <p className="mt-2 flex-1 text-sm text-slate-500">{course.description}</p>}
             <div className="mt-3 text-xs text-slate-500">
               Học phí: {course.feeAmount ? `${course.feeAmount.toLocaleString('vi-VN')} đ` : 'Miễn phí'}

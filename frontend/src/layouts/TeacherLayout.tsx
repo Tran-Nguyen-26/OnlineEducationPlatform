@@ -4,8 +4,10 @@ import { Bell, ClipboardCheck, GraduationCap, Home, LogOut, User } from 'lucide-
 import { useAuth } from '../auth/AuthContext'
 import { cn } from '../lib/cn'
 import { apiClient } from '../lib/apiClient'
-import type { NotificationResponse, PendingGradingResponse } from '../types/api'
+import { useGradingQueues } from '../lib/useGradingCounts'
+import type { NotificationResponse } from '../types/api'
 import { NotificationBell } from '../components/NotificationBell'
+import { Avatar } from '../components/Avatar'
 
 const NAV = [
   { to: '/teacher', label: 'Tổng quan', icon: Home, end: true },
@@ -22,13 +24,9 @@ export function TeacherLayout() {
     queryFn: () => apiClient.get<NotificationResponse[]>('/api/notifications').then((r) => r.data),
     refetchInterval: 30_000,
   })
-  const pending = useQuery({
-    queryKey: ['teacher', 'pending-grading'],
-    queryFn: () => apiClient.get<PendingGradingResponse[]>('/api/gradebook/pending-grading').then((r) => r.data),
-    refetchInterval: 60_000,
-  })
+  const queues = useGradingQueues()
   const counts = {
-    grading: pending.data?.length ?? 0,
+    grading: queues.total,
     notifications: notifications.data?.filter((n) => !n.read).length ?? 0,
   }
 
@@ -61,7 +59,10 @@ export function TeacherLayout() {
           ))}
         </nav>
         <div className="border-t border-slate-200 p-3">
-          <div className="truncate px-2 text-sm font-medium text-slate-900">{user?.fullName ?? user?.email}</div>
+          <div className="flex items-center gap-2 px-2">
+            <Avatar size={32} name={user?.fullName ?? user?.email} />
+            <div className="min-w-0 truncate text-sm font-medium text-slate-900">{user?.fullName ?? user?.email}</div>
+          </div>
           <div className="truncate px-2 text-xs text-slate-500">{user?.email}</div>
           <button
             onClick={logout}

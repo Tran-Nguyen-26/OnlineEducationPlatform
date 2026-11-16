@@ -64,6 +64,11 @@ public class StudentCourseContentService {
         Enrollment enrollment = enrollmentAccess.requireReadableEnrollment(courseId, studentId);
         Course course = courses.findById(courseId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Course not found"));
+        if (course.currentPhase() == com.oep.coremodel.enums.CoursePhase.UPCOMING) {
+            throw new BusinessException(ErrorCode.COURSE_NOT_OPEN, "Khóa học chưa bắt đầu"
+                    + (course.getStartAt() != null ? " — khai giảng " + course.getStartAt().atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh"))
+                    .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) : ""));
+        }
 
         Map<UUID, LessonProgress> progressByLesson = lessonProgress.findByEnrollmentId(enrollment.getId()).stream()
                 .collect(Collectors.toMap(p -> p.getLesson().getId(), p -> p));
@@ -90,7 +95,8 @@ public class StudentCourseContentService {
                 .toList();
 
         return new CourseOutlineResponse(courseId, course.getTitle(), enrollment.getStatus().name(),
-                enrollment.getStatus() != com.oep.coremodel.enums.EnrollmentStatus.ACTIVE, course.getLearningMode().name(), moduleDtos);
+                enrollment.getStatus() != com.oep.coremodel.enums.EnrollmentStatus.ACTIVE || course.currentPhase() == com.oep.coremodel.enums.CoursePhase.ENDED,
+                course.getLearningMode().name(), moduleDtos);
     }
 
     private OutlineLesson toOutlineLesson(Lesson lesson, Map<UUID, LessonProgress> progressByLesson, boolean locked) {
@@ -163,6 +169,7 @@ public class StudentCourseContentService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Lesson not found"));
         UUID courseId = lesson.getModule().getCourse().getId();
         Enrollment enrollment = enrollmentAccess.requireActiveEnrollment(courseId, studentId);
+        enrollmentAccess.requireRunning(lesson.getModule().getCourse());
         requireUnlocked(lesson, enrollment);
 
         LessonProgress progress = lessonProgress.findByEnrollmentIdAndLessonId(enrollment.getId(), lessonId)
@@ -234,6 +241,7 @@ public class StudentCourseContentService {
         Lesson lesson = lessons.findById(lessonId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Lesson not found"));
         Enrollment enrollment = enrollmentAccess.requireActiveEnrollment(lesson.getModule().getCourse().getId(), studentId);
+        enrollmentAccess.requireRunning(lesson.getModule().getCourse());
         requireUnlocked(lesson, enrollment);
         LessonProgress progress = lessonProgress.findByEnrollmentIdAndLessonId(enrollment.getId(), lessonId).orElseGet(() -> {
             LessonProgress p = new LessonProgress();

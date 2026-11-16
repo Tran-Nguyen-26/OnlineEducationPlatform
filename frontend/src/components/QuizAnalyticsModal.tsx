@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient, getApiErrorMessage } from '../lib/apiClient'
 import { downloadCsv } from '../lib/csv'
 import type { QuizAnalyticsResponse } from '../types/api'
@@ -20,6 +21,19 @@ export function QuizAnalyticsModal({ courseId, quizId, onClose }: { courseId: st
     queryFn: () => apiClient.get<QuizAnalyticsResponse>(`/api/gradebook/${courseId}/quizzes/${quizId}`).then((r) => r.data),
   })
   const d = query.data
+  const queryClient = useQueryClient()
+  const [adjusting, setAdjusting] = useState<{ attemptId: string; score: string; reason: string } | null>(null)
+  const [adjustError, setAdjustError] = useState<string | null>(null)
+  const adjust = useMutation({
+    mutationFn: () => apiClient.patch(`/api/attempts/${adjusting!.attemptId}/score`, { finalScore: Number(adjusting!.score), reason: adjusting!.reason }),
+    onSuccess: () => {
+      setAdjusting(null)
+      setAdjustError(null)
+      queryClient.invalidateQueries({ queryKey: ['quiz-analytics', courseId, quizId] })
+      queryClient.invalidateQueries({ queryKey: ['gradebook', courseId] })
+    },
+    onError: (e) => setAdjustError(getApiErrorMessage(e)),
+  })
 
   function exportCsv() {
     if (!d) return
@@ -68,7 +82,7 @@ export function QuizAnalyticsModal({ courseId, quizId, onClose }: { courseId: st
               <Button size="sm" variant="secondary" onClick={exportCsv} disabled={!d.attempts.length}>Xuất CSV</Button>
             </div>
             <table className="w-full text-left text-sm">
-              <thead className="text-slate-500"><tr><th className="py-1">Học sinh</th><th>Lần</th><th>Trạng thái</th><th>Thời gian</th><th>Điểm</th></tr></thead>
+              <thead className="text-slate-500"><tr><th className="py-1">Học sinh</th><th>Lần</th><th>Trạng thái</th><th>Thời gian</th><th>Điểm</th><th /></tr></thead>
               <tbody className="divide-y divide-slate-100">
                 {d.attempts.map((a) => (
                   <tr key={a.attemptId}>
@@ -76,13 +90,27 @@ export function QuizAnalyticsModal({ courseId, quizId, onClose }: { courseId: st
                     <td>{a.attemptNumber}/{d.maxAttempts}</td>
                     <td>{STATUS[a.status] ?? a.status}</td>
                     <td>{fmtDuration(a.durationSeconds)}</td>
-                    <td>{a.finalScore ?? '—'}{a.adjustmentReason ? <span title={a.adjustmentReason}> *</span> : null}</td>
+                    <td>{a.finalScore ?? '—'}{a.adjustmentReason ? <span title={a.adjustmentReason} className="text-amber-600"> *</span> : null}</td>
+                    <td className="text-right">{a.finalScore !== null && <button className="text-xs text-blue-600 hover:underline" onClick={() => { setAdjustError(null); setAdjusting({ attemptId: a.attemptId, score: String(a.finalScore), reason: '' }) }}>Sửa điểm</button>}</td>
                   </tr>
                 ))}
-                {d.attempts.length === 0 && <tr><td colSpan={5} className="py-3 text-slate-400">Chưa có lượt làm nào.</td></tr>}
+                {d.attempts.length === 0 && <tr><td colSpan={6} className="py-3 text-slate-400">Chưa có lượt làm nào.</td></tr>}
               </tbody>
             </table>
+            <p className="mt-1 text-xs text-slate-400">Dấu * = điểm đã được điều chỉnh thủ công (di chuột để xem lý do).</p>
           </div>
+          {adjusting && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
+              <div className="mb-2 text-sm font-medium text-slate-800">Điều chỉnh điểm lượt làm (tối đa {d.maxScore})</div>
+              <div className="flex flex-wrap items-end gap-2">
+                <input type="number" step="0.25" min={0} max={d.maxScore} value={adjusting.score} onChange={(e) => setAdjusting({ ...adjusting, score: e.target.value })} className="h-9 w-24 rounded-md border border-slate-300 px-2 text-sm" />
+                <input value={adjusting.reason} onChange={(e) => setAdjusting({ ...adjusting, reason: e.target.value })} placeholder="Lý do (bắt buộc, học sinh sẽ thấy)" className="h-9 min-w-48 flex-1 rounded-md border border-slate-300 px-2 text-sm" />
+                <Button size="sm" disabled={adjust.isPending || !adjusting.reason.trim()} onClick={() => adjust.mutate()}>Lưu</Button>
+                <Button size="sm" variant="secondary" onClick={() => setAdjusting(null)}>Hủy</Button>
+              </div>
+              {adjustError && <p className="mt-2 text-sm text-red-600">{adjustError}</p>}
+            </div>
+          )}
         </div>
       )}
     </Modal>
