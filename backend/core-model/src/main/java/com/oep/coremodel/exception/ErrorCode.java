@@ -25,7 +25,9 @@ public enum ErrorCode {
     CANNOT_MODIFY_SELF(HttpStatus.FORBIDDEN),
     NOT_ENROLLED(HttpStatus.FORBIDDEN),
     MAX_SUBMISSIONS_REACHED(HttpStatus.CONFLICT),
-    LATE_SUBMISSION_NOT_ALLOWED(HttpStatus.CONFLICT);
+    LATE_SUBMISSION_NOT_ALLOWED(HttpStatus.CONFLICT),
+    INVALID_RESET_TOKEN(HttpStatus.BAD_REQUEST),
+    COMPLETION_RULE_NOT_MET(HttpStatus.CONFLICT);
 
     private final HttpStatus status;
 

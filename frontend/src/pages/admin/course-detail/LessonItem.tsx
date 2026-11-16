@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ChevronDown,
@@ -6,6 +6,7 @@ import {
   File as FileIcon,
   FileText,
   Link2,
+  ListChecks,
   Pencil,
   Plus,
   Presentation,
@@ -15,7 +16,13 @@ import {
   Video,
 } from 'lucide-react'
 import { apiClient, getApiErrorMessage } from '../../../lib/apiClient'
-import type { ContentType, LessonContentResponse, LessonResponse, UploadUrlResponse } from '../../../types/api'
+import type {
+  ContentType,
+  LessonCompletionRuleResponse,
+  LessonContentResponse,
+  LessonResponse,
+  UploadUrlResponse,
+} from '../../../types/api'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { Modal } from '../../../components/ui/Modal'
@@ -168,15 +175,73 @@ export function LessonItem({ lesson }: { lesson: LessonResponse }) {
 
   const saving = createMutation.isPending || updateMutation.isPending
 
+  // --- Completion rule modal ---
+  const [ruleOpen, setRuleOpen] = useState(false)
+  const [minimumTimeSeconds, setMinimumTimeSeconds] = useState(0)
+  const [minVideoPercentage, setMinVideoPercentage] = useState(80)
+  const [requireQuiz, setRequireQuiz] = useState(false)
+  const [requireAssignment, setRequireAssignment] = useState(false)
+  const [ruleError, setRuleError] = useState<string | null>(null)
+
+  const ruleQuery = useQuery({
+    queryKey: ['lessons', lesson.id, 'completion-rule'],
+    queryFn: () => apiClient.get<LessonCompletionRuleResponse>(`/api/admin/lessons/${lesson.id}/completion-rule`).then((r) => r.data),
+    enabled: ruleOpen,
+  })
+
+  useEffect(() => {
+    if (ruleQuery.data) {
+      setMinimumTimeSeconds(ruleQuery.data.minimumTimeSeconds)
+      setMinVideoPercentage(ruleQuery.data.minVideoPercentage)
+      setRequireQuiz(ruleQuery.data.requireQuiz)
+      setRequireAssignment(ruleQuery.data.requireAssignment)
+    }
+  }, [ruleQuery.data])
+
+  const saveRuleMutation = useMutation({
+    mutationFn: () =>
+      apiClient.put(`/api/admin/lessons/${lesson.id}/completion-rule`, {
+        minimumTimeSeconds,
+        minVideoPercentage,
+        requireQuiz,
+        requireAssignment,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lessons', lesson.id, 'completion-rule'] })
+      setRuleOpen(false)
+    },
+    onError: (err) => setRuleError(getApiErrorMessage(err)),
+  })
+
+  const deleteRuleMutation = useMutation({
+    mutationFn: () => apiClient.delete(`/api/admin/lessons/${lesson.id}/completion-rule`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lessons', lesson.id, 'completion-rule'] })
+      setRuleOpen(false)
+    },
+    onError: (err) => setRuleError(getApiErrorMessage(err)),
+  })
+
   return (
     <div className="border-t border-slate-200">
-      <button
-        onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-slate-500 hover:bg-slate-100"
-      >
-        {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-        Nội dung ({contentsQuery.data?.length ?? '...'})
-      </button>
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="flex flex-1 items-center gap-2 px-3 py-2 text-left text-xs text-slate-500 hover:bg-slate-100"
+        >
+          {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          Nội dung ({contentsQuery.data?.length ?? '...'})
+        </button>
+        <button
+          onClick={() => {
+            setRuleError(null)
+            setRuleOpen(true)
+          }}
+          className="flex items-center gap-1 px-3 py-2 text-xs text-slate-400 hover:text-slate-700"
+        >
+          <ListChecks size={12} /> Điều kiện hoàn thành
+        </button>
+      </div>
 
       {expanded && (
         <div className="space-y-1.5 px-3 pb-2">
@@ -321,6 +386,75 @@ export function LessonItem({ lesson }: { lesson: LessonResponse }) {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal title="Điều kiện hoàn thành bài học" open={ruleOpen} onClose={() => setRuleOpen(false)}>
+        {ruleQuery.isLoading ? (
+          <p className="text-sm text-slate-400">Đang tải...</p>
+        ) : (
+          <div>
+            <p className="mb-4 text-xs text-slate-500">
+              Học sinh chỉ có thể đánh dấu bài học này "hoàn thành" khi đáp ứng đủ các điều kiện dưới đây. Để trống/0 nghĩa
+              là không yêu cầu.
+            </p>
+
+            <label className="mb-1 block text-sm font-medium text-slate-700">Thời gian học tối thiểu (giây)</label>
+            <Input
+              type="number"
+              min={0}
+              value={minimumTimeSeconds}
+              onChange={(e) => setMinimumTimeSeconds(Number(e.target.value))}
+              className="mb-4"
+            />
+
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              % video tối thiểu đã xem <span className="text-xs text-slate-400">(chưa áp dụng được — xem ghi chú bên dưới)</span>
+            </label>
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              value={minVideoPercentage}
+              onChange={(e) => setMinVideoPercentage(Number(e.target.value))}
+              className="mb-4"
+              disabled
+            />
+
+            <label className="mb-3 flex items-center gap-2 text-sm text-slate-700">
+              <input type="checkbox" checked={requireQuiz} onChange={(e) => setRequireQuiz(e.target.checked)} />
+              Bắt buộc đã làm quiz gắn với bài học này
+            </label>
+            <label className="mb-4 flex items-center gap-2 text-sm text-slate-700">
+              <input type="checkbox" checked={requireAssignment} onChange={(e) => setRequireAssignment(e.target.checked)} />
+              Bắt buộc đã nộp bài tập gắn với bài học này
+            </label>
+
+            <p className="mb-4 text-xs text-slate-400">
+              Ghi chú: % video chưa enforce được vì trình xem nội dung hiện mở file ở tab mới, chưa có player theo dõi
+              tiến độ xem — xem chi tiết trong GAPS.md.
+            </p>
+
+            {ruleError && <p className="mb-4 text-sm text-red-600">{ruleError}</p>}
+
+            <div className="flex justify-between gap-2">
+              {ruleQuery.data?.configured ? (
+                <Button type="button" variant="danger" disabled={deleteRuleMutation.isPending} onClick={() => deleteRuleMutation.mutate()}>
+                  Xóa điều kiện
+                </Button>
+              ) : (
+                <span />
+              )}
+              <div className="flex gap-2">
+                <Button type="button" variant="secondary" onClick={() => setRuleOpen(false)}>
+                  Hủy
+                </Button>
+                <Button type="button" disabled={saveRuleMutation.isPending} onClick={() => saveRuleMutation.mutate()}>
+                  {saveRuleMutation.isPending ? 'Đang lưu...' : 'Lưu'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   )

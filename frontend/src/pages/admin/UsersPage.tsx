@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient, getApiErrorMessage } from '../../lib/apiClient'
-import type { AccountStatus, AdminUserResponse, UserRole } from '../../types/api'
+import type { AccountStatus, AdminUserResponse, ResetLinkResponse, UserRole } from '../../types/api'
 import { useAuth } from '../../auth/AuthContext'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/Badge'
+import { Modal } from '../../components/ui/Modal'
 
 const ROLE_OPTIONS: Array<UserRole | ''> = ['', 'ADMIN', 'INSTRUCTOR', 'STUDENT']
 const STATUS_OPTIONS: Array<AccountStatus | ''> = ['', 'ACTIVE', 'DISABLED']
@@ -34,6 +35,20 @@ export function UsersPage() {
     },
     onError: (err) => setError(getApiErrorMessage(err)),
   })
+
+  const [resetLink, setResetLink] = useState<{ user: AdminUserResponse; link: ResetLinkResponse } | null>(null)
+  const resetLinkMutation = useMutation({
+    mutationFn: (targetUser: AdminUserResponse) =>
+      apiClient
+        .post<ResetLinkResponse>(`/api/admin/users/${targetUser.id}/reset-password-link`)
+        .then((r) => ({ user: targetUser, link: r.data })),
+    onSuccess: (result) => {
+      setResetLink(result)
+      setError(null)
+    },
+    onError: (err) => setError(getApiErrorMessage(err)),
+  })
+  const resetUrl = resetLink ? `${window.location.origin}/reset-password?token=${resetLink.link.token}` : ''
 
   return (
     <div>
@@ -94,21 +109,31 @@ export function UsersPage() {
                   <Badge status={user.accountStatus} />
                 </td>
                 <td className="px-4 py-3 text-right">
-                  {user.id !== currentUser?.id && (
+                  <div className="flex justify-end gap-2">
                     <Button
                       size="sm"
-                      variant={user.accountStatus === 'ACTIVE' ? 'danger' : 'secondary'}
-                      disabled={toggleStatusMutation.isPending}
-                      onClick={() =>
-                        toggleStatusMutation.mutate({
-                          id: user.id,
-                          newStatus: user.accountStatus === 'ACTIVE' ? 'DISABLED' : 'ACTIVE',
-                        })
-                      }
+                      variant="secondary"
+                      disabled={resetLinkMutation.isPending}
+                      onClick={() => resetLinkMutation.mutate(user)}
                     >
-                      {user.accountStatus === 'ACTIVE' ? 'Vô hiệu hóa' : 'Kích hoạt lại'}
+                      Tạo link đặt lại MK
                     </Button>
-                  )}
+                    {user.id !== currentUser?.id && (
+                      <Button
+                        size="sm"
+                        variant={user.accountStatus === 'ACTIVE' ? 'danger' : 'secondary'}
+                        disabled={toggleStatusMutation.isPending}
+                        onClick={() =>
+                          toggleStatusMutation.mutate({
+                            id: user.id,
+                            newStatus: user.accountStatus === 'ACTIVE' ? 'DISABLED' : 'ACTIVE',
+                          })
+                        }
+                      >
+                        {user.accountStatus === 'ACTIVE' ? 'Vô hiệu hóa' : 'Kích hoạt lại'}
+                      </Button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -122,6 +147,27 @@ export function UsersPage() {
           </tbody>
         </table>
       </div>
+
+      <Modal title="Link đặt lại mật khẩu" open={resetLink !== null} onClose={() => setResetLink(null)}>
+        <p className="mb-3 text-sm text-slate-600">
+          Gửi link này cho <strong>{resetLink?.user.fullName ?? resetLink?.user.email}</strong>. Link có hiệu lực tới{' '}
+          {resetLink && new Date(resetLink.link.expiresAt).toLocaleString('vi-VN')} và chỉ dùng được một lần.
+        </p>
+        <div className="mb-4 break-all rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+          {resetUrl}
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              navigator.clipboard?.writeText(resetUrl).catch(() => {})
+            }}
+          >
+            Sao chép link
+          </Button>
+          <Button onClick={() => setResetLink(null)}>Đóng</Button>
+        </div>
+      </Modal>
     </div>
   )
 }

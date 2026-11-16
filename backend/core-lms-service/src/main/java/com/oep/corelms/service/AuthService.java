@@ -4,13 +4,16 @@ import com.oep.corelms.dto.auth.AuthResponse;
 import com.oep.corelms.dto.auth.ChangePasswordRequest;
 import com.oep.corelms.dto.auth.LoginRequest;
 import com.oep.corelms.dto.auth.MeResponse;
+import com.oep.corelms.dto.admin.ResetLinkResponse;
 import com.oep.corelms.dto.auth.RegisterRequest;
 import com.oep.corelms.repository.AuthIdentityRepository;
+import com.oep.corelms.repository.PasswordResetTokenRepository;
 import com.oep.corelms.repository.RefreshTokenRepository;
 import com.oep.corelms.repository.UserProfileRepository;
 import com.oep.corelms.repository.UserRepository;
 import com.oep.corelms.security.JwtTokenService;
 import com.oep.coremodel.entity.identity.AuthIdentity;
+import com.oep.coremodel.entity.identity.PasswordResetToken;
 import com.oep.coremodel.entity.identity.RefreshToken;
 import com.oep.coremodel.entity.identity.User;
 import com.oep.coremodel.entity.identity.UserProfile;
@@ -20,6 +23,8 @@ import com.oep.coremodel.enums.UserRole;
 import com.oep.coremodel.exception.BusinessException;
 import com.oep.coremodel.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,10 +37,14 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuthService {
 
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+    private static final long RESET_TOKEN_TTL_SECONDS = 1800; // 30 minutes
+
     private final UserRepository users;
     private final AuthIdentityRepository authIdentities;
     private final UserProfileRepository userProfiles;
     private final RefreshTokenRepository refreshTokens;
+    private final PasswordResetTokenRepository passwordResetTokens;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService tokenService;
 
@@ -126,6 +135,69 @@ public class AuthService {
         identity.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         identity.setMustChangePassword(false);
         authIdentities.save(identity);
+    }
+
+    /**
+     * Always returns normally whether or not the email exists, to avoid account enumeration.
+     * No SMTP is configured yet (see GAPS.md G4), so the reset link is only logged here, standing in for
+     * what a real email send would deliver. Admins can also mint a link directly — see {@link #adminGenerateResetToken}.
+     */
+    @Transactional
+    public void forgotPassword(String email) {
+        users.findByEmail(email).ifPresent(user ->
+                authIdentities.findByUser_IdAndProvider(user.getId(), AuthProvider.LOCAL).ifPresent(identity -> {
+                    String rawToken = issueResetToken(user);
+                    log.info("Password reset requested for {}: token={} (expires in {} minutes)",
+                            email, rawToken, RESET_TOKEN_TTL_SECONDS / 60);
+                }));
+    }
+
+    /** Admin-initiated reset: mints a token and hands the raw value back so an admin can relay it to the user. */
+    @Transactional
+    public ResetLinkResponse adminGenerateResetToken(UUID userId) {
+        User user = users.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "User not found"));
+        authIdentities.findByUser_IdAndProvider(userId, AuthProvider.LOCAL)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Local credentials not found"));
+        Instant expiresAt = Instant.now().plusSeconds(RESET_TOKEN_TTL_SECONDS);
+        return new ResetLinkResponse(issueResetToken(user, expiresAt), expiresAt);
+    }
+
+    private String issueResetToken(User user) {
+        return issueResetToken(user, Instant.now().plusSeconds(RESET_TOKEN_TTL_SECONDS));
+    }
+
+    private String issueResetToken(User user, Instant expiresAt) {
+        String rawToken = tokenService.generateRefreshTokenRaw();
+        PasswordResetToken resetToken = new PasswordResetToken();
+        resetToken.setUser(user);
+        resetToken.setTokenHash(tokenService.hashToken(rawToken));
+        resetToken.setExpiresAt(expiresAt);
+        passwordResetTokens.save(resetToken);
+        return rawToken;
+    }
+
+    @Transactional
+    public void resetPassword(String rawToken, String newPassword) {
+        PasswordResetToken token = passwordResetTokens.findByTokenHash(tokenService.hashToken(rawToken))
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_RESET_TOKEN, "Invalid or expired reset token"));
+        if (token.isUsed() || token.getExpiresAt().isBefore(Instant.now())) {
+            throw new BusinessException(ErrorCode.INVALID_RESET_TOKEN, "Invalid or expired reset token");
+        }
+
+        User user = token.getUser();
+        AuthIdentity identity = authIdentities.findByUser_IdAndProvider(user.getId(), AuthProvider.LOCAL)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Local credentials not found"));
+        identity.setPasswordHash(passwordEncoder.encode(newPassword));
+        identity.setMustChangePassword(false);
+        authIdentities.save(identity);
+
+        token.setUsed(true);
+        passwordResetTokens.save(token);
+
+        // Force re-login everywhere, in case the account was compromised.
+        refreshTokens.findByUser_IdAndRevokedFalse(user.getId())
+                .forEach(rt -> rt.setRevoked(true));
     }
 
     @Transactional(readOnly = true)

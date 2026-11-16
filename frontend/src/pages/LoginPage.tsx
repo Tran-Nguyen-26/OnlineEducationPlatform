@@ -48,7 +48,12 @@ export function LoginPage() {
         <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
         <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="mb-4" />
 
-        <label className="mb-1 block text-sm font-medium text-slate-700">Mật khẩu</label>
+        <div className="mb-1 flex items-center justify-between">
+          <label className="block text-sm font-medium text-slate-700">Mật khẩu</label>
+          <Link to="/forgot-password" className="text-xs text-slate-500 hover:underline">
+            Quên mật khẩu?
+          </Link>
+        </div>
         <Input
           type="password"
           required

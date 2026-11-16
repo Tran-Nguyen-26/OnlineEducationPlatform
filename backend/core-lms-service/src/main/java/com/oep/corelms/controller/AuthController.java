@@ -2,10 +2,12 @@ package com.oep.corelms.controller;
 
 import com.oep.corelms.dto.auth.AuthResponse;
 import com.oep.corelms.dto.auth.ChangePasswordRequest;
+import com.oep.corelms.dto.auth.ForgotPasswordRequest;
 import com.oep.corelms.dto.auth.LoginRequest;
 import com.oep.corelms.dto.auth.MeResponse;
 import com.oep.corelms.dto.auth.RefreshRequest;
 import com.oep.corelms.dto.auth.RegisterRequest;
+import com.oep.corelms.dto.auth.ResetPasswordRequest;
 import com.oep.corelms.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -58,5 +60,17 @@ public class AuthController {
     @GetMapping("/me")
     public MeResponse me(@AuthenticationPrincipal Jwt jwt) {
         return authService.me(UUID.fromString(jwt.getSubject()));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request.email());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request.token(), request.newPassword());
+        return ResponseEntity.noContent().build();
     }
 }

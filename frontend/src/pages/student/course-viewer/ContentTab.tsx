@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   CheckCircle2,
@@ -13,7 +13,7 @@ import {
   Type,
   Video,
 } from 'lucide-react'
-import { apiClient } from '../../../lib/apiClient'
+import { apiClient, getApiErrorMessage } from '../../../lib/apiClient'
 import type { ContentType, CourseOutlineResponse, OutlineContent, OutlineLesson, ViewUrlResponse } from '../../../types/api'
 import { Button } from '../../../components/ui/Button'
 
@@ -69,11 +69,25 @@ function ContentView({ content }: { content: OutlineContent }) {
 
 function LessonPanel({ courseId, lesson }: { courseId: string; lesson: OutlineLesson }) {
   const queryClient = useQueryClient()
+  const [completeError, setCompleteError] = useState<string | null>(null)
   const progressMutation = useMutation({
     mutationFn: (status: 'IN_PROGRESS' | 'COMPLETED') =>
       apiClient.patch(`/api/lessons/${lesson.id}/progress`, { status }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['student', 'courses', courseId, 'outline'] }),
+    onSuccess: () => {
+      setCompleteError(null)
+      queryClient.invalidateQueries({ queryKey: ['student', 'courses', courseId, 'outline'] })
+    },
+    onError: (err) => setCompleteError(getApiErrorMessage(err)),
   })
+
+  // First time this lesson is opened, mark it IN_PROGRESS so the server can start counting time spent on it
+  // (used by the admin-configured completion rule, if any — see GAPS.md G2).
+  useEffect(() => {
+    if (lesson.progressStatus === 'NOT_STARTED') {
+      progressMutation.mutate('IN_PROGRESS')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lesson.id])
 
   return (
     <div>
@@ -96,6 +110,7 @@ function LessonPanel({ courseId, lesson }: { courseId: string; lesson: OutlineLe
           </span>
         )}
       </div>
+      {completeError && <p className="mb-4 text-sm text-red-600">{completeError}</p>}
       <div className="space-y-3">
         {lesson.contents.map((content) => (
           <ContentView key={content.id} content={content} />

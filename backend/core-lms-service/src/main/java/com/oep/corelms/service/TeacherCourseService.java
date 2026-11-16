@@ -5,12 +5,20 @@ import com.oep.corelms.dto.teacher.CourseContentResponse.ContentItem;
 import com.oep.corelms.dto.teacher.CourseContentResponse.ContentLesson;
 import com.oep.corelms.dto.teacher.CourseContentResponse.ContentModule;
 import com.oep.corelms.dto.teacher.InstructorCourseResponse;
+import com.oep.corelms.dto.teacher.RosterEntryResponse;
 import com.oep.corelms.repository.CourseInstructorRepository;
 import com.oep.corelms.repository.CourseModuleRepository;
 import com.oep.corelms.repository.CourseRepository;
+import com.oep.corelms.repository.EnrollmentRepository;
 import com.oep.corelms.repository.LessonContentRepository;
+import com.oep.corelms.repository.LessonProgressRepository;
 import com.oep.corelms.repository.LessonRepository;
+import com.oep.corelms.repository.UserProfileRepository;
 import com.oep.coremodel.entity.course.Course;
+import com.oep.coremodel.entity.enrollment.Enrollment;
+import com.oep.coremodel.entity.identity.User;
+import com.oep.coremodel.entity.identity.UserProfile;
+import com.oep.coremodel.enums.LessonProgressStatus;
 import com.oep.coremodel.exception.BusinessException;
 import com.oep.coremodel.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +39,9 @@ public class TeacherCourseService {
     private final LessonRepository lessons;
     private final LessonContentRepository lessonContents;
     private final TeacherAccessService accessService;
+    private final EnrollmentRepository enrollments;
+    private final LessonProgressRepository lessonProgress;
+    private final UserProfileRepository userProfiles;
 
     @Transactional(readOnly = true)
     public List<InstructorCourseResponse> listMyCourses(UUID instructorId) {
@@ -60,5 +71,31 @@ public class TeacherCourseService {
                 .toList();
 
         return new CourseContentResponse(courseId, course.getTitle(), moduleDtos);
+    }
+
+    /** Roster of every student ever enrolled (any status), with their lesson-completion progress in this course. */
+    @Transactional(readOnly = true)
+    public List<RosterEntryResponse> roster(UUID courseId, UUID instructorId) {
+        accessService.requireAssignedInstructor(courseId, instructorId);
+
+        int totalLessons = modules.findByCourse_IdOrderByPositionAsc(courseId).stream()
+                .mapToInt(m -> (int) lessons.countByModule_Id(m.getId()))
+                .sum();
+
+        return enrollments.findByCourseIdOrderByEnrolledAtDesc(courseId).stream()
+                .map(e -> toRosterEntry(e, totalLessons))
+                .toList();
+    }
+
+    private RosterEntryResponse toRosterEntry(Enrollment e, int totalLessons) {
+        User student = e.getStudent();
+        String fullName = userProfiles.findById(student.getId()).map(UserProfile::getFullName).orElse(null);
+        long completedLessons = lessonProgress.findByEnrollmentId(e.getId()).stream()
+                .filter(p -> p.getStatus() == LessonProgressStatus.COMPLETED)
+                .count();
+        double percent = totalLessons == 0 ? 0.0 : Math.round(completedLessons * 1000.0 / totalLessons) / 10.0;
+
+        return new RosterEntryResponse(e.getId(), student.getId(), student.getEmail(), fullName, e.getStatus(),
+                e.getEnrolledAt(), totalLessons, (int) completedLessons, percent);
     }
 }

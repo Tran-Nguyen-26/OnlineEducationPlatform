@@ -113,9 +113,34 @@ export interface CreateTeacherResponse {
   temporaryPassword: string
 }
 
+export interface LessonCompletionRuleResponse {
+  lessonId: string
+  configured: boolean
+  minimumTimeSeconds: number
+  minVideoPercentage: number
+  requireQuiz: boolean
+  requireAssignment: boolean
+}
+
+export interface AuditLogResponse {
+  id: string
+  actorId: string
+  actorEmail: string
+  action: string
+  targetType: string
+  targetId: string
+  metadata: string | null
+  createdAt: string
+}
+
 export interface ApiErrorBody {
   code: string
   message: string
+}
+
+export interface ResetLinkResponse {
+  token: string
+  expiresAt: string
 }
 
 export interface ModuleResponse {
@@ -438,6 +463,18 @@ export interface TeacherAssignmentResponse {
   deadline: string | null
   maxScore: number
   submissionCount: number
+}
+
+export interface RosterEntryResponse {
+  enrollmentId: string
+  studentId: string
+  studentEmail: string
+  studentFullName: string | null
+  status: EnrollmentStatus
+  enrolledAt: string
+  totalLessons: number
+  completedLessons: number
+  progressPercent: number
 }
 
 export interface SubmissionForGradingResponse {

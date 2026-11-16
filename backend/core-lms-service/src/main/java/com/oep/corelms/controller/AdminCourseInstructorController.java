@@ -3,6 +3,7 @@ package com.oep.corelms.controller;
 import com.oep.corelms.dto.admin.AssignInstructorRequest;
 import com.oep.corelms.dto.admin.CourseInstructorResponse;
 import com.oep.corelms.service.AdminCourseInstructorService;
+import com.oep.corelms.service.AuditLogService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -25,11 +27,16 @@ import java.util.UUID;
 public class AdminCourseInstructorController {
 
     private final AdminCourseInstructorService service;
+    private final AuditLogService auditLogService;
 
     @PostMapping
     public CourseInstructorResponse assign(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
                                             @Valid @RequestBody AssignInstructorRequest request) {
-        return service.assign(courseId, request.instructorId(), UUID.fromString(jwt.getSubject()));
+        UUID adminId = UUID.fromString(jwt.getSubject());
+        CourseInstructorResponse response = service.assign(courseId, request.instructorId(), adminId);
+        auditLogService.record(adminId, "ASSIGN_INSTRUCTOR", "COURSE", courseId,
+                Map.of("instructorId", request.instructorId().toString()));
+        return response;
     }
 
     @GetMapping
@@ -38,8 +45,11 @@ public class AdminCourseInstructorController {
     }
 
     @DeleteMapping("/{instructorId}")
-    public ResponseEntity<Void> unassign(@PathVariable UUID courseId, @PathVariable UUID instructorId) {
+    public ResponseEntity<Void> unassign(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
+                                          @PathVariable UUID instructorId) {
         service.unassign(courseId, instructorId);
+        auditLogService.record(UUID.fromString(jwt.getSubject()), "UNASSIGN_INSTRUCTOR", "COURSE", courseId,
+                Map.of("instructorId", instructorId.toString()));
         return ResponseEntity.noContent().build();
     }
 }

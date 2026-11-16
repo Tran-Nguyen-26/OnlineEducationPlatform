@@ -8,4 +8,5 @@ import java.util.UUID;
 
 public interface AssignmentRepository extends JpaRepository<Assignment, UUID> {
     List<Assignment> findByCourse_IdOrderByCreatedAtDesc(UUID courseId);
+    List<Assignment> findByLesson_Id(UUID lessonId);
 }

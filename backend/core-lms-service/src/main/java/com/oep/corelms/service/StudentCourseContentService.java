@@ -6,15 +6,21 @@ import com.oep.corelms.dto.student.CourseOutlineResponse.OutlineLesson;
 import com.oep.corelms.dto.student.CourseOutlineResponse.OutlineModule;
 import com.oep.corelms.dto.student.MyProgressResponse;
 import com.oep.corelms.dto.student.ViewUrlResponse;
+import com.oep.corelms.repository.AssignmentRepository;
+import com.oep.corelms.repository.AssignmentSubmissionRepository;
 import com.oep.corelms.repository.CourseInstructorRepository;
 import com.oep.corelms.repository.CourseModuleRepository;
 import com.oep.corelms.repository.CourseRepository;
 import com.oep.corelms.repository.EnrollmentRepository;
+import com.oep.corelms.repository.LessonCompletionRuleRepository;
 import com.oep.corelms.repository.LessonContentRepository;
 import com.oep.corelms.repository.LessonProgressRepository;
 import com.oep.corelms.repository.LessonRepository;
+import com.oep.corelms.repository.QuizAttemptRepository;
+import com.oep.corelms.repository.QuizRepository;
 import com.oep.coremodel.entity.course.Course;
 import com.oep.coremodel.entity.course.Lesson;
+import com.oep.coremodel.entity.course.LessonCompletionRule;
 import com.oep.coremodel.entity.course.LessonContent;
 import com.oep.coremodel.entity.enrollment.Enrollment;
 import com.oep.coremodel.entity.enrollment.LessonProgress;
@@ -25,6 +31,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +52,11 @@ public class StudentCourseContentService {
     private final EnrollmentAccessService enrollmentAccess;
     private final CourseInstructorRepository courseInstructors;
     private final StorageService storageService;
+    private final LessonCompletionRuleRepository completionRules;
+    private final QuizRepository quizzes;
+    private final QuizAttemptRepository quizAttempts;
+    private final AssignmentRepository assignments;
+    private final AssignmentSubmissionRepository assignmentSubmissions;
 
     @Transactional(readOnly = true)
     public CourseOutlineResponse getOutline(UUID courseId, UUID studentId) {
@@ -140,11 +152,43 @@ public class StudentCourseContentService {
         if (progress.getStartedAt() == null) {
             progress.setStartedAt(Instant.now());
         }
-        if (status == LessonProgressStatus.COMPLETED && progress.getCompletedAt() == null) {
-            progress.setCompletedAt(Instant.now());
+        int elapsedSeconds = (int) Duration.between(progress.getStartedAt(), Instant.now()).getSeconds();
+        progress.setTimeSpentSeconds(Math.max(progress.getTimeSpentSeconds(), elapsedSeconds));
+
+        if (status == LessonProgressStatus.COMPLETED) {
+            completionRules.findByLesson_Id(lessonId).ifPresent(rule -> enforceCompletionRule(rule, enrollment, progress));
+            if (progress.getCompletedAt() == null) {
+                progress.setCompletedAt(Instant.now());
+            }
         }
         progress.setStatus(status);
         progress.setLastAccessedAt(Instant.now());
         lessonProgress.save(progress);
+    }
+
+    /**
+     * minVideoPercentage is intentionally not enforced here: the content viewer has no in-app video player
+     * (files just open in a new tab), so there is no watch-time telemetry to check it against yet (GAPS.md G2).
+     */
+    private void enforceCompletionRule(LessonCompletionRule rule, Enrollment enrollment, LessonProgress progress) {
+        if (progress.getTimeSpentSeconds() < rule.getMinimumTimeSeconds()) {
+            throw new BusinessException(ErrorCode.COMPLETION_RULE_NOT_MET,
+                    "Bạn cần dành ít nhất " + rule.getMinimumTimeSeconds() + " giây cho bài học này trước khi đánh dấu hoàn thành");
+        }
+        UUID lessonId = progress.getLesson().getId();
+        if (rule.isRequireQuiz()) {
+            boolean attempted = quizzes.findByLesson_Id(lessonId).stream()
+                    .anyMatch(quiz -> quizAttempts.existsByQuiz_IdAndEnrollment_Id(quiz.getId(), enrollment.getId()));
+            if (!attempted) {
+                throw new BusinessException(ErrorCode.COMPLETION_RULE_NOT_MET, "Bạn cần làm quiz của bài học này trước");
+            }
+        }
+        if (rule.isRequireAssignment()) {
+            boolean submitted = assignments.findByLesson_Id(lessonId).stream()
+                    .anyMatch(a -> assignmentSubmissions.existsByAssignment_IdAndEnrollment_Id(a.getId(), enrollment.getId()));
+            if (!submitted) {
+                throw new BusinessException(ErrorCode.COMPLETION_RULE_NOT_MET, "Bạn cần nộp bài tập của bài học này trước");
+            }
+        }
     }
 }

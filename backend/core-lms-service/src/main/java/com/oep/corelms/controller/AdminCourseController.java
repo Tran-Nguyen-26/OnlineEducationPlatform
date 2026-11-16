@@ -5,6 +5,7 @@ import com.oep.corelms.dto.admin.CreateCourseRequest;
 import com.oep.corelms.dto.admin.UpdateCourseRequest;
 import com.oep.corelms.dto.admin.UpdateCourseStatusRequest;
 import com.oep.corelms.service.AdminCourseService;
+import com.oep.corelms.service.AuditLogService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,10 +28,14 @@ import java.util.UUID;
 public class AdminCourseController {
 
     private final AdminCourseService courseService;
+    private final AuditLogService auditLogService;
 
     @PostMapping
     public CourseResponse create(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CreateCourseRequest request) {
-        return courseService.create(UUID.fromString(jwt.getSubject()), request);
+        UUID adminId = UUID.fromString(jwt.getSubject());
+        CourseResponse response = courseService.create(adminId, request);
+        auditLogService.record(adminId, "CREATE_COURSE", "COURSE", response.id(), Map.of("title", response.title()));
+        return response;
     }
 
     @GetMapping
@@ -43,12 +49,20 @@ public class AdminCourseController {
     }
 
     @PatchMapping("/{id}")
-    public CourseResponse update(@PathVariable UUID id, @Valid @RequestBody UpdateCourseRequest request) {
-        return courseService.update(id, request);
+    public CourseResponse update(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+                                  @Valid @RequestBody UpdateCourseRequest request) {
+        UUID adminId = UUID.fromString(jwt.getSubject());
+        CourseResponse response = courseService.update(id, request);
+        auditLogService.record(adminId, "UPDATE_COURSE", "COURSE", id, Map.of("title", response.title()));
+        return response;
     }
 
     @PatchMapping("/{id}/status")
-    public CourseResponse updateStatus(@PathVariable UUID id, @Valid @RequestBody UpdateCourseStatusRequest request) {
-        return courseService.updateStatus(id, request.status());
+    public CourseResponse updateStatus(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+                                        @Valid @RequestBody UpdateCourseStatusRequest request) {
+        UUID adminId = UUID.fromString(jwt.getSubject());
+        CourseResponse response = courseService.updateStatus(id, request.status());
+        auditLogService.record(adminId, "UPDATE_COURSE_STATUS", "COURSE", id, Map.of("status", request.status().name()));
+        return response;
     }
 }

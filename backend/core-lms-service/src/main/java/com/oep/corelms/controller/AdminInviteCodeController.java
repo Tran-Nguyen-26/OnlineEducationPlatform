@@ -3,6 +3,7 @@ package com.oep.corelms.controller;
 import com.oep.corelms.dto.admin.GenerateInviteCodeRequest;
 import com.oep.corelms.dto.admin.InviteCodeResponse;
 import com.oep.corelms.service.AdminInviteCodeService;
+import com.oep.corelms.service.AuditLogService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -24,11 +26,15 @@ import java.util.UUID;
 public class AdminInviteCodeController {
 
     private final AdminInviteCodeService inviteCodeService;
+    private final AuditLogService auditLogService;
 
     @PostMapping
     public InviteCodeResponse generate(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
                                         @Valid @RequestBody GenerateInviteCodeRequest request) {
-        return inviteCodeService.generate(courseId, request.expiresAt(), UUID.fromString(jwt.getSubject()));
+        UUID adminId = UUID.fromString(jwt.getSubject());
+        InviteCodeResponse response = inviteCodeService.generate(courseId, request.expiresAt(), adminId);
+        auditLogService.record(adminId, "GENERATE_INVITE_CODE", "COURSE", courseId, Map.of("code", response.code()));
+        return response;
     }
 
     @GetMapping
@@ -37,7 +43,11 @@ public class AdminInviteCodeController {
     }
 
     @PatchMapping("/{codeId}/deactivate")
-    public InviteCodeResponse deactivate(@PathVariable UUID courseId, @PathVariable UUID codeId) {
-        return inviteCodeService.deactivate(courseId, codeId);
+    public InviteCodeResponse deactivate(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
+                                          @PathVariable UUID codeId) {
+        InviteCodeResponse response = inviteCodeService.deactivate(courseId, codeId);
+        auditLogService.record(UUID.fromString(jwt.getSubject()), "DEACTIVATE_INVITE_CODE", "COURSE", courseId,
+                Map.of("code", response.code()));
+        return response;
     }
 }

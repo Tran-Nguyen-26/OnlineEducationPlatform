@@ -8,9 +8,11 @@ import { cn } from '../../lib/cn'
 import { CourseQaTab } from '../../components/CourseQaTab'
 import { ContentTab } from './course-view/ContentTab'
 import { GradingTab } from './course-view/GradingTab'
+import { RosterTab } from './course-view/RosterTab'
 
 const TABS = [
   { key: 'content', label: 'Nội dung' },
+  { key: 'students', label: 'Học sinh' },
   { key: 'grading', label: 'Chấm điểm' },
   { key: 'qa', label: 'Hỏi đáp' },
 ] as const
@@ -55,6 +57,7 @@ export function CourseViewPage() {
       </div>
 
       {tab === 'content' && <ContentTab content={contentQuery.data!} />}
+      {tab === 'students' && <RosterTab courseId={courseId} />}
       {tab === 'grading' && <GradingTab courseId={courseId} />}
       {tab === 'qa' && <CourseQaTab courseId={courseId} />}
     </div>

@@ -3,6 +3,8 @@ import { useAuth } from './auth/AuthContext'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
+import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { ChangePasswordPage } from './pages/ChangePasswordPage'
 import { AdminLayout } from './layouts/AdminLayout'
 import { DashboardPage } from './pages/admin/DashboardPage'
@@ -11,6 +13,7 @@ import { CoursesPage } from './pages/admin/CoursesPage'
 import { CourseDetailPage } from './pages/admin/CourseDetailPage'
 import { TeachersPage } from './pages/admin/TeachersPage'
 import { UsersPage } from './pages/admin/UsersPage'
+import { AuditLogPage } from './pages/admin/AuditLogPage'
 import { StudentLayout } from './layouts/StudentLayout'
 import { CataloguePage } from './pages/student/CataloguePage'
 import { CourseViewerPage } from './pages/student/CourseViewerPage'
@@ -33,6 +36,8 @@ function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/change-password" element={<ChangePasswordPage />} />
@@ -46,6 +51,7 @@ function App() {
           <Route path="courses/:courseId" element={<CourseDetailPage />} />
           <Route path="teachers" element={<TeachersPage />} />
           <Route path="users" element={<UsersPage />} />
+          <Route path="audit-logs" element={<AuditLogPage />} />
         </Route>
       </Route>
 
