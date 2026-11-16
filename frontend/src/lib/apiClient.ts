@@ -2,7 +2,8 @@ import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import { tokenStore } from './tokenStore'
 import type { ApiErrorBody, AuthResponse } from '../types/api'
 
-export const API_BASE_URL = 'http://localhost:8080'
+// Same host the page was opened from, so the app also works via 127.0.0.1 or a LAN IP (not only "localhost").
+export const API_BASE_URL = typeof window === 'undefined' ? 'http://localhost:8080' : `http://${window.location.hostname}:8080`
 
 export const apiClient = axios.create({ baseURL: API_BASE_URL })
 

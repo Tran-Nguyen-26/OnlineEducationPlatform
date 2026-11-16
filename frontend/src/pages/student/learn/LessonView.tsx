@@ -99,7 +99,8 @@ function LessonBody({ courseId, lesson, prev, next, onGo, quizzes, assignments, 
   return (
     <article>
       <div className="mb-2 text-sm text-slate-500">{lesson.moduleTitle}</div>
-      <h1 className="text-3xl font-bold tracking-tight text-slate-900">{lesson.title}</h1>
+      <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">{lesson.title}</h1>
+      <div className="mt-3 h-1 w-14 rounded-full bg-gradient-to-r from-indigo-500 to-teal-400" />
       <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-slate-500">
         <span className="flex items-center gap-1"><Clock size={14} /> ~{readingMinutes(lesson)} phút đọc</span>
         <span>{lesson.required ? 'Bài bắt buộc' : 'Bài tham khảo'}</span>
@@ -149,7 +150,7 @@ function LessonBody({ courseId, lesson, prev, next, onGo, quizzes, assignments, 
 
       <div className="mt-10 flex flex-col gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-stretch sm:justify-between">
         {prev ? (
-          <button onClick={() => onGo(prev.id)} className="flex flex-1 items-center gap-3 rounded-lg border border-slate-200 p-4 text-left hover:border-slate-400">
+          <button onClick={() => onGo(prev.id)} className="flex flex-1 items-center gap-3 surface surface-hover p-4 text-left">
             <ArrowLeft size={18} className="text-slate-400" />
             <div><div className="text-xs text-slate-400">Bài trước</div><div className="text-sm font-medium text-slate-800">{prev.title}</div></div>
           </button>
@@ -161,7 +162,7 @@ function LessonBody({ courseId, lesson, prev, next, onGo, quizzes, assignments, 
             </Button>
           )}
           {(completed || readOnly) && next && (
-            <button onClick={() => onGo(next.id)} className="flex flex-1 items-center justify-end gap-3 rounded-lg border border-slate-200 p-4 text-right hover:border-slate-400">
+            <button onClick={() => onGo(next.id)} className="flex flex-1 items-center justify-end gap-3 surface surface-hover p-4 text-right">
               <div><div className="text-xs text-slate-400">Bài tiếp theo</div><div className="text-sm font-medium text-slate-800">{next.title}</div></div>
               <ArrowRight size={18} className="text-slate-400" />
             </button>
@@ -185,7 +186,7 @@ function Requirements({ lesson, elapsed, livePercent, quizDone, assignmentDone }
   if (r.requireAssignment) items.push({ ok: assignmentDone, text: 'Nộp bài tập của bài học' })
   if (items.length === 0) return null
   return (
-    <div className="mt-10 rounded-lg border border-slate-200 bg-slate-50 p-4">
+    <div className="mt-10 rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4">
       <div className="mb-2 text-sm font-semibold text-slate-800">Điều kiện để hoàn thành bài học</div>
       <ul className="space-y-1 text-sm">
         {items.map((it) => (

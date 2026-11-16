@@ -1,3 +1,4 @@
+import { AuthShell } from '../components/AuthShell'
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
@@ -30,8 +31,8 @@ export function ChangePasswordPage() {
   }
 
   return (
-    <div className="flex h-screen items-center justify-center bg-slate-50">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
+    <AuthShell>
+      <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-depth ring-1 ring-slate-200/70">
         <h1 className="mb-1 text-xl font-bold text-slate-900">Đổi mật khẩu</h1>
         <p className="mb-6 text-sm text-slate-500">
           {user?.mustChangePassword
@@ -67,6 +68,6 @@ export function ChangePasswordPage() {
           Đăng xuất
         </button>
       </form>
-    </div>
+    </AuthShell>
   )
 }

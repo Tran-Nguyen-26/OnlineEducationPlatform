@@ -23,7 +23,7 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hours / 24)} ngày trước`
 }
 
-export function NotificationBell() {
+export function NotificationBell({ tone = 'light' }: { tone?: 'light' | 'dark' } = {}) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -60,7 +60,7 @@ export function NotificationBell() {
     <div className="relative" ref={containerRef}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="relative rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+        className={tone === 'dark' ? 'relative rounded-lg p-2 text-indigo-100 transition hover:bg-white/10 hover:text-white' : 'relative rounded-lg p-2 text-slate-500 transition hover:bg-indigo-50 hover:text-indigo-700'}
         aria-label="Thông báo"
       >
         <Bell size={18} />
@@ -74,7 +74,7 @@ export function NotificationBell() {
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full z-20 mt-2 w-80 rounded-lg border border-slate-200 bg-white shadow-lg">
+          <div className="absolute left-0 top-full z-20 mt-2 w-80 rounded-2xl border border-slate-200 bg-white shadow-depth">
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2">
               <span className="text-sm font-semibold text-slate-900">Thông báo</span>
               {unreadCount > 0 && (

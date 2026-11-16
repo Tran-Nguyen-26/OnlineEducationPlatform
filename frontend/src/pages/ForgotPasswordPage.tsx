@@ -1,3 +1,4 @@
+import { AuthShell } from '../components/AuthShell'
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { apiClient, getApiErrorMessage } from '../lib/apiClient'
@@ -25,8 +26,8 @@ export function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex h-screen items-center justify-center bg-slate-50">
-      <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
+    <AuthShell>
+      <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-depth ring-1 ring-slate-200/70">
         <h1 className="mb-1 text-xl font-bold text-slate-900">Quên mật khẩu</h1>
         <p className="mb-6 text-sm text-slate-500">Nhập email để nhận link đặt lại mật khẩu.</p>
 
@@ -54,6 +55,6 @@ export function ForgotPasswordPage() {
           </Link>
         </p>
       </div>
-    </div>
+    </AuthShell>
   )
 }

@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { KeyRound } from 'lucide-react'
+import { GraduationCap, KeyRound, Search } from 'lucide-react'
 import { apiClient, getApiErrorMessage } from '../../lib/apiClient'
 import type { MyEnrollmentResponse, StudentCourseResponse } from '../../types/api'
 import { Button } from '../../components/ui/Button'
 import { PhaseBadge } from '../../components/PhaseBadge'
+import { TiltCard } from '../../components/ui/TiltCard'
+import { coverFor } from '../../lib/cover'
 import { Input } from '../../components/ui/Input'
 import { Modal } from '../../components/ui/Modal'
 
@@ -51,20 +53,22 @@ export function CataloguePage() {
   }
 
   return (
-    <div>
-      <h1 className="mb-1 text-2xl font-bold text-slate-900">Khóa học</h1>
+    <div className="mx-auto max-w-6xl">
+      <h1 className="mb-1 text-3xl font-extrabold tracking-tight text-slate-900">Khám phá khóa học</h1>
       <p className="mb-6 text-sm text-slate-500">
         Mọi khóa học đều hiện giới thiệu công khai — nhập mã do trung tâm cung cấp để vào học.
       </p>
 
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="glass glow-border mb-8 flex flex-wrap items-center gap-2 rounded-2xl p-2 shadow-depth">
+        <Search size={18} className="ml-3 shrink-0 text-indigo-500" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Tìm theo tên khóa học..."
-          className="h-9 w-64 rounded-md border border-slate-300 px-3 text-sm"
+          aria-label="Tìm khóa học"
+          className="h-11 min-w-0 flex-1 bg-transparent text-[15px] text-slate-900 outline-none placeholder:text-slate-400"
         />
-        <select value={subject} onChange={(e) => setSubject(e.target.value)} className="h-9 rounded-md border border-slate-300 px-3 text-sm">
+        <select value={subject} onChange={(e) => setSubject(e.target.value)} className="h-11 rounded-xl bg-white px-3 text-sm text-slate-700 ring-1 ring-slate-200 outline-none focus:ring-indigo-400">
           <option value="">Tất cả môn học</option>
           {[...new Set((coursesQuery.data ?? []).map((c) => c.subjectName))].map((n) => (
             <option key={n} value={n}>{n}</option>
@@ -74,13 +78,19 @@ export function CataloguePage() {
 
       {coursesQuery.isLoading && <p className="text-slate-400">Đang tải...</p>}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {coursesQuery.data
           ?.filter((c) => (!subject || c.subjectName === subject) && c.title.toLowerCase().includes(search.trim().toLowerCase()))
           .map((course) => (
-          <div key={course.id} className="flex flex-col rounded-lg border border-slate-200 bg-white p-5">
-            <div className="text-xs font-medium uppercase tracking-wide text-slate-400">{course.subjectName}</div>
-            <h2 className="mt-1 text-lg font-semibold text-slate-900"><Link to={`/student/explore/${course.id}`} className="hover:underline">{course.title}</Link></h2>
+          <TiltCard key={course.id} max={6} className="h-full">
+          <div className="surface flex h-full flex-col overflow-hidden">
+            <div className={`relative h-24 bg-gradient-to-br ${coverFor(course.subjectName)}`}>
+              <div className="absolute inset-0 opacity-30 [background:radial-gradient(circle_at_80%_20%,white,transparent_45%)]" />
+              <span className="absolute bottom-3 left-4 rounded-full bg-white/90 px-2.5 py-0.5 text-[11px] font-bold tracking-wide text-slate-800 uppercase">{course.subjectName}</span>
+              <GraduationCap className="absolute top-3 right-4 text-white/60" size={24} />
+            </div>
+            <div className="flex flex-1 flex-col p-5">
+            <h2 className="text-lg font-bold text-slate-900"><Link to={`/student/explore/${course.id}`} className="hover:text-indigo-600">{course.title}</Link></h2>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
               <PhaseBadge phase={course.phase} />
               {course.instructors.length > 0 && <span>GV: {course.instructors.join(', ')}</span>}
@@ -119,7 +129,9 @@ export function CataloguePage() {
                 </Button>
               )}
             </div>
+            </div>
           </div>
+          </TiltCard>
         ))}
         {coursesQuery.data?.length === 0 && <p className="text-slate-400">Chưa có khóa học nào được công khai.</p>}
       </div>

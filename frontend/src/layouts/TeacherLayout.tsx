@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Bell, ClipboardCheck, GraduationCap, Home, LogOut, User } from 'lucide-react'
+import { Bell, ClipboardCheck, GraduationCap, Home, LogOut, Menu, User } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { cn } from '../lib/cn'
 import { apiClient } from '../lib/apiClient'
@@ -18,6 +19,7 @@ const NAV = [
 ]
 
 export function TeacherLayout() {
+  const [menu, setMenu] = useState(false)
   const { user, logout } = useAuth()
   const notifications = useQuery({
     queryKey: ['notifications'],
@@ -30,23 +32,23 @@ export function TeacherLayout() {
     notifications: notifications.data?.filter((n) => !n.read).length ?? 0,
   }
 
-  return (
-    <div className="flex h-screen bg-slate-50">
-      <aside className="flex w-64 flex-col border-r border-slate-200 bg-white">
+  const sidebar = (
+    <>
         <div className="flex items-center justify-between px-5 py-5">
-          <span className="text-lg font-bold text-slate-900">OEP Giáo viên</span>
+          <span className="flex items-center gap-2.5 text-lg font-extrabold tracking-tight text-slate-900"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-gradient text-white shadow-lg shadow-indigo-500/30"><GraduationCap size={19} /></span>OEP <span className="font-semibold text-indigo-600">Giáo viên</span></span>
           <NotificationBell />
         </div>
         <nav className="flex-1 space-y-1 px-3">
           {NAV.map((item) => (
             <NavLink
               key={item.to}
+              onClick={() => setMenu(false)}
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100',
-                  isActive && 'bg-slate-900 text-white hover:bg-slate-900',
+                  'flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-indigo-50 hover:text-indigo-700',
+                  isActive && 'bg-brand-gradient text-white shadow-md shadow-indigo-500/25 hover:bg-brand-gradient hover:text-white',
                 )
               }
             >
@@ -72,10 +74,27 @@ export function TeacherLayout() {
             Đăng xuất
           </button>
         </div>
-      </aside>
-      <main className="flex-1 overflow-y-auto p-8">
-        <Outlet />
-      </main>
+    </>
+  )
+
+  return (
+    <div className="flex h-screen bg-canvas">
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">{sidebar}</aside>
+      {menu && (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setMenu(false)} />
+          <aside className="relative flex h-full w-72 max-w-[85%] animate-pop flex-col bg-white">{sidebar}</aside>
+        </div>
+      )}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
+          <button onClick={() => setMenu(true)} className="rounded-lg p-1.5 text-slate-700 hover:bg-slate-100" aria-label="Mở menu"><Menu size={22} /></button>
+          <span className="font-extrabold tracking-tight text-slate-900">OEP</span>
+        </div>
+        <main className="flex-1 overflow-y-auto p-5 sm:p-8">
+          <Outlet />
+        </main>
+      </div>
     </div>
   )
 }

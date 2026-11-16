@@ -1,1 +1,112 @@
 @import "tailwindcss";
+
+/*
+ * OEP design system — "Indigo Aurora"
+ * Brand: indigo → violet (trust + energy), accent: teal (progress / success), warm amber for highlights.
+ * The built-in `blue` scale is remapped to the brand indigo so every existing `blue-*` utility follows the brand.
+ */
+@theme {
+  --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --color-blue-50: #eef2ff;
+  --color-blue-100: #e0e7ff;
+  --color-blue-200: #c7d2fe;
+  --color-blue-300: #a5b4fc;
+  --color-blue-400: #818cf8;
+  --color-blue-500: #6366f1;
+  --color-blue-600: #4f46e5;
+  --color-blue-700: #4338ca;
+  --color-blue-800: #3730a3;
+  --color-blue-900: #312e81;
+
+  --color-ink: #0f172a;
+  --color-canvas: #f6f7fb;
+
+  --shadow-soft: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 12px rgb(15 23 42 / 0.05);
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.05), 0 8px 24px -6px rgb(79 70 229 / 0.12);
+  --shadow-depth: 0 2px 4px rgb(15 23 42 / 0.04), 0 12px 24px -8px rgb(79 70 229 / 0.18), 0 32px 64px -16px rgb(79 70 229 / 0.22);
+  --shadow-glow: 0 0 0 1px rgb(99 102 241 / 0.35), 0 8px 30px -4px rgb(99 102 241 / 0.45);
+
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-float-slow: float 9s ease-in-out infinite;
+  --animate-pop: pop 0.22s ease-out both;
+  --animate-fade-up: fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  @keyframes float {
+    0%, 100% { transform: translate3d(0, 0, 0); }
+    50% { transform: translate3d(0, calc(var(--float-y, 12px) * -1), 0); }
+  }
+  @keyframes pop {
+    from { opacity: 0; transform: translateY(8px) scale(0.97); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: none; }
+  }
+}
+
+:root { color-scheme: light; }
+html { scroll-behavior: smooth; }
+body { background: var(--color-canvas); color: #334155; font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+
+@layer components {
+  /* Mesh gradient backgrounds */
+  .bg-mesh {
+    background:
+      radial-gradient(60% 50% at 12% 8%, rgb(129 140 248 / 0.35) 0%, transparent 60%),
+      radial-gradient(50% 45% at 88% 12%, rgb(167 139 250 / 0.32) 0%, transparent 62%),
+      radial-gradient(45% 40% at 70% 85%, rgb(45 212 191 / 0.22) 0%, transparent 60%),
+      linear-gradient(180deg, #f5f6ff 0%, #ffffff 100%);
+  }
+  .bg-mesh-dark {
+    background:
+      radial-gradient(55% 55% at 15% 10%, rgb(99 102 241 / 0.55) 0%, transparent 60%),
+      radial-gradient(45% 50% at 90% 20%, rgb(139 92 246 / 0.5) 0%, transparent 60%),
+      radial-gradient(50% 45% at 60% 100%, rgb(20 184 166 / 0.35) 0%, transparent 60%),
+      #1e1b4b;
+  }
+  .bg-brand-gradient { background-image: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); }
+  .text-brand-gradient { background-image: linear-gradient(120deg, #4f46e5 0%, #7c3aed 55%, #0d9488 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  /* Glassmorphism — always keep text on top of a mostly-opaque layer for contrast */
+  .glass { background: rgb(255 255 255 / 0.72); backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4); border: 1px solid rgb(255 255 255 / 0.7); }
+  .glass-dark { background: rgb(30 27 75 / 0.55); backdrop-filter: blur(14px) saturate(1.3); -webkit-backdrop-filter: blur(14px) saturate(1.3); border: 1px solid rgb(255 255 255 / 0.12); }
+
+  /* Surfaces */
+  .surface { background: #fff; border: 1px solid rgb(226 232 240 / 0.9); border-radius: 1rem; box-shadow: var(--shadow-soft); }
+  .surface-hover { transition: box-shadow .25s ease, transform .25s ease, border-color .25s ease; }
+  .surface-hover:hover { box-shadow: var(--shadow-card); border-color: rgb(165 180 252 / 0.8); transform: translateY(-2px); }
+
+  /* Glow border: gradient ring that lights up on hover / focus */
+  .glow-border { position: relative; }
+  .glow-border::before {
+    content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1px; pointer-events: none;
+    background: linear-gradient(135deg, rgb(99 102 241 / 0.9), rgb(167 139 250 / 0.9), rgb(45 212 191 / 0.9));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+    opacity: 0; transition: opacity .25s ease;
+  }
+  .glow-border:hover::before, .glow-border:focus-within::before { opacity: 1; }
+  .glow-border:focus-within { box-shadow: var(--shadow-glow); }
+
+  .scroll-thin { scrollbar-width: thin; scrollbar-color: rgb(165 180 252) transparent; }
+}
+
+/* Soften the legacy "rounded-lg border bg-white" cards used across admin/teacher pages so they match the new surfaces. */
+[class*="rounded-lg"][class*="border-slate-200"][class*="bg-white"] { border-radius: 0.875rem; box-shadow: var(--shadow-soft); }
+table thead { letter-spacing: .01em; }
+main h1 { letter-spacing: -0.015em; }
+
+/* Scroll reveal (driven by <AnimatedSection>) */
+[data-reveal] { opacity: 0; transform: translateY(22px); transition: opacity .7s cubic-bezier(.22,1,.36,1), transform .7s cubic-bezier(.22,1,.36,1); transition-delay: var(--reveal-delay, 0ms); }
+[data-reveal="in"] { opacity: 1; transform: none; }
+
+/* Accordion height animation without measuring (grid rows 0fr → 1fr) */
+.collapse-grid { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .28s ease; }
+.collapse-grid[data-open="true"] { grid-template-rows: 1fr; }
+.collapse-grid > div { overflow: hidden; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+  [data-reveal] { opacity: 1; transform: none; }
+}

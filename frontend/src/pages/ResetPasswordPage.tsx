@@ -1,3 +1,4 @@
+import { AuthShell } from '../components/AuthShell'
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { apiClient, getApiErrorMessage } from '../lib/apiClient'
@@ -32,8 +33,8 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <div className="flex h-screen items-center justify-center bg-slate-50">
-      <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
+    <AuthShell>
+      <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-depth ring-1 ring-slate-200/70">
         <h1 className="mb-1 text-xl font-bold text-slate-900">Đặt lại mật khẩu</h1>
         <p className="mb-6 text-sm text-slate-500">Nhập mật khẩu mới cho tài khoản của bạn.</p>
 
@@ -75,6 +76,6 @@ export function ResetPasswordPage() {
           </Link>
         </p>
       </div>
-    </div>
+    </AuthShell>
   )
 }

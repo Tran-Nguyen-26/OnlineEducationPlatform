@@ -1,3 +1,4 @@
+import { AuthShell } from '../components/AuthShell'
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
@@ -40,8 +41,8 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex h-screen items-center justify-center bg-slate-50">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
+    <AuthShell>
+      <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-depth ring-1 ring-slate-200/70">
         <h1 className="mb-1 text-xl font-bold text-slate-900">OEP</h1>
         <p className="mb-6 text-sm text-slate-500">Đăng nhập để tiếp tục</p>
 
@@ -75,6 +76,6 @@ export function LoginPage() {
           </Link>
         </p>
       </form>
-    </div>
+    </AuthShell>
   )
 }

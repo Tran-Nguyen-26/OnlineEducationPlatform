@@ -8,6 +8,7 @@ import { apiClient, getApiErrorMessage } from '../../lib/apiClient'
 import { extractHeadings } from '../../lib/markdown'
 import type { CourseOutlineResponse, StudentAssignmentResponse, StudentQuizResponse } from '../../types/api'
 import { cn } from '../../lib/cn'
+import { ProgressRing } from '../../components/ui/ProgressRing'
 import { CourseQaTab } from '../../components/CourseQaTab'
 import { SessionsPanel } from '../../components/SessionsPanel'
 import { AnnouncementsPanel } from '../../components/AnnouncementsPanel'
@@ -129,7 +130,7 @@ export function CourseViewerPage() {
                 <span className="flex-1">{mi + 1}. {m.title}</span>
                 <span className="text-xs font-normal text-slate-400">{mDone}/{m.lessons.length}</span>
               </button>
-              {open && (
+              <div className="collapse-grid" data-open={open}><div>
                 <ul className="ml-3 border-l border-slate-200">
                   {lessons.map((l) => {
                     const active = l.id === current?.id
@@ -151,7 +152,7 @@ export function CourseViewerPage() {
                     )
                   })}
                 </ul>
-              )}
+              </div></div>
             </div>
           )
         })}
@@ -175,7 +176,7 @@ export function CourseViewerPage() {
 
   return (
     <div className="flex h-screen flex-col bg-white">
-      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-slate-200 px-4">
+      <header className="glass relative z-30 flex h-16 shrink-0 items-center gap-3 border-x-0 border-t-0 border-b-slate-200/80 px-4">
         <button className="rounded-md p-1.5 text-slate-600 hover:bg-slate-100 lg:hidden" onClick={() => setMenuOpen((v) => !v)} aria-label="Mục lục">
           {menuOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
@@ -183,10 +184,10 @@ export function CourseViewerPage() {
           <ArrowLeft size={16} /> <span className="hidden sm:inline">Khóa học của tôi</span>
         </button>
         <div className="mx-2 hidden h-5 w-px bg-slate-200 sm:block" />
-        <h1 className="flex-1 truncate text-base font-semibold text-slate-900">{outline.title}</h1>
-        <div className="hidden items-center gap-3 sm:flex">
-          <div className="h-2 w-40 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${percent}%` }} /></div>
-          <span className="text-sm text-slate-600">{done}/{flat.length} bài · {percent}%</span>
+        <h1 className="flex-1 truncate text-base font-bold text-slate-900">{outline.title}</h1>
+        <div className="flex items-center gap-3">
+          <ProgressRing value={percent} size={42} stroke={5} />
+          <span className="hidden text-sm font-medium text-slate-600 sm:inline">{done}/{flat.length} bài hoàn thành</span>
         </div>
       </header>
 
@@ -194,12 +195,13 @@ export function CourseViewerPage() {
         <div className="shrink-0 bg-emerald-50 px-4 py-1.5 text-center text-xs text-emerald-800">Bạn đã hoàn thành khóa học này — đang ở chế độ xem lại, tiến độ không thay đổi.</div>
       )}
       <div className="relative flex min-h-0 flex-1">
-        <aside className={cn('absolute inset-y-0 left-0 z-20 w-80 border-r border-slate-200 bg-white lg:static lg:block', menuOpen ? 'block shadow-xl' : 'hidden')}>{sidebar}</aside>
+        <aside className={cn('absolute inset-y-0 left-0 z-20 w-80 border-r border-slate-200 bg-white/95 backdrop-blur lg:static lg:block', menuOpen ? 'block shadow-xl' : 'hidden')}>{sidebar}</aside>
 
         <main ref={(el) => { scrollRef.current = el; if (el !== scrollEl) setScrollEl(el) }} className="min-w-0 flex-1 overflow-y-auto">
           <div className="mx-auto flex max-w-6xl gap-10 px-6 py-8 lg:px-10">
             <div className="min-w-0 max-w-3xl flex-1">
               {current && (
+                <div key={current.id} className="animate-fade-up">
                 <LessonView
                   courseId={courseId}
                   lesson={current}
@@ -210,6 +212,7 @@ export function CourseViewerPage() {
                   assignments={assignmentsQuery.data ?? []}
                   readOnly={outline.readOnly}
                 />
+                </div>
               )}
               {!current && view === 'completion' && <ViewShell title="Hoàn thành khóa học"><CompletionPanel courseId={courseId} /></ViewShell>}
               {!current && view === 'quizzes' && <ViewShell title="Bài kiểm tra"><QuizzesTab courseId={courseId} /></ViewShell>}

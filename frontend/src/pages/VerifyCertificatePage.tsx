@@ -1,3 +1,4 @@
+import { AuthShell } from '../components/AuthShell'
 import { useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -25,8 +26,8 @@ export function VerifyCertificatePage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
-      <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
+    <AuthShell wide>
+      <div className="w-full rounded-2xl bg-white p-8 shadow-depth ring-1 ring-slate-200/70">
         <div className="mb-6 flex items-center gap-2">
           <ShieldCheck className="text-slate-700" />
           <h1 className="text-xl font-bold text-slate-900">Xác thực chứng chỉ</h1>
@@ -54,6 +55,6 @@ export function VerifyCertificatePage() {
           </div>
         )}
       </div>
-    </div>
+    </AuthShell>
   )
 }

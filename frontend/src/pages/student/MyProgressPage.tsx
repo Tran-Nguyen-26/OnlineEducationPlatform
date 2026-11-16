@@ -6,6 +6,7 @@ import type { MyProgressResponse } from '../../types/api'
 import { Badge } from '../../components/Badge'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
+import { ProgressRing } from '../../components/ui/ProgressRing'
 
 export function MyProgressPage() {
   const navigate = useNavigate()
@@ -33,27 +34,27 @@ export function MyProgressPage() {
     : Math.round((items.reduce((sum, i) => sum + i.percent, 0) / items.length) * 10) / 10
 
   return (
-    <div>
-      <h1 className="mb-1 text-2xl font-bold text-slate-900">Khóa học của tôi</h1>
+    <div className="mx-auto max-w-5xl">
+      <h1 className="mb-1 text-3xl font-extrabold tracking-tight text-slate-900">Khóa học của tôi</h1>
       <p className="mb-6 text-sm text-slate-500">Tổng hợp tiến độ học tập trên tất cả khóa học đã ghi danh.</p>
 
       {progressQuery.isLoading && <p className="text-slate-400">Đang tải...</p>}
 
       {items.length > 0 && (
-        <div className="mb-6 rounded-lg border border-slate-200 bg-white p-5">
+        <div className="mb-6 rounded-2xl bg-brand-gradient p-5 text-white shadow-depth [&_.text-slate-900]:text-white">
           <div className="mb-1 flex items-center justify-between text-sm">
             <span className="font-medium text-slate-900">Tiến độ trung bình</span>
             <span className="font-semibold text-slate-900">{overallPercent}%</span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-            <div className="h-full rounded-full bg-slate-900" style={{ width: `${overallPercent}%` }} />
+          <div className="h-2.5 overflow-hidden rounded-full bg-white/25">
+            <div className="h-full rounded-full bg-white transition-all duration-700" style={{ width: `${overallPercent}%` }} />
           </div>
         </div>
       )}
 
       <div className="space-y-3">
         {items.map((item) => (
-          <div key={item.enrollmentId} className="rounded-lg border border-slate-200 bg-white p-5">
+          <div key={item.enrollmentId} className="surface surface-hover p-5">
             <div className="flex items-start justify-between">
               <div>
                 <div className="text-xs font-medium uppercase tracking-wide text-slate-400">{item.subjectName}</div>
@@ -70,15 +71,13 @@ export function MyProgressPage() {
               </p>
             )}
 
-            <div className="mt-4">
-              <div className="mb-1 flex items-center justify-between text-sm text-slate-600">
-                <span>
-                  {item.completedLessons}/{item.totalLessons} bài học đã hoàn thành
-                </span>
-                <span className="font-medium text-slate-900">{item.percent}%</span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                <div className="h-full rounded-full bg-slate-900" style={{ width: `${item.percent}%` }} />
+            <div className="mt-4 flex items-center gap-4">
+              <ProgressRing value={item.percent} size={64} stroke={7} />
+              <div className="min-w-0 flex-1">
+                <div className="mb-1.5 text-sm text-slate-600">{item.completedLessons}/{item.totalLessons} bài học đã hoàn thành</div>
+                <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-violet-500 to-teal-400 transition-all duration-700" style={{ width: `${item.percent}%` }} />
+                </div>
               </div>
             </div>
 
