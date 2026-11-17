@@ -1,6 +1,6 @@
 locals {
-  rds_url         = "jdbc:postgresql://${aws_db_instance.primary.address}:5432/oep?sslmode=require"
-  rds_replica_url = "jdbc:postgresql://${var.create_read_replica ? aws_db_instance.replica[0].address : aws_db_instance.primary.address}:5432/oep?sslmode=require"
+  rds_url         = "jdbc:postgresql://${aws_db_instance.primary.address}:5432/oep?sslmode=require&connectTimeout=3"
+  rds_replica_url = "jdbc:postgresql://${var.create_read_replica ? aws_db_instance.replica[0].address : aws_db_instance.primary.address}:5432/oep?sslmode=require&connectTimeout=3"
   rabbit_host     = replace(replace(aws_mq_broker.rabbit.instances[0].endpoints[0], "amqps://", ""), ":5671", "")
   public_origin   = "https://${aws_cloudfront_distribution.site.domain_name}"
   s3_origin       = "https://${aws_s3_bucket.content.bucket}.s3.${var.region}.amazonaws.com"

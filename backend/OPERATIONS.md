@@ -49,8 +49,8 @@ Nên diễn tập khôi phục trước buổi demo. Trên AWS dùng thêm snaps
 
 | Nhóm | Giới hạn |
 |---|---|
-| Mặc định | 20 req/s/người dùng (burst 40) |
-| `/api/auth/login,register,forgot-password,reset-password,refresh` | 1 req/s/IP (burst 8) |
+| Mặc định (mỗi route chính) | 20 req/s/người dùng (burst 40); người chưa đăng nhập tính theo IP **thật** của máy khách |
+| `/api/auth/login,register,forgot-password,reset-password,refresh` | 5 req/s/IP, burst 60 (`AUTH_RATE_REPLENISH`, `AUTH_RATE_BURST`) — đủ cho cả lớp sau một NAT; chống dò mật khẩu bằng khóa tài khoản |
 | Nộp quiz/bài tập | 5 req/s (burst 15) |
 | Xin URL upload | 2 req/s (burst 10) |
 
@@ -79,4 +79,5 @@ Các job định kỳ dùng ShedLock (bảng `shedlock`) nên chỉ một bản 
 | 503 `SERVICE_UNAVAILABLE` + `Retry-After` | circuit breaker đang mở vì upstream lỗi; tự đóng lại sau ~10 s |
 | Upload file bị chặn trên trình duyệt | CORS của bucket (`STORAGE_CORS_ORIGINS`) hoặc CSP `STORAGE_PUBLIC_ORIGIN` sai |
 | Cổng 9000/15672 bị chiếm khi dựng stack | dừng stack dev (`docker compose stop`) hoặc đổi `RABBIT_UI_PORT` |
+| Host không truy cập được container dù cổng đã publish | VPN trùng dải mạng Docker; compose cố định mạng `10.231.0.0/24`, đổi bằng `OEP_SUBNET` |
 | Ổ NTFS báo `No space left` (hết MFT record) | dùng ext4 cho cache/build, `git gc`, tránh tạo nhiều file nhỏ |

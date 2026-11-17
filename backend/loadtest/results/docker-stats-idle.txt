@@ -1,0 +1,9 @@
+oep-prod-api-gateway-1 0.31% 259.7MiB / 768MiB
+oep-prod-worker-service-1 0.93% 338.8MiB / 768MiB
+oep-prod-assessment-service-1 0.61% 373MiB / 768MiB
+oep-prod-core-lms-service-1 0.39% 428.9MiB / 768MiB
+oep-prod-frontend-1 0.00% 13.05MiB / 128MiB
+oep-prod-postgres-1 0.08% 112.4MiB / 1GiB
+oep-prod-redis-1 0.96% 6.32MiB / 256MiB
+oep-prod-rabbitmq-1 0.22% 139.6MiB / 512MiB
+oep-prod-minio-1 0.11% 82.32MiB / 384MiB

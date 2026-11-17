@@ -11,6 +11,8 @@ spring:
     name: api-gateway
   data:
     redis:
+      timeout: 500ms           # fail fast when Redis is down (default is 60 s)
+      connect-timeout: 500ms
       host: ${REDIS_HOST:localhost}
       port: 6379
   security:
@@ -35,12 +37,8 @@ spring:
       httpclient:
         connect-timeout: 2000       # ms to open a connection to a service
         response-timeout: 30s       # whole-response budget; slower calls fail fast instead of piling up
-      default-filters:
-        - name: RequestRateLimiter  # baseline for every route: per user (JWT subject) or IP
-          args:
-            redis-rate-limiter.replenishRate: 20
-            redis-rate-limiter.burstCapacity: 40
-            key-resolver: "#{@userKeyResolver}"
+      # NOTE: exactly ONE RequestRateLimiter per route. Spring keeps the limiter config per route id, so a second
+      # (e.g. default-filters) limiter on the same route would silently overwrite the first one's rates.
       routes:
         # --- stricter, purpose-built limits (evaluated before the generic routes) -------------------------------
         - id: auth-sensitive         # brute-force / enumeration surface: per client IP
@@ -50,8 +48,8 @@ spring:
           filters:
             - name: RequestRateLimiter
               args:
-                redis-rate-limiter.replenishRate: 1
-                redis-rate-limiter.burstCapacity: 8
+                redis-rate-limiter.replenishRate: ${AUTH_RATE_REPLENISH:5}
+                redis-rate-limiter.burstCapacity: ${AUTH_RATE_BURST:60}
                 key-resolver: "#{@ipKeyResolver}"
         - id: quiz-write             # exam peaks: protect the write path per student
           uri: ${ASSESSMENT_URL:http://localhost:8082}
@@ -63,11 +61,10 @@ spring:
               args:
                 redis-rate-limiter.replenishRate: 5
                 redis-rate-limiter.burstCapacity: 15
-                key-resolver: "#{@userKeyResolver}"
+                key-resolver: "#{@routeUserKeyResolver}"
             - name: CircuitBreaker
               args:
                 name: assessment
-                fallbackUri: forward:/fallback
                 statusCodes: 502,503,504
         - id: upload-urls-assessment
           uri: ${ASSESSMENT_URL:http://localhost:8082}
@@ -78,7 +75,7 @@ spring:
               args:
                 redis-rate-limiter.replenishRate: 2
                 redis-rate-limiter.burstCapacity: 10
-                key-resolver: "#{@userKeyResolver}"
+                key-resolver: "#{@routeUserKeyResolver}"
         - id: upload-urls-core
           uri: ${CORE_LMS_URL:http://localhost:8081}
           predicates:
@@ -88,13 +85,18 @@ spring:
               args:
                 redis-rate-limiter.replenishRate: 2
                 redis-rate-limiter.burstCapacity: 10
-                key-resolver: "#{@userKeyResolver}"
+                key-resolver: "#{@routeUserKeyResolver}"
         # --- generic routes: retry idempotent reads with backoff, circuit-break the whole upstream ---------------
         - id: core-lms
           uri: ${CORE_LMS_URL:http://localhost:8081}
           predicates:
             - Path=/api/auth/**,/api/admin/**,/api/users/**,/api/courses/**,/api/enrollments/**,/api/notifications/**,/api/lessons/**,/api/lesson-contents/**,/api/instructors/**,/api/certificates/**,/api/public/**
           filters:
+            - name: RequestRateLimiter   # generic limit: 20 req/s per user (per client IP when anonymous)
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+                key-resolver: "#{@routeUserKeyResolver}"
             - name: Retry
               args:
                 retries: 2
@@ -107,13 +109,17 @@ spring:
             - name: CircuitBreaker
               args:
                 name: coreLms
-                fallbackUri: forward:/fallback
                 statusCodes: 502,503,504
         - id: assessment
           uri: ${ASSESSMENT_URL:http://localhost:8082}
           predicates:
             - Path=/api/gradebook/**,/api/appeals/**,/api/quizzes/**,/api/attempts/**,/api/submissions/**,/api/assignments/**,/api/submission-files/**
           filters:
+            - name: RequestRateLimiter   # generic limit: 20 req/s per user (per client IP when anonymous)
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+                key-resolver: "#{@routeUserKeyResolver}"
             - name: Retry
               args:
                 retries: 2
@@ -126,7 +132,6 @@ spring:
             - name: CircuitBreaker
               args:
                 name: assessment
-                fallbackUri: forward:/fallback
                 statusCodes: 502,503,504
         # AI Tutor (Python) - add later:
         # - id: ai-tutor

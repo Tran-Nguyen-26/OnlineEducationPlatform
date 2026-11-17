@@ -156,9 +156,9 @@ Phân tích dựa trên code và cấu hình thật của repo ở thời điể
 | Giai đoạn | Trạng thái | Ghi chú |
 |---|---|---|
 | A — Nền tảng bảo vệ được | ✅ phần kỹ thuật | `DEPLOYMENT.md`, `OPERATIONS.md`, `ENTERPRISE_READINESS.md`; còn thiếu: số liệu NFR/SLO đo thật |
-| B — Chứng minh chịu tải quiz | ⏳ chưa | cần k6/Gatling + báo cáo p95/p99; stack prod local đã sẵn để chạy |
+| B — Chứng minh chịu tải quiz | ✅ trên máy local | 300 học viên làm quiz đồng thời, 0 lỗi nghiêm trọng, p95 nộp bài 44 ms; xem `LOAD_TEST_REPORT.md` (chưa đo trên AWS) |
 | C — Triển khai cloud + CI/CD | 🟡 một nửa | Dockerfile, compose prod-like, Terraform AWS đã viết và validate; **chưa apply**, chưa có pipeline CI/CD |
-| D — Observability & độ tin cậy | ✅ | log JSON, trace, Prometheus/Grafana/Jaeger, alert, outbox/DLQ/circuit breaker (chưa chaos-test có số liệu) |
+| D — Observability & độ tin cậy | ✅ | log JSON, trace, Prometheus/Grafana/Jaeger, alert, outbox/DLQ/circuit breaker; chaos test 6 kịch bản có số liệu trong `LOAD_TEST_REPORT.md` |
 | E — Media (CDN/HLS) | 🟡 | CloudFront đã có trong Terraform cho giao diện/asset; HLS/nén video chưa làm |
 | F — Kiểm thử & bảo mật | 🟡 | bảo mật đã làm nhiều (JWT, lockout, idempotency, header, privacy); test tự động chưa |
 | G — AI tutor | ⏳ tùy chọn | chưa |

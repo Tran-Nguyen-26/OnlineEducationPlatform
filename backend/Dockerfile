@@ -26,7 +26,7 @@ WORKDIR /app
 COPY --from=build /app.jar /app/app.jar
 USER oep
 ENV SPRING_PROFILES_ACTIVE=prod \
-    JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/urandom"
+    JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/urandom -Dsun.net.inetaddr.ttl=10 -Dsun.net.inetaddr.negative.ttl=1"
 # 8080-8083 = service port, 9090 = internal management port (health / metrics)
 EXPOSE 8080 8081 8082 8083 9090
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

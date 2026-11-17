@@ -108,4 +108,6 @@ Nói "làm mục N" hoặc "làm phần X" để bắt đầu — giữ đúng q
 
 | Dữ liệu demo | `DemoDataSeeder` (profile `demo`): 2 GV, 8 HV, 3 khóa, quiz, bài tập, tiến độ, điểm; bật mặc định ở compose prod-like và Terraform | `DEPLOYMENT.md` |
 
+| Kiểm thử tải/chịu lỗi | k6 (200 HV duyệt, 300 HV thi, 100 HV sau 1 NAT) + chaos 6 kịch bản; tìm và sửa 7 lỗi | `LOAD_TEST_REPORT.md`, `loadtest/README.md` |
+
 **Chưa làm:** test tự động, CI/CD, load test/chaos có số liệu, apply Terraform thật lên AWS, AI Tutor, HLS/CDN cho video, nhật ký cho thao tác của người không phải admin.

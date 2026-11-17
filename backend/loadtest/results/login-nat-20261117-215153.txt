@@ -1,0 +1,28 @@
+
+
+  █ TOTAL RESULTS 
+
+    CUSTOM
+    login_429......................: 165    24.171779/s
+    login_429_gateway_limiter......: 165    24.171779/s
+    login_429_with_retry_after.....: 165    24.171779/s
+    login_ok.......................: 85     12.452129/s
+
+    HTTP
+    http_req_duration..............: avg=613.09ms med=115.68ms p(95)=2.11s max=2.19s
+      { expected_response:true }...: avg=1.46s    med=1.84s    p(95)=2.15s max=2.19s
+    http_req_failed................: 66.00% 165 out of 250
+    http_reqs......................: 250    36.623908/s
+
+    EXECUTION
+    iteration_duration.............: avg=3.19s    med=2.13s    p(95)=6.81s max=6.82s
+    iterations.....................: 100    14.649563/s
+    vus............................: 15     min=15         max=100
+    vus_max........................: 100    min=100        max=100
+
+    NETWORK
+    data_received..................: 243 kB 36 kB/s
+    data_sent......................: 57 kB  8.4 kB/s
+
+
+

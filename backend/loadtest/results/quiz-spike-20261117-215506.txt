@@ -1,0 +1,50 @@
+
+
+  █ THRESHOLDS 
+
+    exam_completed
+    ✓ 'count>=297' count=300
+
+    http_req_duration{name:POST start-attempt}
+    ✓ 'p(95)<1500' p(95)=839.17ms
+
+    http_req_duration{name:POST submit-attempt}
+    ✓ 'p(95)<2000' p(95)=44.03ms
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.33%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 600     30.753487/s
+    checks_succeeded...: 100.00% 600 out of 600
+    checks_failed......: 0.00%   0 out of 600
+
+    ✓ start 200
+    ✓ submit 200
+
+    CUSTOM
+    exam_completed...................: 300    15.376744/s
+    start_to_submit_ms...............: avg=9975.74  med=9446     p(90)=14080.3  p(95)=14840.15 p(99)=15295.85 max=15763   
+
+    HTTP
+    http_req_duration................: avg=797.25ms med=132.46ms p(90)=2.89s    p(95)=3.55s    p(99)=3.93s    max=3.99s   
+      { expected_response:true }.....: avg=787.92ms med=128.75ms p(90)=2.87s    p(95)=3.51s    p(99)=3.93s    max=3.99s   
+      { name:POST start-attempt }....: avg=268.28ms med=133.61ms p(90)=762.06ms p(95)=839.17ms p(99)=970.68ms max=1s      
+      { name:POST submit-attempt }...: avg=27.68ms  med=25.04ms  p(90)=40.3ms   p(95)=44.03ms  p(99)=61.17ms  max=223.81ms
+    http_req_failed..................: 0.33%  3 out of 906
+    http_reqs........................: 906    46.437766/s
+
+    EXECUTION
+    iteration_duration...............: avg=12.1s    med=11.87s   p(90)=16.17s   p(95)=17.13s   p(99)=18.34s   max=18.93s  
+    iterations.......................: 300    15.376744/s
+    vus..............................: 3      min=3        max=300
+    vus_max..........................: 300    min=300      max=300
+
+    NETWORK
+    data_received....................: 1.6 MB 83 kB/s
+    data_sent........................: 798 kB 41 kB/s
+
+
+

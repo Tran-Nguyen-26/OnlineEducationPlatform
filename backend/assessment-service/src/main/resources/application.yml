@@ -36,10 +36,16 @@ oep:
     # readOnly transactions go to the replica, everything else to the primary (same mechanism as core-lms-service)
     routing-enabled: true
     primary:
+      connection-timeout: 3000      # fail fast when the database is down (default 30 s)
+      validation-timeout: 2000
+      maximum-pool-size: 20
       jdbc-url: ${DB_URL:jdbc:postgresql://localhost:5432/oep}
       username: ${DB_USER:oep}
       password: ${DB_PASSWORD:oep}
     replica:
+      connection-timeout: 3000      # fail fast when the database is down (default 30 s)
+      validation-timeout: 2000
+      maximum-pool-size: 20
       jdbc-url: ${DB_REPLICA_URL:jdbc:postgresql://localhost:5433/oep}
       username: ${DB_REPLICA_USER:oep}
       password: ${DB_REPLICA_PASSWORD:oep}

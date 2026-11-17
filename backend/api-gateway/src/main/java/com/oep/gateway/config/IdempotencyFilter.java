@@ -27,6 +27,7 @@ import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -78,11 +79,30 @@ public class IdempotencyFilter implements GlobalFilter, Ordered {
                 }).defaultIfEmpty(new byte[0]).flatMap(body -> {
                     String hash = sha256(req.getMethod() + " " + req.getURI().getRawPath() + "?" + req.getURI().getRawQuery() + "\n", body);
                     String redisKey = "oep:idem:" + owner + ":" + idemKey;
-                    return redis.opsForValue().setIfAbsent(redisKey, "P:" + hash, LOCK_TTL).flatMap(acquired -> {
-                        if (Boolean.TRUE.equals(acquired)) return execute(exchange, chain, body, redisKey, hash);
-                        return redis.opsForValue().get(redisKey).defaultIfEmpty("").flatMap(state -> replay(exchange, state, hash));
-                    });
+                    // Redis is an optimisation, not a dependency: when it is slow or down the request is processed
+                    // normally (without idempotency protection) instead of failing or hanging.
+                    return redis.opsForValue().setIfAbsent(redisKey, "P:" + hash, LOCK_TTL)
+                            .timeout(Duration.ofMillis(800))
+                            .map(Optional::of)
+                            .onErrorResume(e -> Mono.just(Optional.empty()))
+                            .flatMap(acquired -> {
+                                if (acquired.isEmpty()) return withoutIdempotency(exchange, chain, body);
+                                if (Boolean.TRUE.equals(acquired.get())) return execute(exchange, chain, body, redisKey, hash);
+                                return redis.opsForValue().get(redisKey).defaultIfEmpty("").flatMap(state -> replay(exchange, state, hash));
+                            });
                 }));
+    }
+
+    /** Redis unavailable: forward the (already buffered) request body untouched. */
+    private Mono<Void> withoutIdempotency(ServerWebExchange exchange, GatewayFilterChain chain, byte[] body) {
+        DataBufferFactory bf = exchange.getResponse().bufferFactory();
+        ServerHttpRequest replayable = new ServerHttpRequestDecorator(exchange.getRequest()) {
+            @Override
+            public Flux<DataBuffer> getBody() {
+                return body.length == 0 ? Flux.empty() : Flux.just(bf.wrap(body));
+            }
+        };
+        return chain.filter(exchange.mutate().request(replayable).build());
     }
 
     private Mono<Void> execute(ServerWebExchange exchange, GatewayFilterChain chain, byte[] body, String redisKey, String hash) {

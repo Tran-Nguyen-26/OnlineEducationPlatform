@@ -29,6 +29,8 @@ spring:
     password: ${DB_PASSWORD:oep}
   data:
     redis:
+      timeout: 500ms           # fail fast when Redis is down (default is 60 s)
+      connect-timeout: 500ms
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
   rabbitmq:
@@ -41,10 +43,16 @@ oep:
   datasource:
     routing-enabled: true
     primary:
+      connection-timeout: 3000      # fail fast when the database is down (default 30 s)
+      validation-timeout: 2000
+      maximum-pool-size: 20
       jdbc-url: ${DB_URL:jdbc:postgresql://localhost:5432/oep}
       username: ${DB_USER:oep}
       password: ${DB_PASSWORD:oep}
     replica:
+      connection-timeout: 3000      # fail fast when the database is down (default 30 s)
+      validation-timeout: 2000
+      maximum-pool-size: 20
       jdbc-url: ${DB_REPLICA_URL:jdbc:postgresql://localhost:5433/oep}
       username: ${DB_REPLICA_USER:oep}
       password: ${DB_REPLICA_PASSWORD:oep}

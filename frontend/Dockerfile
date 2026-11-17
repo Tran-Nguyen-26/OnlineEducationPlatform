@@ -12,10 +12,12 @@ RUN npm run build
 FROM nginx:1.27-alpine
 # nginx renders /etc/nginx/templates/*.template with the container environment on start
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY 16-resolver.envsh /docker-entrypoint.d/16-resolver.envsh
+RUN chmod +x /docker-entrypoint.d/16-resolver.envsh
 COPY --from=build /app/dist /usr/share/nginx/html
 ENV GATEWAY_URL=http://api-gateway:8080 \
     STORAGE_PUBLIC_ORIGIN=http://localhost:9000
 # only substitute our own variables (nginx's $uri, $host ... must stay untouched)
-ENV NGINX_ENVSUBST_FILTER=^(GATEWAY_URL|STORAGE_PUBLIC_ORIGIN)$
+ENV NGINX_ENVSUBST_FILTER=^(GATEWAY_URL|STORAGE_PUBLIC_ORIGIN|NGINX_LOCAL_RESOLVERS)$
 EXPOSE 80
 HEALTHCHECK --interval=15s --timeout=3s CMD wget -q -O /dev/null http://127.0.0.1/healthz || exit 1

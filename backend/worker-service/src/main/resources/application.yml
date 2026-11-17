@@ -13,6 +13,8 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/oep}
     username: ${DB_USER:oep}
     password: ${DB_PASSWORD:oep}
+    hikari:
+      connection-timeout: 3000
   jpa:
     hibernate:
       ddl-auto: none
