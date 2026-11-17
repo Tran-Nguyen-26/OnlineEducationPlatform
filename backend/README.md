@@ -28,10 +28,11 @@ Requires `JAVA_HOME` = JDK 21. Swagger UI (dev only): <http://localhost:8081/swa
 ## Production-like run (profile `prod`, Docker)
 
 ```bash
-scripts/gen-secrets.sh                            # .env.prod + JWT key (git-ignored)
+scripts/gen-secrets.sh                            # .env.prod + JWT key + demo password (git-ignored)
 docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
 scripts/smoke.sh                                  # 13 end-to-end checks; app on http://localhost:8088
 ```
+Sample data (teachers `gv.lan@oep.demo`, `gv.minh@oep.demo`; students `hs01..hs08@oep.demo`; password = `DEMO_PASSWORD` in `.env.prod`) is loaded by profile `demo` — see `DEPLOYMENT.md`. For dev: `SPRING_PROFILES_ACTIVE=dev,demo mvn -pl core-lms-service spring-boot:run`.
 
 ## Documentation map
 

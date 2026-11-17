@@ -38,6 +38,10 @@ resource "random_password" "rabbit" {
   length  = 28
   special = false
 }
+resource "random_password" "demo" {
+  length  = 12
+  special = false
+}
 resource "random_password" "admin" {
   length  = 14
   special = false
@@ -252,6 +256,8 @@ resource "aws_instance" "app" {
     redis_password  = random_password.redis.result
     rabbit_password = random_password.rabbit.result
     admin_password  = "Adm1n-${random_password.admin.result}"
+    core_profiles   = var.seed_demo_data ? "prod,demo" : "prod"
+    demo_password   = "Demo-${random_password.demo.result}"
   })
 
   tags = { Name = "oep-${var.environment}" }

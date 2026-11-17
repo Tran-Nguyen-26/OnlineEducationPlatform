@@ -30,6 +30,19 @@ everything else stays on the internal Docker network. The first admin login is p
 Architecture of the stack: `browser → nginx (SPA + /api proxy) → api-gateway → core-lms / assessment → Postgres / Redis / RabbitMQ / S3`,
 and `worker-service` relays the outbox to RabbitMQ and persists notifications.
 
+### Dữ liệu demo (profile `demo`)
+
+`DemoDataSeeder` tạo (một lần, bỏ qua nếu đã có): 2 giáo viên, 8 học viên, 3 môn, 3 khóa đã xuất bản (Tiếng Anh giao tiếp, Python nhập môn — học tuần tự, có học phí 500.000đ —, Kỹ năng thuyết trình), mỗi khóa 4 bài học, 1 quiz, 1 bài tập, 15 lượt ghi danh có tiến độ khác nhau, 13 kết quả quiz, 6 bài tập đã chấm, thông báo khóa học.
+Bật bằng `SPRING_PROFILES_ACTIVE=prod,demo` (compose: `CORE_PROFILES=prod,demo` trong `.env.prod`, `gen-secrets.sh` đặt sẵn; Terraform: `seed_demo_data=true`, mặc định bật). Tắt bằng cách bỏ `demo`.
+
+| Tài khoản | Mật khẩu |
+|---|---|
+| `gv.lan@oep.demo` (giáo viên: Tiếng Anh, Thuyết trình), `gv.minh@oep.demo` (Python) | `DEMO_PASSWORD` trong `.env.prod` (Terraform: `terraform output -raw demo_password`) |
+| `hs01@oep.demo` … `hs08@oep.demo` (học viên) | như trên |
+| `admin@oep.local` | mật khẩu admin (đổi lần đầu) |
+
+Mã mời để học viên mới thử ghi danh: `DEMO-ENGLISH`, `DEMO-PYTHON`, `DEMO-PRESENT`. Tài khoản demo không bị buộc đổi mật khẩu để buổi trình bày trơn tru — **không bật `demo` cho hệ thống thật**.
+
 ## 3. AWS target
 
 Terraform for both options lives in `../infra/aws/` (`ec2-demo`, `ecs-managed`; see its README for commands, cost and limits). The options below describe what those stacks create.

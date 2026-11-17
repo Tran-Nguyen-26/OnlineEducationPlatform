@@ -6,6 +6,10 @@ resource "random_password" "rabbit" {
   length  = 28
   special = false
 }
+resource "random_password" "demo" {
+  length  = 12
+  special = false
+}
 resource "random_password" "admin" {
   length  = 14
   special = false
@@ -135,6 +139,7 @@ resource "aws_secretsmanager_secret_version" "app" {
     db_password     = random_password.db.result
     rabbit_password = random_password.rabbit.result
     admin_password  = "Adm1n-${random_password.admin.result}"
+    demo_password   = "Demo-${random_password.demo.result}"
     jwt_private_key = tls_private_key.jwt.private_key_pem_pkcs8
   })
 }

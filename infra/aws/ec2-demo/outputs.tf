@@ -13,6 +13,12 @@ output "admin_password" {
   sensitive = true # terraform output -raw admin_password
 }
 
+output "demo_password" {
+  description = "Password of the sample accounts (gv.lan@oep.demo, gv.minh@oep.demo, hs01..hs08@oep.demo) when seed_demo_data=true"
+  value       = "Demo-${random_password.demo.result}"
+  sensitive   = true
+}
+
 output "instance_id" {
   description = "Shell access without SSH: aws ssm start-session --target <id>; bootstrap log: /var/log/oep-bootstrap.log"
   value       = aws_instance.app.id

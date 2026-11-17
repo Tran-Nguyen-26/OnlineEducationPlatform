@@ -24,6 +24,12 @@ variable "repo_branch" {
   default = "build/deploy-prep"
 }
 
+variable "seed_demo_data" {
+  description = "Load the sample teachers/students/courses (profile demo)"
+  type        = bool
+  default     = true
+}
+
 variable "ssh_cidr" {
   description = "CIDR allowed to SSH (22). Empty = no SSH at all (use SSM Session Manager)."
   type        = string

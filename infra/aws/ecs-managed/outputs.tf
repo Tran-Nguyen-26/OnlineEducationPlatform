@@ -12,6 +12,11 @@ output "admin_login" {
   value = "admin@oep.local"
 }
 
+output "demo_password" {
+  value     = "Demo-${random_password.demo.result}"
+  sensitive = true
+}
+
 output "admin_password" {
   value     = "Adm1n-${random_password.admin.result}"
   sensitive = true

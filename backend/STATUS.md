@@ -106,4 +106,6 @@ Nói "làm mục N" hoặc "làm phần X" để bắt đầu — giữ đúng q
 | Quan sát | Log JSON, trace OTLP, Prometheus/Grafana/Jaeger, SLO + alert, metric nghiệp vụ, OpenAPI, `/api/v1`, problem+json | `ENTERPRISE_READINESS.md` |
 | Đóng gói/triển khai | Profile dev/prod, Dockerfile, nginx, compose prod-like + smoke test (13 check), storage S3-ready, Terraform AWS (`ec2-demo`, `ecs-managed`) | `DEPLOYMENT.md`, `../infra/aws/README.md` |
 
-**Chưa làm:** dữ liệu demo (seeder), test tự động, CI/CD, load test/chaos có số liệu, apply Terraform thật lên AWS, AI Tutor, HLS/CDN cho video, nhật ký cho thao tác của người không phải admin.
+| Dữ liệu demo | `DemoDataSeeder` (profile `demo`): 2 GV, 8 HV, 3 khóa, quiz, bài tập, tiến độ, điểm; bật mặc định ở compose prod-like và Terraform | `DEPLOYMENT.md` |
+
+**Chưa làm:** test tự động, CI/CD, load test/chaos có số liệu, apply Terraform thật lên AWS, AI Tutor, HLS/CDN cho video, nhật ký cho thao tác của người không phải admin.

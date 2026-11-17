@@ -32,6 +32,12 @@ variable "desired_count" {
   default     = 1
 }
 
+variable "seed_demo_data" {
+  description = "Load the sample teachers/students/courses (profile demo)"
+  type        = bool
+  default     = true
+}
+
 variable "bucket_name" {
   type    = string
   default = ""

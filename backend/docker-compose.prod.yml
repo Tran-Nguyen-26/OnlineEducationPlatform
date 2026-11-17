@@ -101,7 +101,8 @@ services:
       minio: {condition: service_started}
     environment:
       <<: [*db, *rabbit, *storage, *tracing]
-      SPRING_PROFILES_ACTIVE: prod
+      SPRING_PROFILES_ACTIVE: ${CORE_PROFILES:-prod}     # "prod,demo" also loads the sample data
+      OEP_DEMO_PASSWORD: ${DEMO_PASSWORD:-Demo@12345}
       DB_REPLICA_URL: jdbc:postgresql://postgres:5432/${DB_NAME}   # no read replica locally; on AWS point this at the RDS read replica
       DB_REPLICA_USER: ${DB_USER}
       DB_REPLICA_PASSWORD: ${DB_PASSWORD}

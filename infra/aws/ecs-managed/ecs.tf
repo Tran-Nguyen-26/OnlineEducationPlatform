@@ -26,21 +26,23 @@ locals {
   storage_env = {
     STORAGE_BUCKET = aws_s3_bucket.content.bucket
   }
-  sm = { for k in ["db_password", "rabbit_password", "admin_password", "jwt_private_key"] : k => "${local.secret_arn}:${k}::" }
+  sm = { for k in ["db_password", "rabbit_password", "admin_password", "demo_password", "jwt_private_key"] : k => "${local.secret_arn}:${k}::" }
 
   services = {
     core-lms-service = {
       port = 8081, cpu = 512, memory = 1024, java = true, autoscale = false
       env = merge(local.base_env, local.db_env, local.rabbit_env, local.storage_env, {
-        REDIS_HOST           = aws_elasticache_cluster.redis.cache_nodes[0].address
-        ADMIN_SEED_EMAIL     = "admin@oep.local"
-        STORAGE_CORS_ORIGINS = local.public_origin
+        REDIS_HOST             = aws_elasticache_cluster.redis.cache_nodes[0].address
+        ADMIN_SEED_EMAIL       = "admin@oep.local"
+        SPRING_PROFILES_ACTIVE = var.seed_demo_data ? "prod,demo" : "prod"
+        STORAGE_CORS_ORIGINS   = local.public_origin
       })
       secrets = {
         DB_PASSWORD         = local.sm.db_password
         DB_REPLICA_PASSWORD = local.sm.db_password
         RABBIT_PASSWORD     = local.sm.rabbit_password
         ADMIN_SEED_PASSWORD = local.sm.admin_password
+        OEP_DEMO_PASSWORD   = local.sm.demo_password
         JWT_PRIVATE_KEY_PEM = local.sm.jwt_private_key
       }
     }
