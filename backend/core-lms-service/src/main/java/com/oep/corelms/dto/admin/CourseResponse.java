@@ -25,7 +25,8 @@ public record CourseResponse(
         Instant updatedAt,
         int quizWeightPercent,
         Integer passingPercent,
-        String phase) {
+        String phase,
+        Long version) {
 
     public static CourseResponse from(Course course) {
         return new CourseResponse(
@@ -45,6 +46,7 @@ public record CourseResponse(
                 course.getUpdatedAt(),
                 course.getQuizWeightPercent(),
                 course.getPassingPercent(),
-                course.currentPhase().name());
+                course.currentPhase().name(),
+                course.getVersion());
     }
 }

@@ -1,5 +1,6 @@
-import { Pager, usePaged } from '../../components/Pager'
-import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { Pager } from '../../components/Pager'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { apiClient } from '../../lib/apiClient'
 import type { AuditLogResponse } from '../../types/api'
 
@@ -32,20 +33,25 @@ function formatMetadata(metadata: string | null): string {
 }
 
 export function AuditLogPage() {
+  const [page, setPage] = useState(0)
   const logsQuery = useQuery({
-    queryKey: ['admin', 'audit-logs'],
-    queryFn: () => apiClient.get<AuditLogResponse[]>('/api/admin/audit-logs').then((r) => r.data),
+    queryKey: ['admin', 'audit-logs', page],
+    placeholderData: keepPreviousData,
+    // server-side pagination: the log table grows without bound
+    queryFn: () =>
+      apiClient
+        .get<{ items: AuditLogResponse[]; total: number; totalPages: number }>('/api/admin/audit-logs', { params: { page, size: 25 } })
+        .then((r) => r.data),
   })
 
-  const allRows = logsQuery.data ?? []
-  const pg = usePaged(allRows, 25)
-  const rows = pg.slice
+  const rows = logsQuery.data?.items ?? []
+  const pg = { page, pages: logsQuery.data?.totalPages ?? 1, total: logsQuery.data?.total ?? 0, setPage }
 
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Nhật ký hành động</h1>
-        <span className="text-sm text-slate-500">{rows.length} bản ghi</span>
+        <span className="text-sm text-slate-500">{pg.total} bản ghi</span>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">

@@ -59,6 +59,9 @@ public class AdminQuizService {
         if (quiz.isLocked()) {
             throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "Quiz is locked");
         }
+        if (request.version() != null && !request.version().equals(quiz.getVersion())) {
+            throw new BusinessException(ErrorCode.STALE_VERSION, "Quiz đã được người khác cập nhật. Hãy tải lại trang rồi sửa lại.");
+        }
         quiz.setLesson(resolveLesson(request.lessonId()));
         applyFields(quiz, request.title(), request.description(), request.timeLimitSeconds(), request.deadline(),
                 request.maxAttempts(), request.gradingPolicy(), request.randomizeQuestions(), request.randomizeAnswers(),

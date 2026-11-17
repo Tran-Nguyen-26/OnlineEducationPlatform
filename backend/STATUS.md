@@ -73,8 +73,8 @@ Tài khoản test đang có sẵn trên DB dev: `admin@oep.local` / `Admin@12345
 | ~~D1~~ | ~~`NotificationListener` chỉ log, chưa ghi bảng `notifications`~~ | — | **Đã xử lý**: publish `NotificationRequestedEvent` từ `assessment-service` (chấm bài) và `core-lms-service` (tin nhắn Q&A) → `worker-service` ghi bảng `notifications` (idempotent theo `dedupe_key`); `GET/PATCH /api/notifications` + `NotificationBell` ở frontend. Email/push thật vẫn chưa làm (chỉ in-app). |
 | D2 | `ScoreSyncListener` chỉ log, chưa đồng bộ điểm từ Redis xuống `quiz_attempts` | `worker-service/.../listener/ScoreSyncListener.java` | Thấp hiện tại — vì quiz đang chấm trực tiếp trong `assessment-service`/Postgres, chưa dùng Redis cho trạng thái thi tải cao như kiến trúc gốc dự tính |
 | ~~D3~~ | ~~Admin frontend chưa có form sửa thông tin cơ bản khóa học~~ | — | **Đã xử lý**: modal "Sửa thông tin" trong `OverviewTab.tsx`, dùng `PATCH /api/admin/courses/{id}` đã có sẵn. |
-| D4 | RSA keypair ký JWT sinh lại mỗi lần restart `core-lms-service` | `core-lms-service/.../security/JwtKeyService.java` | Thấp (dev-only) — access token cũ hết hiệu lực ngay sau restart, user chỉ cần gọi lại `/refresh` hoặc đăng nhập lại |
-| D5 | `ddl-auto: update`, không có Flyway, chưa tách config theo biến môi trường prod | toàn bộ `core-lms-service` | Phải xử lý trước khi lên `prod` (đã ghi sẵn trong `CLAUDE.md` mục 4) |
+| ~~D4~~ | **Đã xử lý** (khóa bền vững + xoay khóa + thu hồi token). Dòng gốc: RSA keypair ký JWT sinh lại mỗi lần restart `core-lms-service` | `core-lms-service/.../security/JwtKeyService.java` | Thấp (dev-only) — access token cũ hết hiệu lực ngay sau restart, user chỉ cần gọi lại `/refresh` hoặc đăng nhập lại |
+| ~~D5~~ | ~~`ddl-auto: update`, không có Flyway, chưa tách config theo biến môi trường prod~~ — **Đã xử lý** (Flyway V1–V4, profile dev/prod, xem mục 5). Dòng gốc: | toàn bộ `core-lms-service` | Phải xử lý trước khi lên `prod` (đã ghi sẵn trong `CLAUDE.md` mục 4) |
 | ~~D6~~ | ~~Notification chưa có "mã mời sắp hết hạn" / "quiz sắp đến deadline"~~ | — | **Đã xử lý**: 2 scheduler mới chạy mỗi giờ (xem Phase 10), đã verify thật bằng cách tạm đổi cron sang mỗi 10s, tạo invite code/quiz có hạn trong 24h tới, xác nhận notification đúng + không bị gửi trùng (`dedupe_key`) qua nhiều lần tick, rồi trả cron về `0 0 * * * *` và khởi động lại sạch. |
 
 ## 3. Ngoài phạm vi hiện tại (chưa bắt đầu)
@@ -93,3 +93,17 @@ Toàn bộ G1–G11 trong `GAPS.md` đợt phân tích đầu, cộng thêm "Nh�
 - Flyway + cấu hình prod (D5), AI Tutor — nằm ngoài phạm vi theo yêu cầu hiện tại của user.
 
 Nói "làm mục N" hoặc "làm phần X" để bắt đầu — giữ đúng quy ước: build + verify bằng curl/UI thật trước khi báo xong, commit chỉ khi được yêu cầu.
+
+
+## 5. Đợt "enterprise readiness" và chuẩn bị triển khai (nhánh `dev-2` → `build/deploy-prep`)
+
+| Nhóm | Nội dung | Tài liệu |
+|---|---|---|
+| Độ tin cậy | Transactional outbox + relay (confirm, backoff), DLQ, retry consumer, ShedLock, graceful shutdown, probe liveness/readiness | `OPERATIONS.md` §2, §7 |
+| Bảo mật | Khóa JWT bền vững + xoay khóa, thu hồi token (Redis, kiểm ở gateway), khóa đăng nhập, chính sách mật khẩu, header bảo mật, chặn file thực thi, guard secret prod | `OPERATIONS.md` §4 |
+| Chống lỗi lặp | `Idempotency-Key` ở gateway + frontend tự gửi/tự retry, rate limit theo route, retry + circuit breaker + timeout | `OPERATIONS.md` §5 |
+| Dữ liệu | Flyway, `@Version` (409), phân trang server, batch fetch + bộ phát hiện N+1, cache Redis, replica cho assessment, backup/restore, xuất/ẩn danh dữ liệu, retention | `OPERATIONS.md` §3, §6 |
+| Quan sát | Log JSON, trace OTLP, Prometheus/Grafana/Jaeger, SLO + alert, metric nghiệp vụ, OpenAPI, `/api/v1`, problem+json | `ENTERPRISE_READINESS.md` |
+| Đóng gói/triển khai | Profile dev/prod, Dockerfile, nginx, compose prod-like + smoke test (13 check), storage S3-ready, Terraform AWS (`ec2-demo`, `ecs-managed`) | `DEPLOYMENT.md`, `../infra/aws/README.md` |
+
+**Chưa làm:** dữ liệu demo (seeder), test tự động, CI/CD, load test/chaos có số liệu, apply Terraform thật lên AWS, AI Tutor, HLS/CDN cho video, nhật ký cho thao tác của người không phải admin.

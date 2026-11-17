@@ -4,6 +4,8 @@ spring:
     username: ${DB_USER}
     password: ${DB_PASSWORD}
   rabbitmq:
+    ssl:
+      enabled: ${RABBIT_SSL:false}   # Amazon MQ requires TLS (port 5671)
     host: ${RABBIT_HOST}
     port: ${RABBIT_PORT}
     username: ${RABBIT_USER}

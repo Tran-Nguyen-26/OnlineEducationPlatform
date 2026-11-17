@@ -75,6 +75,7 @@ export function QuizFormModal({ courseId, quiz, open, onClose }: { courseId: str
         randomizeAnswers: shuffleA,
         showScore,
         showCorrectAnswers: showCorrect,
+        version: quiz?.version,
       }
       return quiz ? apiClient.patch(`/api/admin/quizzes/${quiz.id}`, body) : apiClient.post(`/api/admin/courses/${courseId}/quizzes`, body)
     },

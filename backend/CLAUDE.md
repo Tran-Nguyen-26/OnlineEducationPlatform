@@ -145,7 +145,8 @@ mvn -pl api-gateway spring-boot:run
 Lưu ý:
 - **Không** dùng `-am` với `spring-boot:run` (lỗi "Unable to find a suitable main class").
 - Sửa `core-model` xong phải chạy lại bước 2. Chạy bằng IntelliJ (mở từ `pom.xml` gốc, bấm Run ở class `*Application`) thì không cần bước 2.
-- Bảng DB do Hibernate tạo trên primary khi Core LMS khởi động (`ddl-auto: update`, chỉ cho dev), replica tự nhận qua replication. Assessment và Worker không tạo bảng nên luôn chạy Core LMS trước. `update` không đổi tên hay xóa cột cũ. Cần làm sạch DB: `docker compose down -v && docker compose up -d` (xóa cả hai volume), rồi chạy lại Core LMS.
+- Schema do **Flyway** quản lý (`core-lms-service/src/main/resources/db/migration`: V1 baseline, V2 bỏ CHECK enum, V3 cột outbox, V4 shedlock + `version`); Hibernate chỉ `validate`. Replica tự nhận qua replication. Assessment và Worker không migrate nên luôn chạy Core LMS trước. DB cũ tạo bằng `ddl-auto: update` được baseline tự động ở V1. Làm sạch DB: `docker compose down -v && docker compose up -d`, rồi chạy lại Core LMS. Thêm thay đổi schema = thêm file `V<n>__mo_ta.sql`, không sửa file cũ.
+- Profile: mặc định `dev`; image Docker chạy `prod` (xem `DEPLOYMENT.md`). Chạy thử kiểu production: `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build` (sinh secret bằng `scripts/gen-secrets.sh`).
 - Mọi lệnh `docker compose` phải chạy trong thư mục có `docker-compose.yml`. Không dùng `--remove-orphans` nếu máy có container khác.
 
 Kiểm tra: `curl http://localhost:8081/actuator/health` và `docker compose exec postgres psql -U oep -d oep -c '\dt'` (phải có 38 bảng, replica cũng vậy). Chi tiết từng bảng/cột/lý do thiết kế: xem `DATABASE.md`.
@@ -162,7 +163,7 @@ Hai nhánh chính, đều được bảo vệ (không push trực tiếp, chỉ 
 Quy trình:
 1. cứ checkout nhánh từ dev rồi merge vào dev ae nhá
 
-Khác biệt giữa hai nhánh: `dev` dùng `ddl-auto: update` và thông tin kết nối mặc định ở trên. Với `prod`, nhóm cần chuyển sang Flyway + `ddl-auto: validate` và đặt mật khẩu, địa chỉ DB/RabbitMQ qua biến môi trường (`DB_URL`, `DB_USER`, `DB_PASSWORD`, `DB_REPLICA_URL`, `DB_REPLICA_USER`, `DB_REPLICA_PASSWORD`, `RABBIT_HOST`, `RABBIT_PORT`, `RABBIT_USER`, `RABBIT_PASSWORD`, `REDIS_HOST`, `JWK_SET_URI`) trước khi triển khai thật.
+Nhánh làm việc hiện tại: `dev-2` (tính năng) và `build/deploy-prep` (cấu hình dev/prod, Docker, Terraform AWS). Cấu hình `prod` đã sẵn sàng: Flyway + `ddl-auto: validate`, mọi secret/địa chỉ qua biến môi trường (danh sách đầy đủ ở `DEPLOYMENT.md` mục 4 và `.env.example`), thiếu biến hoặc dùng secret mặc định thì service không khởi động.
 
 ## 5. PostgreSQL Primary / Read Replica
 

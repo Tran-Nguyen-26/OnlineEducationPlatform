@@ -1,0 +1,25 @@
+# Override for AWS (EC2): real S3 instead of MinIO, credentials from the instance IAM role.
+#   docker compose -f docker-compose.prod.yml -f docker-compose.aws.yml --env-file .env.prod up -d --build
+services:
+  minio:
+    profiles: ["local-storage"]          # not started on AWS
+  core-lms-service:
+    depends_on: !override
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+    environment:
+      STORAGE_ENDPOINT: ""
+      STORAGE_PUBLIC_ENDPOINT: ""
+      STORAGE_ACCESS_KEY: ""
+      STORAGE_SECRET_KEY: ""
+      STORAGE_AUTO_CREATE_BUCKET: "false"
+      STORAGE_CORS_ORIGINS: ${PUBLIC_ORIGIN}
+      AWS_REGION: ${AWS_REGION}
+  assessment-service:
+    environment:
+      STORAGE_ENDPOINT: ""
+      STORAGE_PUBLIC_ENDPOINT: ""
+      STORAGE_ACCESS_KEY: ""
+      STORAGE_SECRET_KEY: ""
+      AWS_REGION: ${AWS_REGION}

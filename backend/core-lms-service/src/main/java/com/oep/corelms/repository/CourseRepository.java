@@ -9,6 +9,7 @@ import java.util.UUID;
 
 public interface CourseRepository extends JpaRepository<Course, UUID> {
     List<Course> findAllByOrderByCreatedAtDesc();
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "subject")
     List<Course> findByLifecycleStatusOrderByCreatedAtDesc(CourseLifecycleStatus status);
     long countByLifecycleStatus(CourseLifecycleStatus status);
 

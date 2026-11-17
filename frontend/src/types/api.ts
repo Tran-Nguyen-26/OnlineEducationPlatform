@@ -89,6 +89,7 @@ export interface CourseResponse {
   quizWeightPercent: number
   passingPercent: number | null
   phase: CoursePhase
+  version: number
 }
 
 export type CoursePhase = 'UPCOMING' | 'ONGOING' | 'ENDED'
@@ -231,6 +232,7 @@ export interface UploadUrlResponse {
 export type QuizGradingPolicy = 'HIGHEST' | 'LATEST' | 'AVERAGE'
 
 export interface QuizResponse {
+  version: number
   id: string
   courseId: string
   lessonId: string | null

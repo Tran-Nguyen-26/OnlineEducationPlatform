@@ -43,6 +43,7 @@ public class AdminUserController {
     private final AuthService authService;
     private final AuditLogService auditLogService;
     private final ProfileService profileService;
+    private final com.oep.corelms.service.DataPrivacyService dataPrivacyService;
 
     @PostMapping("/teachers")
     public CreateTeacherResponse createTeacher(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CreateTeacherRequest request) {
@@ -85,6 +86,15 @@ public class AdminUserController {
     public List<AdminUserResponse> listUsers(@RequestParam(required = false) UserRole role,
                                               @RequestParam(required = false) AccountStatus status) {
         return adminUserService.list(role, status);
+    }
+
+    /** Right to erasure: removes identity data, keeps academic records. Irreversible. */
+    @org.springframework.web.bind.annotation.PostMapping("/users/{id}/anonymize")
+    public Map<String, String> anonymize(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
+        UUID adminId = UUID.fromString(jwt.getSubject());
+        String placeholder = dataPrivacyService.anonymize(id, adminId);
+        auditLogService.record(adminId, "ANONYMIZE_USER", "USER", id, null);
+        return Map.of("email", placeholder);
     }
 
     @PatchMapping("/users/{id}/status")

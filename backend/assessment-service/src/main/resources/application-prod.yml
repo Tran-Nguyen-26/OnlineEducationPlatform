@@ -1,4 +1,13 @@
 oep:
+  datasource:
+    primary:
+      jdbc-url: ${DB_URL}
+      username: ${DB_USER}
+      password: ${DB_PASSWORD}
+    replica:
+      jdbc-url: ${DB_REPLICA_URL}
+      username: ${DB_REPLICA_USER}
+      password: ${DB_REPLICA_PASSWORD}
   storage:
     endpoint: ${STORAGE_ENDPOINT:}
     public-endpoint: ${STORAGE_PUBLIC_ENDPOINT:}
@@ -8,11 +17,9 @@ oep:
     region: ${AWS_REGION:us-east-1}
 
 spring:
-  datasource:
-    url: ${DB_URL}
-    username: ${DB_USER}
-    password: ${DB_PASSWORD}
   rabbitmq:
+    ssl:
+      enabled: ${RABBIT_SSL:false}   # Amazon MQ requires TLS (port 5671)
     host: ${RABBIT_HOST}
     port: ${RABBIT_PORT}
     username: ${RABBIT_USER}

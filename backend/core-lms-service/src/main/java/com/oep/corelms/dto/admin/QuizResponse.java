@@ -22,7 +22,8 @@ public record QuizResponse(
         boolean showCorrectAnswers,
         boolean locked,
         int questionCount,
-        Integer randomQuestionCount) {
+        Integer randomQuestionCount,
+        Long version) {
 
     public static QuizResponse from(Quiz quiz, int questionCount) {
         return new QuizResponse(
@@ -41,6 +42,7 @@ public record QuizResponse(
                 Boolean.TRUE.equals(quiz.getShowCorrectAnswers()),
                 quiz.isLocked(),
                 questionCount,
-                quiz.getRandomQuestionCount());
+                quiz.getRandomQuestionCount(),
+                quiz.getVersion());
     }
 }

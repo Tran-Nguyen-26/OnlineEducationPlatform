@@ -49,6 +49,15 @@ public class AuditLogService {
         return auditLogs.findAllByOrderByCreatedAtDesc().stream().map(this::toResponse).toList();
     }
 
+    @Transactional(readOnly = true)
+    public com.oep.coremodel.web.PageResponse<AuditLogResponse> page(int page, int size, String action) {
+        var pageable = org.springframework.data.domain.PageRequest.of(Math.max(0, page), Math.min(100, Math.max(1, size)));
+        var result = (action == null || action.isBlank())
+                ? auditLogs.findAllByOrderByCreatedAtDesc(pageable)
+                : auditLogs.findByActionOrderByCreatedAtDesc(action, pageable);
+        return com.oep.coremodel.web.PageResponse.of(result, this::toResponse);
+    }
+
     private AuditLogResponse toResponse(AuditLog entry) {
         return new AuditLogResponse(entry.getId(), entry.getActor().getId(), entry.getActor().getEmail(),
                 entry.getAction(), entry.getTargetType(), entry.getTargetId(), entry.getMetadata(), entry.getCreatedAt());

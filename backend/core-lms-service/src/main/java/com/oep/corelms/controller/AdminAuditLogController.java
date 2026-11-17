@@ -17,7 +17,10 @@ public class AdminAuditLogController {
     private final AuditLogService auditLogService;
 
     @GetMapping
-    public List<AuditLogResponse> list() {
-        return auditLogService.list();
+    public com.oep.coremodel.web.PageResponse<AuditLogResponse> list(
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "25") int size,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String action) {
+        return auditLogService.page(page, size, action);
     }
 }

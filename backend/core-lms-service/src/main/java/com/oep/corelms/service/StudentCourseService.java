@@ -13,6 +13,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
+import java.util.Map;
+import com.oep.coremodel.entity.enrollment.Enrollment;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,8 +32,21 @@ public class StudentCourseService {
 
     @Transactional(readOnly = true)
     public List<StudentCourseResponse> listCatalog(UUID studentId) {
-        return courses.findByLifecycleStatusOrderByCreatedAtDesc(CourseLifecycleStatus.PUBLISHED).stream()
-                .map(course -> StudentCourseResponse.from(course, isActivelyEnrolled(course.getId(), studentId), isWaitlisted(course.getId(), studentId), isCompleted(course.getId(), studentId), prerequisitesOf(course.getId(), studentId), instructorNames(course.getId())))
+        List<Course> published = courses.findByLifecycleStatusOrderByCreatedAtDesc(CourseLifecycleStatus.PUBLISHED);
+        // bulk-load what the per-course lookups used to fetch one by one (was ~7 queries per course)
+        Map<UUID, EnrollmentStatus> myStatus = new HashMap<>();
+        for (Enrollment e : enrollments.findByStudentIdOrderByEnrolledAtDesc(studentId)) myStatus.putIfAbsent(e.getCourse().getId(), e.getStatus());
+        Map<UUID, List<String>> instructors = instructorNamesFor(published.stream().map(Course::getId).toList());
+        return published.stream()
+                .map(course -> StudentCourseResponse.from(course,
+                        myStatus.get(course.getId()) == EnrollmentStatus.ACTIVE,
+                        myStatus.get(course.getId()) == EnrollmentStatus.WAITLISTED,
+                        myStatus.get(course.getId()) == EnrollmentStatus.COMPLETED,
+                        coursePrerequisites.findByCourse_Id(course.getId()).stream()
+                                .map(p -> new StudentCourseResponse.Prerequisite(p.getPrerequisiteCourse().getId(), p.getPrerequisiteCourse().getTitle(),
+                                        myStatus.get(p.getPrerequisiteCourse().getId()) == EnrollmentStatus.COMPLETED))
+                                .toList(),
+                        instructors.getOrDefault(course.getId(), List.of())))
                 .toList();
     }
 
@@ -68,6 +84,20 @@ public class StudentCourseService {
                         enrollments.existsByCourseIdAndStudentIdAndStatus(p.getPrerequisiteCourse().getId(), studentId,
                                 com.oep.coremodel.enums.EnrollmentStatus.COMPLETED)))
                 .toList();
+    }
+
+    private Map<UUID, List<String>> instructorNamesFor(List<UUID> courseIds) {
+        Map<UUID, List<String>> out = new HashMap<>();
+        if (courseIds.isEmpty()) return out;
+        var links = courseInstructors.findByCourse_IdIn(courseIds);
+        Map<UUID, String> names = new HashMap<>();
+        userProfiles.findAllById(links.stream().map(ci -> ci.getInstructor().getId()).distinct().toList())
+                .forEach(p -> names.put(p.getUser().getId(), p.getFullName()));
+        for (var ci : links) {
+            out.computeIfAbsent(ci.getCourse().getId(), k -> new java.util.ArrayList<>())
+                    .add(names.getOrDefault(ci.getInstructor().getId(), ci.getInstructor().getEmail()));
+        }
+        return out;
     }
 
     private java.util.List<String> instructorNames(java.util.UUID courseId) {

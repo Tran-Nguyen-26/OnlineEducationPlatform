@@ -10,6 +10,9 @@ import java.util.UUID;
 public interface CourseInstructorRepository extends JpaRepository<CourseInstructor, CourseInstructorId> {
     List<CourseInstructor> findByCourse_Id(UUID courseId);
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "instructor")
+    List<CourseInstructor> findByCourse_IdIn(java.util.Collection<UUID> courseIds);
+
     List<CourseInstructor> findByInstructor_IdOrderByAddedAtDesc(UUID instructorId);
 
     boolean existsByCourse_IdAndInstructor_Id(UUID courseId, UUID instructorId);

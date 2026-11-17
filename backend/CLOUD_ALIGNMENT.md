@@ -149,3 +149,18 @@ Phân tích dựa trên code và cấu hình thật của repo ở thời điể
 - Cloud nào được phép/có credit (GCP, AWS, hay nhà cung cấp trong nước)?
 - Mốc nộp từng chặng P1–P5 và còn bao nhiêu tuần?
 - Có bắt buộc làm AI tutor không, hay chỉ cần các demo còn lại?
+
+
+## 7. Cập nhật tiến độ so với kế hoạch ở mục 4
+
+| Giai đoạn | Trạng thái | Ghi chú |
+|---|---|---|
+| A — Nền tảng bảo vệ được | ✅ phần kỹ thuật | `DEPLOYMENT.md`, `OPERATIONS.md`, `ENTERPRISE_READINESS.md`; còn thiếu: số liệu NFR/SLO đo thật |
+| B — Chứng minh chịu tải quiz | ⏳ chưa | cần k6/Gatling + báo cáo p95/p99; stack prod local đã sẵn để chạy |
+| C — Triển khai cloud + CI/CD | 🟡 một nửa | Dockerfile, compose prod-like, Terraform AWS đã viết và validate; **chưa apply**, chưa có pipeline CI/CD |
+| D — Observability & độ tin cậy | ✅ | log JSON, trace, Prometheus/Grafana/Jaeger, alert, outbox/DLQ/circuit breaker (chưa chaos-test có số liệu) |
+| E — Media (CDN/HLS) | 🟡 | CloudFront đã có trong Terraform cho giao diện/asset; HLS/nén video chưa làm |
+| F — Kiểm thử & bảo mật | 🟡 | bảo mật đã làm nhiều (JWT, lockout, idempotency, header, privacy); test tự động chưa |
+| G — AI tutor | ⏳ tùy chọn | chưa |
+
+Rủi ro #8 ở mục 3 ("hạ tầng dev không tái lập được") đã được xử lý: có Dockerfile, `docker-compose.prod.yml`, script secret/smoke/backup và Terraform.

@@ -125,6 +125,9 @@ services:
       <<: [*db, *rabbit, *storage, *tracing]
       SPRING_PROFILES_ACTIVE: prod
       JWK_SET_URI: http://core-lms-service:8081/.well-known/jwks.json
+      DB_REPLICA_URL: jdbc:postgresql://postgres:5432/${DB_NAME}
+      DB_REPLICA_USER: ${DB_USER}
+      DB_REPLICA_PASSWORD: ${DB_PASSWORD}
     healthcheck: *healthcheck-java
 
   worker-service:
@@ -155,7 +158,7 @@ services:
       REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       CORS_ALLOWED_ORIGINS: ${PUBLIC_ORIGIN}
-      TRUSTED_PROXY_HOPS: "1"          # the nginx container in front
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}   # proxies in front: nginx (1); on AWS CloudFront + nginx (2)
     healthcheck: *healthcheck-java
 
   frontend:

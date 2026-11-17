@@ -32,6 +32,8 @@ and `worker-service` relays the outbox to RabbitMQ and persists notifications.
 
 ## 3. AWS target
 
+Terraform for both options lives in `../infra/aws/` (`ec2-demo`, `ecs-managed`; see its README for commands, cost and limits). The options below describe what those stacks create.
+
 ### Option A — single EC2 with Docker Compose (cheapest, good for a demo)
 
 | Local | AWS |

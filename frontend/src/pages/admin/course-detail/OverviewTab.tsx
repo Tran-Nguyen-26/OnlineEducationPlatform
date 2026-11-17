@@ -69,6 +69,7 @@ export function OverviewTab({ course }: { course: CourseResponse }) {
   })
 
   const [editOpen, setEditOpen] = useState(false)
+  const [editVersion, setEditVersion] = useState<number | undefined>(undefined)
   const [editSubjectId, setEditSubjectId] = useState('')
   const [editTitle, setEditTitle] = useState('')
   const [editDescription, setEditDescription] = useState('')
@@ -82,6 +83,7 @@ export function OverviewTab({ course }: { course: CourseResponse }) {
   const [editError, setEditError] = useState<string | null>(null)
 
   function openEdit() {
+    setEditVersion(course.version) // sent back on save: a 409 means someone else edited the course meanwhile
     setEditSubjectId(course.subjectId)
     setEditTitle(course.title)
     setEditDescription(course.description ?? '')
@@ -109,6 +111,7 @@ export function OverviewTab({ course }: { course: CourseResponse }) {
         feeAmount: editFeeAmount ? Number(editFeeAmount) : null,
         quizWeightPercent: Number(editQuizWeight),
         passingPercent: editPassing ? Number(editPassing) : null,
+        version: editVersion,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courses', courseId] })

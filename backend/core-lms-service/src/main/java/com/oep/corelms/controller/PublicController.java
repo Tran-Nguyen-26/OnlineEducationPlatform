@@ -35,23 +35,34 @@ public class PublicController {
     private final CourseModuleRepository modules;
     private final LessonRepository lessons;
     private final UserRepository users;
+    private final com.oep.corelms.service.CacheService cache;
 
     @GetMapping("/overview")
     @Transactional(readOnly = true)
     public Overview overview() {
-        List<PublicCourse> list = courses.findByLifecycleStatusOrderByCreatedAtDesc(CourseLifecycleStatus.PUBLISHED).stream()
-                .map(this::toPublic)
+        // landing page is hit by every anonymous visitor: serve it from Redis for 60 s
+        return cache.get("public-overview", Overview.class, java.time.Duration.ofSeconds(60), this::loadOverview);
+    }
+
+    private Overview loadOverview() {
+        List<Course> published = courses.findByLifecycleStatusOrderByCreatedAtDesc(CourseLifecycleStatus.PUBLISHED);
+        java.util.Map<UUID, Integer> lessonCounts = new java.util.HashMap<>();
+        if (!published.isEmpty()) {
+            for (Object[] row : lessons.countByCourseIds(published.stream().map(Course::getId).toList())) {
+                lessonCounts.put((UUID) row[0], ((Number) row[1]).intValue());
+            }
+        }
+        List<PublicCourse> list = published.stream()
+                .map(c -> toPublic(c, lessonCounts.getOrDefault(c.getId(), 0)))
                 .filter(c -> c.lessonCount() > 0)
                 .toList();
         int totalLessons = list.stream().mapToInt(PublicCourse::lessonCount).sum();
-        int students = users.findByRoleAndAccountStatus(UserRole.STUDENT, AccountStatus.ACTIVE).size();
-        int instructors = users.findByRoleAndAccountStatus(UserRole.INSTRUCTOR, AccountStatus.ACTIVE).size();
+        int students = (int) users.countByRoleAndAccountStatus(UserRole.STUDENT, AccountStatus.ACTIVE);
+        int instructors = (int) users.countByRoleAndAccountStatus(UserRole.INSTRUCTOR, AccountStatus.ACTIVE);
         return new Overview(new Stats(list.size(), totalLessons, students, instructors), list);
     }
 
-    private PublicCourse toPublic(Course c) {
-        int lessonCount = modules.findByCourse_IdOrderByPositionAsc(c.getId()).stream()
-                .mapToInt(m -> (int) lessons.countByModule_Id(m.getId())).sum();
+    private PublicCourse toPublic(Course c, int lessonCount) {
         return new PublicCourse(c.getId(), c.getTitle(), c.getDescription(), c.getSubject().getName(), c.getFeeAmount(),
                 c.getLearningMode().name(), lessonCount);
     }

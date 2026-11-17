@@ -8,4 +8,10 @@ import java.util.UUID;
 
 public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
     List<AuditLog> findAllByOrderByCreatedAtDesc();
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "actor")
+    org.springframework.data.domain.Page<AuditLog> findAllByOrderByCreatedAtDesc(org.springframework.data.domain.Pageable pageable);
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "actor")
+    org.springframework.data.domain.Page<AuditLog> findByActionOrderByCreatedAtDesc(String action, org.springframework.data.domain.Pageable pageable);
 }

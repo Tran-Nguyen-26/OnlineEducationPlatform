@@ -47,9 +47,22 @@ public class JwtKeyService {
 
     public JwtKeyService(Environment env,
                          @Value("${oep.jwt.private-key-file:}") String privateKeyFile,
+                         @Value("${oep.jwt.private-key-pem:}") String privateKeyPem,
                          @Value("${oep.jwt.key-dir:${user.home}/.oep/jwt}") String keyDir,
                          @Value("${oep.jwt.previous-public-key-files:}") String previousFiles) {
         boolean prod = Arrays.asList(env.getActiveProfiles()).contains("prod");
+        if (privateKeyFile.isBlank() && !privateKeyPem.isBlank()) {
+            // Platforms that inject secrets as environment variables (ECS + Secrets Manager) provide the PEM inline.
+            try {
+                Path tmp = Files.createTempFile("oep-jwt-", ".pem");
+                try { Files.setPosixFilePermissions(tmp, PosixFilePermissions.fromString("rw-------")); } catch (Exception ignored) { /* non-POSIX fs */ }
+                Files.writeString(tmp, privateKeyPem.replace("\\n", "\n"), StandardCharsets.US_ASCII);
+                tmp.toFile().deleteOnExit();
+                privateKeyFile = tmp.toString();
+            } catch (java.io.IOException e) {
+                throw new IllegalStateException("Cannot materialise oep.jwt.private-key-pem", e);
+            }
+        }
         try {
             KeyPair pair;
             if (!privateKeyFile.isBlank()) {

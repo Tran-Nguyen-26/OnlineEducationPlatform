@@ -21,5 +21,6 @@ public record UpdateQuizRequest(
         Boolean randomizeAnswers,
         Boolean showScore,
         Boolean showCorrectAnswers,
-        @jakarta.validation.constraints.Positive Integer randomQuestionCount) {
+        @jakarta.validation.constraints.Positive Integer randomQuestionCount,
+        Long version) {
 }

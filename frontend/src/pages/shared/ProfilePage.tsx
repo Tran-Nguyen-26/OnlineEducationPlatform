@@ -127,6 +127,15 @@ export function ProfilePage() {
           <Link to="/change-password" className="text-sm text-blue-600 hover:underline">Đổi mật khẩu</Link>
         </div>
       </form>
+      <div className="surface mt-6 p-5">
+        <h2 className="font-bold text-slate-900">Dữ liệu cá nhân của tôi</h2>
+        <p className="mt-1 text-sm text-slate-500">Tải về toàn bộ dữ liệu nền tảng đang lưu về bạn (hồ sơ, đăng ký, tiến độ, bài làm, thông báo) dưới dạng JSON.</p>
+        <Button className="mt-3" variant="secondary" onClick={async () => {
+          const { data } = await apiClient.get('/api/users/me/export')
+          const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }))
+          const a = document.createElement('a'); a.href = url; a.download = 'oep-du-lieu-cua-toi.json'; a.click(); URL.revokeObjectURL(url)
+        }}>Tải dữ liệu của tôi</Button>
+      </div>
       <NotificationPrefsCard />
     </div>
   )

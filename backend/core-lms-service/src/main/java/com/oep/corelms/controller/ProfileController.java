@@ -21,6 +21,7 @@ import java.util.UUID;
 public class ProfileController {
 
     private final ProfileService profileService;
+    private final com.oep.corelms.service.DataPrivacyService dataPrivacyService;
 
     @GetMapping("/api/users/me/profile")
     public ProfileResponse profile(@AuthenticationPrincipal Jwt jwt) {
@@ -49,6 +50,14 @@ public class ProfileController {
     @org.springframework.web.bind.annotation.PostMapping("/api/users/me/avatar/confirm")
     public ProfileResponse confirmAvatar(@AuthenticationPrincipal Jwt jwt, @RequestBody ConfirmAvatarRequest r) {
         return profileService.confirmAvatar(UUID.fromString(jwt.getSubject()), r.objectKey());
+    }
+
+    /** Right of access: everything the platform stores about the caller, as a downloadable JSON file. */
+    @org.springframework.web.bind.annotation.GetMapping("/api/users/me/export")
+    public org.springframework.http.ResponseEntity<java.util.Map<String, Object>> exportMyData(@AuthenticationPrincipal Jwt jwt) {
+        return org.springframework.http.ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=\"oep-my-data.json\"")
+                .body(dataPrivacyService.export(UUID.fromString(jwt.getSubject())));
     }
 
     @org.springframework.web.bind.annotation.DeleteMapping("/api/users/me/avatar")

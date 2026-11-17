@@ -34,6 +34,12 @@ export function UserDetailPage() {
     setBio(u.bio ?? '')
   }, [u])
 
+  const anonymize = useMutation({
+    mutationFn: () => apiClient.post(`/api/admin/users/${userId}/anonymize`),
+    onSuccess: () => { setMsg({ ok: true, text: 'Đã ẩn danh tài khoản.' }); queryClient.invalidateQueries({ queryKey: ['admin', 'user', userId] }) },
+    onError: (err) => setMsg({ ok: false, text: getApiErrorMessage(err) }),
+  })
+
   const save = useMutation({
     mutationFn: () =>
       apiClient.patch(`/api/admin/users/${userId}/profile`, {
@@ -76,6 +82,15 @@ export function UserDetailPage() {
           <div><label className="mb-1 block text-sm text-slate-600">Giới thiệu</label><textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /></div>
           {msg && <p className={`text-sm ${msg.ok ? 'text-green-700' : 'text-red-600'}`}>{msg.text}</p>}
           <Button type="submit" disabled={save.isPending}>{save.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}</Button>
+          {u.role !== 'ADMIN' && !u.email.endsWith('@anonymized.invalid') && (
+            <div className="border-t border-slate-200 pt-3">
+              <p className="mb-2 text-xs text-slate-500">Quyền được xóa: xóa danh tính (tên, email, liên hệ, thông báo), giữ lại kết quả học tập. Không thể hoàn tác.</p>
+              <Button type="button" variant="secondary" disabled={anonymize.isPending}
+                onClick={() => { if (window.confirm('Ẩn danh tài khoản này? Hành động KHÔNG thể hoàn tác.')) anonymize.mutate() }}>
+                Ẩn danh tài khoản
+              </Button>
+            </div>
+          )}
         </form>
 
         <div className="space-y-6">

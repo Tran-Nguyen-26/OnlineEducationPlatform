@@ -9,6 +9,8 @@ spring:
       host: ${REDIS_HOST}
       password: ${REDIS_PASSWORD:}
   rabbitmq:
+    ssl:
+      enabled: ${RABBIT_SSL:false}   # Amazon MQ requires TLS (port 5671)
     host: ${RABBIT_HOST}
     port: ${RABBIT_PORT}
     username: ${RABBIT_USER}
@@ -24,7 +26,8 @@ oep:
       username: ${DB_REPLICA_USER}
       password: ${DB_REPLICA_PASSWORD}
   jwt:
-    private-key-file: ${JWT_PRIVATE_KEY_FILE}
+    private-key-file: ${JWT_PRIVATE_KEY_FILE:}
+    private-key-pem: ${JWT_PRIVATE_KEY_PEM:}      # alternative to the file: PEM text from a secret manager
     previous-public-key-files: ${JWT_PREVIOUS_PUBLIC_KEY_FILES:}
   admin:
     seed:

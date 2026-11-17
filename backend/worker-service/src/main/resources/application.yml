@@ -17,6 +17,12 @@ spring:
     hibernate:
       ddl-auto: none
     open-in-view: false
+    properties:
+      hibernate:
+        default_batch_fetch_size: 50   # collapses N+1 lazy loads into IN (...) batches
+        jdbc.batch_size: 50
+        order_inserts: true
+        order_updates: true
   rabbitmq:
     host: ${RABBIT_HOST:localhost}
     port: ${RABBIT_PORT:5673}

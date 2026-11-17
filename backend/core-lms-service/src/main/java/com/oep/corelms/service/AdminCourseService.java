@@ -66,6 +66,9 @@ public class AdminCourseService {
     @Transactional
     public CourseResponse update(UUID id, UpdateCourseRequest request) {
         Course course = findOrThrow(id);
+        if (request.version() != null && !request.version().equals(course.getVersion())) {
+            throw new BusinessException(ErrorCode.STALE_VERSION, "Khóa học đã được người khác cập nhật. Hãy tải lại trang rồi sửa lại.");
+        }
         Subject subject = subjects.findById(request.subjectId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Subject not found"));
 

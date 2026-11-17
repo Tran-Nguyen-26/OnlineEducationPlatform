@@ -1,0 +1,39 @@
+#!/bin/bash
+# Boots the whole platform on a fresh Ubuntu instance. Progress: /var/log/oep-bootstrap.log
+set -euxo pipefail
+exec > >(tee -a /var/log/oep-bootstrap.log) 2>&1
+
+apt-get update -y
+apt-get install -y ca-certificates curl git openssl
+curl -fsSL https://get.docker.com | sh
+
+git clone --depth 1 --branch ${repo_branch} ${repo_url} /opt/oep
+cd /opt/oep/backend
+mkdir -p secrets
+openssl genrsa 2048 | openssl pkcs8 -topk8 -nocrypt -out secrets/jwt-private-pkcs8.pem
+chmod 644 secrets/jwt-private-pkcs8.pem
+
+cat > .env.prod <<ENV
+COMPOSE_PROJECT_NAME=oep-prod
+FRONTEND_PORT=80
+PUBLIC_ORIGIN=${public_origin}
+AWS_REGION=${region}
+DB_NAME=oep
+DB_USER=oep
+DB_PASSWORD=${db_password}
+REDIS_PASSWORD=${redis_password}
+RABBIT_USER=oep
+RABBIT_PASSWORD=${rabbit_password}
+STORAGE_ACCESS_KEY=unused
+STORAGE_SECRET_KEY=unused
+STORAGE_BUCKET=${bucket}
+STORAGE_PUBLIC_ORIGIN=${s3_origin}
+ADMIN_SEED_EMAIL=admin@oep.local
+ADMIN_SEED_PASSWORD=${admin_password}
+TRACE_SAMPLE_RATE=0
+TRUSTED_PROXY_HOPS=2
+ENV
+chmod 600 .env.prod
+
+docker compose -f docker-compose.prod.yml -f docker-compose.aws.yml --env-file .env.prod up -d --build
+echo "OEP started: ${public_origin}"
