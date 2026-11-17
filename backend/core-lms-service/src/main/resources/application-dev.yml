@@ -1,0 +1,15 @@
+# Profile "dev" (default when running locally): everything on localhost, verbose and convenient.
+# The base application.yml carries the localhost defaults; this file only adds dev-only switches.
+logging:
+  level:
+    com.oep: DEBUG
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  endpoint:
+    health:
+      show-details: always
+springdoc:
+  swagger-ui:
+    enabled: true

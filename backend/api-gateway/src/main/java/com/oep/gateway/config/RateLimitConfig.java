@@ -11,13 +11,21 @@ import java.security.Principal;
 public class RateLimitConfig {
 
     /** Key by client IP (X-Forwarded-For first hop when behind a proxy) — used for unauthenticated, abuse-prone endpoints. */
+    @org.springframework.beans.factory.annotation.Value("${oep.gateway.trusted-proxy-hops:0}")
+    private int trustedProxyHops;
+
     @Bean
     KeyResolver ipKeyResolver() {
         return exchange -> {
+            // X-Forwarded-For is client-controlled at its left end; only the entries appended by OUR proxies are trustworthy.
+            // With N trusted proxies (ALB, nginx...) the real client is the Nth entry from the right.
             String xff = exchange.getRequest().getHeaders().getFirst("X-Forwarded-For");
-            if (xff != null && !xff.isBlank()) return Mono.just(xff.split(",")[0].trim());
+            if (trustedProxyHops > 0 && xff != null && !xff.isBlank()) {
+                String[] parts = xff.split(",");
+                return Mono.just(parts[Math.max(0, parts.length - trustedProxyHops)].trim());
+            }
             var addr = exchange.getRequest().getRemoteAddress();
-            return Mono.just(addr != null ? addr.getAddress().getHostAddress() : "unknown");
+            return Mono.just(addr != null ? addr.getHostString() : "unknown");
         };
     }
 
@@ -29,7 +37,7 @@ public class RateLimitConfig {
                 .map(Principal::getName)
                 .switchIfEmpty(Mono.fromSupplier(() -> {
                     var addr = exchange.getRequest().getRemoteAddress();
-                    return addr != null ? addr.getAddress().getHostAddress() : "unknown";
+                    return addr != null ? addr.getHostString() : "unknown";
                 }));
     }
 }

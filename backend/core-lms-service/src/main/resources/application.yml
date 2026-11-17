@@ -3,6 +3,8 @@ server:
   port: 8081
 
 spring:
+  profiles:
+    default: dev   # running without SPRING_PROFILES_ACTIVE means "dev"; Docker images activate "prod"
   lifecycle:
     timeout-per-shutdown-phase: 30s
   application:

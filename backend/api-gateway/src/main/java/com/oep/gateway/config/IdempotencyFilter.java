@@ -159,7 +159,7 @@ public class IdempotencyFilter implements GlobalFilter, Ordered {
                 .filter(a -> a instanceof JwtAuthenticationToken)
                 .map(a -> ((JwtAuthenticationToken) a).getToken().getSubject())
                 .switchIfEmpty(Mono.fromSupplier(() -> exchange.getRequest().getRemoteAddress() == null ? "anon"
-                        : exchange.getRequest().getRemoteAddress().getAddress().getHostAddress()));
+                        : exchange.getRequest().getRemoteAddress().getHostString()));
     }
 
     private Mono<Void> error(ServerWebExchange exchange, HttpStatus status, String code, String message, String retryAfter) {

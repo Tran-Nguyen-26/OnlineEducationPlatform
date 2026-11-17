@@ -24,7 +24,8 @@ public class ProdSecretsGuard {
         if (weak(adminPassword, "Admin@12345")) bad.add("ADMIN_SEED_PASSWORD");
         if (weak(dbPassword, "oep")) bad.add("DB_PASSWORD");
         if (weak(rabbitPassword, "oep")) bad.add("RABBIT_PASSWORD");
-        if (weak(storageSecret, "oep_secret")) bad.add("STORAGE_SECRET_KEY");
+        // empty is legitimate on AWS (IAM role credentials); a non-empty value must not be the dev default
+        if (!storageSecret.isBlank() && weak(storageSecret, "oep_secret")) bad.add("STORAGE_SECRET_KEY");
         if (!bad.isEmpty()) {
             throw new IllegalStateException("Refusing to start in 'prod' with default/empty secrets: " + String.join(", ", bad));
         }

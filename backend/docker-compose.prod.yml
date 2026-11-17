@@ -1,0 +1,212 @@
+# Production-like stack, runs entirely locally from the built images (profile "prod", real secrets, no dev defaults).
+#   scripts/gen-secrets.sh                       # once
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#   open http://localhost:8088                   # add  --profile observability  for Prometheus/Grafana/Jaeger
+name: oep-prod
+
+x-service: &service
+  restart: unless-stopped
+  networks: [oep]
+  mem_limit: 768m
+  logging:
+    driver: json-file
+    options: {max-size: "10m", max-file: "3"}
+
+x-healthcheck-java: &healthcheck-java
+  test: ["CMD-SHELL", "curl -fs http://127.0.0.1:9090/actuator/health/readiness | grep -q UP"]
+  interval: 10s
+  timeout: 5s
+  retries: 12
+  start_period: 40s
+
+x-db: &db
+  DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME}
+  DB_USER: ${DB_USER}
+  DB_PASSWORD: ${DB_PASSWORD}
+x-rabbit: &rabbit
+  RABBIT_HOST: rabbitmq
+  RABBIT_PORT: "5672"
+  RABBIT_USER: ${RABBIT_USER}
+  RABBIT_PASSWORD: ${RABBIT_PASSWORD}
+x-storage: &storage
+  STORAGE_ENDPOINT: http://minio:9000
+  STORAGE_PUBLIC_ENDPOINT: ${STORAGE_PUBLIC_ORIGIN}
+  STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY}
+  STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY}
+  STORAGE_BUCKET: ${STORAGE_BUCKET}
+x-tracing: &tracing
+  TRACE_SAMPLE_RATE: ${TRACE_SAMPLE_RATE:-0}
+  OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+
+services:
+  postgres:
+    <<: *service
+    image: postgres:16.14
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      retries: 20
+
+  redis:
+    <<: *service
+    image: redis:7-alpine
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} ping 2>/dev/null | grep -q PONG"]
+      interval: 5s
+      retries: 20
+
+  rabbitmq:
+    <<: *service
+    image: rabbitmq:3.13-management
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBIT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_PASSWORD}
+    volumes: [rabbitdata:/var/lib/rabbitmq]
+    ports: ["127.0.0.1:${RABBIT_UI_PORT:-15674}:15672"]      # management UI, local machine only
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      retries: 20
+      start_period: 20s
+
+  # Stands in for AWS S3 locally. On AWS: remove this service and the STORAGE_ENDPOINT / key variables.
+  minio:
+    <<: *service
+    image: coollabsio/minio:latest
+    command: ["minio", "server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${STORAGE_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${STORAGE_SECRET_KEY}
+    volumes: [miniodata:/data]
+    ports: ["9000:9000", "127.0.0.1:9001:9001"]
+    mem_limit: 384m
+
+  core-lms-service:
+    <<: *service
+    build: {context: ., args: {MODULE: core-lms-service}}
+    image: oep/core-lms-service:${IMAGE_TAG:-local}
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+      minio: {condition: service_started}
+    environment:
+      <<: [*db, *rabbit, *storage, *tracing]
+      SPRING_PROFILES_ACTIVE: prod
+      DB_REPLICA_URL: jdbc:postgresql://postgres:5432/${DB_NAME}   # no read replica locally; on AWS point this at the RDS read replica
+      DB_REPLICA_USER: ${DB_USER}
+      DB_REPLICA_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      JWT_PRIVATE_KEY_FILE: /run/secrets/jwt_private
+      ADMIN_SEED_EMAIL: ${ADMIN_SEED_EMAIL}
+      ADMIN_SEED_PASSWORD: ${ADMIN_SEED_PASSWORD}
+      STORAGE_AUTO_CREATE_BUCKET: "true"
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError
+    secrets: [jwt_private]
+    healthcheck: *healthcheck-java
+
+  assessment-service:
+    <<: *service
+    build: {context: ., args: {MODULE: assessment-service}}
+    image: oep/assessment-service:${IMAGE_TAG:-local}
+    depends_on:
+      core-lms-service: {condition: service_healthy}
+    environment:
+      <<: [*db, *rabbit, *storage, *tracing]
+      SPRING_PROFILES_ACTIVE: prod
+      JWK_SET_URI: http://core-lms-service:8081/.well-known/jwks.json
+    healthcheck: *healthcheck-java
+
+  worker-service:
+    <<: *service
+    build: {context: ., args: {MODULE: worker-service}}
+    image: oep/worker-service:${IMAGE_TAG:-local}
+    depends_on:
+      core-lms-service: {condition: service_healthy}
+    environment:
+      <<: [*db, *rabbit, *tracing]
+      SPRING_PROFILES_ACTIVE: prod
+    healthcheck: *healthcheck-java
+
+  api-gateway:
+    <<: *service
+    build: {context: ., args: {MODULE: api-gateway}}
+    image: oep/api-gateway:${IMAGE_TAG:-local}
+    depends_on:
+      core-lms-service: {condition: service_healthy}
+      assessment-service: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    environment:
+      <<: *tracing
+      SPRING_PROFILES_ACTIVE: prod
+      CORE_LMS_URL: http://core-lms-service:8081
+      ASSESSMENT_URL: http://assessment-service:8082
+      JWK_SET_URI: http://core-lms-service:8081/.well-known/jwks.json
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      CORS_ALLOWED_ORIGINS: ${PUBLIC_ORIGIN}
+      TRUSTED_PROXY_HOPS: "1"          # the nginx container in front
+    healthcheck: *healthcheck-java
+
+  frontend:
+    <<: *service
+    build:
+      context: ../frontend
+      args: {VITE_API_BASE_URL: ""}     # same origin: nginx proxies /api to the gateway
+    image: oep/frontend:${IMAGE_TAG:-local}
+    mem_limit: 128m
+    depends_on:
+      api-gateway: {condition: service_healthy}
+    environment:
+      GATEWAY_URL: http://api-gateway:8080
+      STORAGE_PUBLIC_ORIGIN: ${STORAGE_PUBLIC_ORIGIN}
+    ports: ["${FRONTEND_PORT:-8088}:80"]
+
+  # ---- optional: docker compose --profile observability up -d ---------------------------------------------
+  prometheus:
+    <<: *service
+    image: prom/prometheus:v2.54.1
+    profiles: [observability]
+    volumes:
+      - ./monitoring/prometheus.compose.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports: ["127.0.0.1:9091:9090"]
+
+  grafana:
+    <<: *service
+    image: grafana/grafana:11.2.0
+    profiles: [observability]
+    environment: {GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_PASSWORD:-admin}"}
+    volumes:
+      - ./monitoring/grafana-compose/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["127.0.0.1:3000:3000"]
+
+  jaeger:
+    <<: *service
+    image: jaegertracing/all-in-one:1.60
+    profiles: [observability]
+    environment: {COLLECTOR_OTLP_ENABLED: "true"}
+    ports: ["127.0.0.1:16686:16686"]
+
+networks:
+  oep: {}
+
+secrets:
+  jwt_private:
+    file: ./secrets/jwt-private-pkcs8.pem
+
+volumes:
+  pgdata:
+  rabbitdata:
+  miniodata:
