@@ -261,6 +261,22 @@ export function LessonItem({ lesson }: { lesson: LessonResponse }) {
                     <span className="font-medium">{content.title || `(${TYPE_LABEL[content.contentType]})`}</span>
                     <span className="text-xs text-slate-400">{TYPE_LABEL[content.contentType]}</span>
                     {isFileBased && <Badge status={content.uploadStatus} />}
+                    {content.contentType === 'VIDEO' && content.transcodeStatus && (
+                      <span
+                        title="Chuyển mã sang HLS để phát thích ứng theo đường truyền"
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${content.transcodeStatus === 'READY' ? 'bg-emerald-100 text-emerald-700' : content.transcodeStatus === 'FAILED' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}
+                      >
+                        {{ PENDING: 'HLS: chờ', PROCESSING: 'HLS: đang chuyển mã', READY: 'HLS sẵn sàng', FAILED: 'HLS lỗi' }[content.transcodeStatus]}
+                      </span>
+                    )}
+                    {content.contentType === 'VIDEO' && content.transcodeStatus === 'FAILED' && (
+                      <button
+                        className="text-[11px] text-blue-600 hover:underline"
+                        onClick={() => apiClient.post(`/api/admin/lesson-contents/${content.id}/transcode`).then(() => invalidateContents())}
+                      >
+                        Thử lại
+                      </button>
+                    )}
                   </div>
                   <div className="flex items-center gap-1">
                     <button onClick={() => setHistoryFor(content)} className="p-1 text-slate-400 hover:text-slate-700" aria-label="Lịch sử" title="Lịch sử chỉnh sửa">

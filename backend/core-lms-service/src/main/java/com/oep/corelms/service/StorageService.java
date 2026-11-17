@@ -18,6 +18,7 @@ import java.util.UUID;
 public class StorageService {
 
     private final S3Presigner presigner;
+    private final software.amazon.awssdk.services.s3.S3Client s3;
 
     @Value("${oep.storage.bucket}")
     private String bucket;
@@ -59,6 +60,12 @@ public class StorageService {
 
     public long viewUrlTtlSeconds() {
         return viewUrlTtlSeconds;
+    }
+
+    /** Small text objects (HLS playlists). */
+    public String readText(String objectKey) {
+        return s3.getObjectAsBytes(GetObjectRequest.builder().bucket(bucket).key(objectKey).build())
+                .asUtf8String();
     }
 
     public String presignView(String objectKey) {

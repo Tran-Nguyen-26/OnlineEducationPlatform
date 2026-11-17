@@ -40,6 +40,7 @@ public record CourseOutlineResponse(UUID courseId, String title, String enrollme
             String fileName,
             String mimeType,
             Integer durationSeconds,
-            UploadStatus uploadStatus) {
+            UploadStatus uploadStatus,
+            com.oep.coremodel.enums.TranscodeStatus transcodeStatus) {
     }
 }

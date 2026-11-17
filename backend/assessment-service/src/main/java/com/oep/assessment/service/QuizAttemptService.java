@@ -54,6 +54,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class QuizAttemptService {
 
+    private final AuditTrail audit;
     private final QuizRepository quizzes;
     private final QuizQuestionRepository quizQuestions;
     private final QuestionOptionRepository questionOptions;
@@ -206,6 +207,7 @@ public class QuizAttemptService {
 
         BigDecimal shownScore = Boolean.TRUE.equals(quiz.getShowScore()) ? total : null;
         List<QuestionResult> shownDetails = Boolean.TRUE.equals(quiz.getShowCorrectAnswers()) ? questionResults : List.of();
+        audit.record(studentId, "QUIZ_SUBMIT", "QUIZ_ATTEMPT", attempt.getId(), java.util.Map.of("quizId", String.valueOf(attempt.getQuiz().getId())));
         return new AttemptResultResponse(attempt.getId(), attempt.getAttemptNumber(), attempt.getStatus(),
                 attempt.getSubmittedAt(), shownScore, shownDetails, pendingManual);
     }

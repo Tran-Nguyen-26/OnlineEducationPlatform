@@ -16,6 +16,13 @@ services:
       STORAGE_AUTO_CREATE_BUCKET: "false"
       STORAGE_CORS_ORIGINS: ${PUBLIC_ORIGIN}
       AWS_REGION: ${AWS_REGION}
+  worker-service:
+    environment:
+      STORAGE_ENDPOINT: ""
+      STORAGE_PUBLIC_ENDPOINT: ""
+      STORAGE_ACCESS_KEY: ""
+      STORAGE_SECRET_KEY: ""
+      AWS_REGION: ${AWS_REGION}
   assessment-service:
     environment:
       STORAGE_ENDPOINT: ""

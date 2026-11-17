@@ -10,6 +10,19 @@ public final class OutboxEvents {
 
     private OutboxEvents() {}
 
+    public static OutboxEvent videoTranscode(VideoTranscodeRequestedEvent event, ObjectMapper mapper) {
+        OutboxEvent o = new OutboxEvent();
+        o.setAggregateType("LESSON_CONTENT");
+        o.setAggregateId(event.contentId());
+        o.setEventType(com.oep.coremodel.constant.MessagingConstants.RK_VIDEO_TRANSCODE);
+        try {
+            o.setPayload(mapper.writeValueAsString(event));
+        } catch (Exception e) {
+            throw new IllegalStateException("Cannot serialise transcode event", e);
+        }
+        return o;
+    }
+
     public static OutboxEvent notification(NotificationRequestedEvent event, ObjectMapper mapper) {
         OutboxEvent o = new OutboxEvent();
         o.setAggregateType("NOTIFICATION");

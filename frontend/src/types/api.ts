@@ -221,6 +221,7 @@ export interface LessonContentResponse {
   durationSeconds: number | null
   uploadStatus: UploadStatus
   position: number
+  transcodeStatus: 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED' | null
 }
 
 export interface UploadUrlResponse {
@@ -347,6 +348,7 @@ export interface OutlineContent {
   mimeType: string | null
   durationSeconds: number | null
   uploadStatus: UploadStatus
+  transcodeStatus: 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED' | null
 }
 
 export interface OutlineLesson {
@@ -383,6 +385,8 @@ export interface CourseOutlineResponse {
 export interface ViewUrlResponse {
   viewUrl: string
   expiresInSeconds: number
+  /** API path of the adaptive-stream master playlist once the video has been transcoded */
+  hlsUrl: string | null
 }
 
 export interface StudentQuizResponse {

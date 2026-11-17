@@ -157,10 +157,10 @@ Phân tích dựa trên code và cấu hình thật của repo ở thời điể
 |---|---|---|
 | A — Nền tảng bảo vệ được | ✅ phần kỹ thuật | `DEPLOYMENT.md`, `OPERATIONS.md`, `ENTERPRISE_READINESS.md`; còn thiếu: số liệu NFR/SLO đo thật |
 | B — Chứng minh chịu tải quiz | ✅ trên máy local | 300 học viên làm quiz đồng thời, 0 lỗi nghiêm trọng, p95 nộp bài 44 ms; xem `LOAD_TEST_REPORT.md` (chưa đo trên AWS) |
-| C — Triển khai cloud + CI/CD | 🟡 một nửa | Dockerfile, compose prod-like, Terraform AWS đã viết và validate; **chưa apply**, chưa có pipeline CI/CD |
+| C — Triển khai cloud + CI/CD | 🟡 | Dockerfile, compose prod-like, Terraform AWS và pipeline GitHub Actions (CI, deploy, rollback) đã viết và kiểm cú pháp; **chưa apply/chạy thật trên AWS/GitHub** |
 | D — Observability & độ tin cậy | ✅ | log JSON, trace, Prometheus/Grafana/Jaeger, alert, outbox/DLQ/circuit breaker; chaos test 6 kịch bản có số liệu trong `LOAD_TEST_REPORT.md` |
-| E — Media (CDN/HLS) | 🟡 | CloudFront đã có trong Terraform cho giao diện/asset; HLS/nén video chưa làm |
-| F — Kiểm thử & bảo mật | 🟡 | bảo mật đã làm nhiều (JWT, lockout, idempotency, header, privacy); test tự động chưa |
+| E — Media (CDN/HLS) | ✅ ở local | video tự chuyển sang HLS 720p/360p (ffmpeg), phát thích ứng bằng hls.js với segment là URL ký tới S3; CloudFront cho giao diện đã có trong Terraform (CDN cho segment video: bước sau khi lên AWS) |
+| F — Kiểm thử & bảo mật | ✅ cơ bản | bảo mật (JWT, lockout, idempotency, header, privacy), test tự động (24 test + migration Testcontainers) và CI; chưa có test giao diện |
 | G — AI tutor | ⏳ tùy chọn | chưa |
 
 Rủi ro #8 ở mục 3 ("hạ tầng dev không tái lập được") đã được xử lý: có Dockerfile, `docker-compose.prod.yml`, script secret/smoke/backup và Terraform.

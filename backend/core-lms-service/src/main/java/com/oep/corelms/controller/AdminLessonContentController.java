@@ -52,6 +52,13 @@ public class AdminLessonContentController {
         return response;
     }
 
+    @PostMapping("/api/admin/lesson-contents/{contentId}/transcode")
+    public LessonContentResponse retranscode(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID contentId) {
+        LessonContentResponse r = contentService.retranscode(contentId);
+        auditLogService.record(UUID.fromString(jwt.getSubject()), "RETRANSCODE_VIDEO", "LESSON_CONTENT", contentId, null);
+        return r;
+    }
+
     @DeleteMapping("/api/admin/lesson-contents/{contentId}")
     public ResponseEntity<Void> delete(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID contentId) {
         contentService.delete(contentId);

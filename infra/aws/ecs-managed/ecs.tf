@@ -26,13 +26,14 @@ locals {
   storage_env = {
     STORAGE_BUCKET = aws_s3_bucket.content.bucket
   }
-  sm = { for k in ["db_password", "rabbit_password", "admin_password", "demo_password", "jwt_private_key"] : k => "${local.secret_arn}:${k}::" }
+  sm = { for k in ["db_password", "rabbit_password", "redis_password", "admin_password", "demo_password", "jwt_private_key"] : k => "${local.secret_arn}:${k}::" }
 
   services = {
     core-lms-service = {
-      port = 8081, cpu = 512, memory = 1024, java = true, autoscale = false
+      port = 8081, cpu = 1024, memory = 2048, java = true, autoscale = true # login (bcrypt) is CPU-bound: scale out on CPU
       env = merge(local.base_env, local.db_env, local.rabbit_env, local.storage_env, {
-        REDIS_HOST             = aws_elasticache_cluster.redis.cache_nodes[0].address
+        REDIS_HOST             = aws_elasticache_replication_group.redis.primary_endpoint_address
+        REDIS_SSL              = "true"
         ADMIN_SEED_EMAIL       = "admin@oep.local"
         SPRING_PROFILES_ACTIVE = var.seed_demo_data ? "prod,demo" : "prod"
         STORAGE_CORS_ORIGINS   = local.public_origin
@@ -41,6 +42,7 @@ locals {
         DB_PASSWORD         = local.sm.db_password
         DB_REPLICA_PASSWORD = local.sm.db_password
         RABBIT_PASSWORD     = local.sm.rabbit_password
+        REDIS_PASSWORD      = local.sm.redis_password
         ADMIN_SEED_PASSWORD = local.sm.admin_password
         OEP_DEMO_PASSWORD   = local.sm.demo_password
         JWT_PRIVATE_KEY_PEM = local.sm.jwt_private_key
@@ -58,8 +60,8 @@ locals {
       }
     }
     worker-service = {
-      port    = 8083, cpu = 256, memory = 512, java = true, autoscale = false
-      env     = merge(local.base_env, local.db_env, local.rabbit_env)
+      port    = 8083, cpu = 1024, memory = 2048, java = true, autoscale = false # ffmpeg transcoding needs CPU and memory
+      env     = merge(local.base_env, local.db_env, local.rabbit_env, local.storage_env, { JAVA_TOOL_OPTIONS = "-XX:MaxRAMPercentage=40 -XX:+ExitOnOutOfMemoryError -Dsun.net.inetaddr.ttl=10" })
       secrets = { DB_PASSWORD = local.sm.db_password, RABBIT_PASSWORD = local.sm.rabbit_password }
     }
     api-gateway = {
@@ -68,11 +70,12 @@ locals {
         CORE_LMS_URL         = "http://core-lms-service.${local.name}.local:8081"
         ASSESSMENT_URL       = "http://assessment-service.${local.name}.local:8082"
         JWK_SET_URI          = "http://core-lms-service.${local.name}.local:8081/.well-known/jwks.json"
-        REDIS_HOST           = aws_elasticache_cluster.redis.cache_nodes[0].address
+        REDIS_HOST           = aws_elasticache_replication_group.redis.primary_endpoint_address
+        REDIS_SSL            = "true"
         CORS_ALLOWED_ORIGINS = local.public_origin
         TRUSTED_PROXY_HOPS   = "3" # CloudFront -> ALB -> nginx
       })
-      secrets = {}
+      secrets = { REDIS_PASSWORD = local.sm.redis_password }
     }
     frontend = {
       port = 80, cpu = 256, memory = 512, java = false, autoscale = false

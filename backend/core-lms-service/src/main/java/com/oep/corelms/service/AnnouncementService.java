@@ -32,6 +32,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AnnouncementService {
 
+    private final AuditLogService audit;
     private final CourseRepository courses;
     private final CourseAnnouncementRepository announcements;
     private final CourseInstructorRepository courseInstructors;
@@ -69,6 +70,7 @@ public class AnnouncementService {
         a.setTitle(title.trim());
         a.setContent(content.trim());
         CourseAnnouncement saved = announcements.saveAndFlush(a);
+        audit.record(userId, "ANNOUNCEMENT_POSTED", "COURSE", courseId, java.util.Map.of("role", role));
 
         String preview = saved.getContent().length() > 140 ? saved.getContent().substring(0, 140) + "..." : saved.getContent();
         for (Enrollment e : enrollments.findByCourseIdAndStatus(courseId, EnrollmentStatus.ACTIVE)) {

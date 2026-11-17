@@ -37,6 +37,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class TeacherGradingService {
 
+    private final AuditTrail audit;
     private final AssignmentRepository assignments;
     private final AssignmentSubmissionRepository submissions;
     private final SubmissionFileRepository submissionFiles;
@@ -86,6 +87,7 @@ public class TeacherGradingService {
         submission.setStatus(AssignmentStatus.GRADED);
         submissions.save(submission);
 
+        audit.record(instructorId, existing.isPresent() ? "ASSIGNMENT_REGRADE" : "ASSIGNMENT_GRADE", "SUBMISSION", submissionId, java.util.Map.of("score", String.valueOf(request.score())));
         notifyStudent(submission, saved);
         return toResponse(submission);
     }

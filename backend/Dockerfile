@@ -21,6 +21,9 @@ RUN --mount=type=cache,target=/root/.m2 \
 
 FROM eclipse-temurin:${JAVA_VERSION}-jre AS runtime
 ARG MODULE
+# worker-service transcodes videos to HLS and needs ffmpeg; the other services stay lean
+ARG INSTALL_FFMPEG=false
+RUN if [ "$INSTALL_FFMPEG" = "true" ]; then apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*; fi
 RUN useradd --system --uid 10001 --create-home oep
 WORKDIR /app
 COPY --from=build /app.jar /app/app.jar

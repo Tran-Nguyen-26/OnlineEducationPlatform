@@ -78,9 +78,26 @@ Kết luận: không có sự cố đơn lẻ nào làm sập toàn hệ thống
 | 6 | Gateway tạo lại → **toàn bộ API treo** | nginx phân giải tên `api-gateway` một lần lúc khởi động | `resolver` + biến trong `proxy_pass` (cũng cần cho ECS/Cloud Map, nơi IP task đổi liên tục); JVM `networkaddress.ttl=10s` |
 | 7 | (môi trường) host không truy cập được container | VPN `tun0` định tuyến `172.27.0.0/19`, trùng mạng Docker tự chọn | mạng compose cố định `10.231.0.0/24` (`OEP_SUBNET`) |
 
-## 5. Còn lại / hạn chế
+## 5. Mở rộng `core-lms-service` và sửa 3 request lỗi (đợt 2)
+
+Làm sau khi có báo cáo trên, cùng kịch bản 300 học viên vào thi (`quiz-spike`), chạy khi JVM đã nóng.
+
+**Nguyên nhân 3 request lỗi (0,33 %)**: `login` chạy trong một transaction, nên giữ kết nối DB trong suốt bước băm bcrypt (~100 ms). 300 lượt đăng nhập đồng thời làm cạn pool; lỗi sinh ra bị trang `/error` (đang yêu cầu đăng nhập) biến thành **401 rỗng** thay vì 500. Khi tôi hạ timeout lấy kết nối xuống 3 s, số lỗi tăng lên 14/917 (1,5 %) — lỗi này lộ rõ hơn chứ không phải mới.
+Sửa: bước băm mật khẩu chạy **không giữ kết nối** (tra cứu và cấp token là hai transaction ngắn), pool primary 30 / `minimum-idle` 5, `/error` được phép truy cập để lỗi thật hiện đúng mã 500.
+
+**Chạy nhiều bản**: gateway dùng bộ phân giải DNS round-robin (`RoundRobinDnsConfig`) nên một tên dịch vụ có nhiều bản ghi A (docker compose `--scale`, ECS Cloud Map) được chia đều và tự cập nhật sau vài giây. Kiểm tra: sau 300 lần đăng nhập, bản 1 xử lý 457 và bản 2 xử lý 446 lượt.
+
+| `quiz-spike` 300 học viên | 1 bản (1 GB) | 2 bản (1 GB) |
+|---|---|---|
+| Request lỗi | **0** (trước đó 3–14) | **0** (3 lần chạy liên tiếp) |
+| Đăng nhập p95 | 4,7 s | 3,8–4,5 s |
+| Bắt đầu bài p95 | 444 ms | 106–396 ms |
+| Nộp bài p95 | 133 ms | 24–26 ms |
+
+Cải thiện đăng nhập nhỏ hơn kỳ vọng vì cả hai bản, k6, Postgres và toàn bộ stack **dùng chung 16 luồng CPU của một laptop**; tăng số bản chỉ có tác dụng đầy đủ khi mỗi bản có CPU riêng (ECS). Trong Terraform `ecs-managed`, `core-lms-service` nay là 1 vCPU / 2 GB và tự mở rộng theo CPU (tối đa 4 task); RDS mặc định `db.t4g.small` vì mỗi task giữ tối đa 30 + 20 kết nối (`max_connections` của Postgres local nâng lên 300 cho 2 bản).
+
+## 6. Còn lại / hạn chế
 
 - Đăng nhập là chi phí lớn nhất khi hàng trăm người vào cùng lúc: cần ≥ 2 bản `core-lms-service` ở production (đã có autoscaling cho gateway/assessment trong Terraform; cân nhắc thêm cho core-lms).
-- 3 request lỗi trong `quiz-spike` chưa được truy nguyên.
 - Chưa đo trên AWS thật, chưa đo với dữ liệu lớn (hàng triệu dòng), chưa chạy tải liên tục nhiều giờ (soak test), chưa kiểm thử dừng DB replica thật (stack local không có replica).
 - Sự cố mạng (mất gói, độ trễ cao) chưa mô phỏng; chaos hiện chỉ dừng/khởi động container.

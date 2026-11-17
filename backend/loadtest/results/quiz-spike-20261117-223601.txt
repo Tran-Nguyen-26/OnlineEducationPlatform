@@ -1,0 +1,55 @@
+
+
+  █ THRESHOLDS 
+
+    exam_completed
+    ✓ 'count>=297' count=300
+
+    http_req_duration{name:POST /api/auth/login}
+    ✓ 'p(95)<10000' p(95)=5.17s
+
+    http_req_duration{name:POST start-attempt}
+    ✗ 'p(95)<1500' p(95)=1.9s
+
+    http_req_duration{name:POST submit-attempt}
+    ✓ 'p(95)<2000' p(95)=42.04ms
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 600     28.15789/s
+    checks_succeeded...: 100.00% 600 out of 600
+    checks_failed......: 0.00%   0 out of 600
+
+    ✓ start 200
+    ✓ submit 200
+
+    CUSTOM
+    exam_completed....................: 300    14.078945/s
+    start_to_submit_ms................: avg=10963.72 med=10892    p(90)=14958.6 p(95)=15316.55 p(99)=16230.57 max=17173   
+
+    HTTP
+    http_req_duration.................: avg=1.45s    med=784.86ms p(90)=4.75s   p(95)=4.91s    p(99)=5.22s    max=5.28s   
+      { expected_response:true }......: avg=1.45s    med=784.86ms p(90)=4.75s   p(95)=4.91s    p(99)=5.22s    max=5.28s   
+      { name:POST /api/auth/login }...: avg=3.43s    med=3.34s    p(90)=5s      p(95)=5.17s    p(99)=5.25s    max=5.28s   
+      { name:POST start-attempt }.....: avg=905.76ms med=795.77ms p(90)=1.78s   p(95)=1.9s     p(99)=2.18s    max=2.26s   
+      { name:POST submit-attempt }....: avg=27.93ms  med=25.91ms  p(90)=36.79ms p(95)=42.04ms  p(99)=56.7ms   max=204.75ms
+    http_req_failed...................: 0.00%  0 out of 903
+    http_reqs.........................: 903    42.377624/s
+
+    EXECUTION
+    iteration_duration................: avg=14.41s   med=14.18s   p(90)=18.48s  p(95)=18.93s   p(99)=20.03s   max=20.23s  
+    iterations........................: 300    14.078945/s
+    vus...............................: 5      min=0        max=300
+    vus_max...........................: 300    min=300      max=300
+
+    NETWORK
+    data_received.....................: 1.6 MB 76 kB/s
+    data_sent.........................: 798 kB 37 kB/s
+
+
+
+time="2026-11-17T15:36:23Z" level=error msg="thresholds on metrics 'http_req_duration{name:POST start-attempt}' have been crossed"

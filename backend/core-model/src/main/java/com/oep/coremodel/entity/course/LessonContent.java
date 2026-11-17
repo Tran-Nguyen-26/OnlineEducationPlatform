@@ -58,6 +58,15 @@ public class LessonContent extends BaseEntity {
     @Column(name = "upload_status", nullable = false, length = 40)
     private UploadStatus uploadStatus = UploadStatus.PENDING;
 
+    /** HLS preparation of a VIDEO (null for other content types and for videos uploaded before this feature). */
+    @jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
+    @Column(name = "transcode_status", length = 20)
+    private com.oep.coremodel.enums.TranscodeStatus transcodeStatus;
+
+    /** Object-store prefix of the HLS output (e.g. hls/{contentId}); the master playlist is {prefix}/master.m3u8. */
+    @Column(name = "hls_prefix", length = 500)
+    private String hlsPrefix;
+
     @Column(name = "position", nullable = false)
     private int position = 0;
 

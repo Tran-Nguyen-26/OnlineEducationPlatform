@@ -1,0 +1,54 @@
+
+
+  █ THRESHOLDS 
+
+    exam_completed
+    ✓ 'count>=297' count=300
+
+    http_req_duration{name:POST /api/auth/login}
+    ✓ 'p(95)<10000' p(95)=3.78s
+
+    http_req_duration{name:POST start-attempt}
+    ✓ 'p(95)<1500' p(95)=396.4ms
+
+    http_req_duration{name:POST submit-attempt}
+    ✓ 'p(95)<2000' p(95)=26.28ms
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 600     31.647343/s
+    checks_succeeded...: 100.00% 600 out of 600
+    checks_failed......: 0.00%   0 out of 600
+
+    ✓ start 200
+    ✓ submit 200
+
+    CUSTOM
+    exam_completed....................: 300    15.823671/s
+    start_to_submit_ms................: avg=10031.566667 med=10167   p(90)=13808.1  p(95)=14168.35 p(99)=14922.21 max=15089   
+
+    HTTP
+    http_req_duration.................: avg=920.62ms     med=59.06ms p(90)=3.23s    p(95)=3.6s     p(99)=3.81s    max=3.9s    
+      { expected_response:true }......: avg=920.62ms     med=59.06ms p(90)=3.23s    p(95)=3.6s     p(99)=3.81s    max=3.9s    
+      { name:POST /api/auth/login }...: avg=2.64s        med=2.8s    p(90)=3.67s    p(95)=3.78s    p(99)=3.83s    max=3.9s    
+      { name:POST start-attempt }.....: avg=100.2ms      med=57.17ms p(90)=258.29ms p(95)=396.4ms  p(99)=430.84ms max=499.47ms
+      { name:POST submit-attempt }....: avg=21.5ms       med=18.61ms p(90)=23.22ms  p(95)=26.28ms  p(99)=105.17ms max=184.74ms
+    http_req_failed...................: 0.00%  0 out of 903
+    http_reqs.........................: 903    47.629251/s
+
+    EXECUTION
+    iteration_duration................: avg=12.69s       med=12.89s  p(90)=16.18s   p(95)=16.96s   p(99)=18.19s   max=18.72s  
+    iterations........................: 300    15.823671/s
+    vus...............................: 1      min=1        max=300
+    vus_max...........................: 300    min=300      max=300
+
+    NETWORK
+    data_received.....................: 1.6 MB 85 kB/s
+    data_sent.........................: 798 kB 42 kB/s
+
+
+

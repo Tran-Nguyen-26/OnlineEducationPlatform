@@ -102,7 +102,7 @@ public class StudentCourseContentService {
     private OutlineLesson toOutlineLesson(Lesson lesson, Map<UUID, LessonProgress> progressByLesson, boolean locked) {
         List<OutlineContent> contentDtos = locked ? List.of() : lessonContents.findByLesson_IdOrderByPositionAsc(lesson.getId()).stream()
                 .map(c -> new OutlineContent(c.getId(), c.getContentType(), c.getTitle(), c.getTextContent(), c.getExternalUrl(),
-                        c.getFileName(), c.getMimeType(), c.getDurationSeconds(), c.getUploadStatus()))
+                        c.getFileName(), c.getMimeType(), c.getDurationSeconds(), c.getUploadStatus(), c.getTranscodeStatus()))
                 .toList();
         LessonProgress progress = progressByLesson.get(lesson.getId());
         LessonProgressStatus status = progress == null ? LessonProgressStatus.NOT_STARTED : progress.getStatus();
@@ -120,6 +120,18 @@ public class StudentCourseContentService {
     /** Either an actively-enrolled student or an assigned instructor/admin may view the file; others get 403. */
     @Transactional(readOnly = true)
     public ViewUrlResponse getContentViewUrl(UUID contentId, UUID userId, String role) {
+        LessonContent content = authorizeContent(contentId, userId, role);
+        if (content.getObjectKey() == null) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "This content has no file to view");
+        }
+        String hls = content.getTranscodeStatus() == com.oep.coremodel.enums.TranscodeStatus.READY
+                ? "/api/lesson-contents/" + contentId + "/hls/master.m3u8" : null;
+        return new ViewUrlResponse(storageService.presignView(content.getObjectKey()), storageService.viewUrlTtlSeconds(), hls);
+    }
+
+    /** Same access rule as the file view URL, reused by the HLS playlists. */
+    @Transactional(readOnly = true)
+    public LessonContent authorizeContent(UUID contentId, UUID userId, String role) {
         LessonContent content = lessonContents.findById(contentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Content not found"));
         UUID courseId = content.getLesson().getModule().getCourse().getId();
@@ -131,11 +143,7 @@ public class StudentCourseContentService {
         } else if (!"ADMIN".equals(role)) {
             requireUnlocked(content.getLesson(), enrollmentAccess.requireReadableEnrollment(courseId, userId));
         }
-
-        if (content.getObjectKey() == null) {
-            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "This content has no file to view");
-        }
-        return new ViewUrlResponse(storageService.presignView(content.getObjectKey()), storageService.viewUrlTtlSeconds());
+        return content;
     }
 
     /** One row per enrollment (any status), with lesson-completion counts aggregated across all its modules. */

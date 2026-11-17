@@ -22,6 +22,7 @@ export function login(vu, extraHeaders = {}) {
       tags: { name: 'POST /api/auth/login' },
     });
     if (res.status === 200) return res.json('accessToken');
+    console.warn(`login failed vu=${vu} status=${res.status} body=${String(res.body).slice(0, 80)}`);
     if (res.status === 429) { sleep(Number(res.headers['Retry-After'] || 1)); continue; }
     sleep(1);
   }
@@ -40,5 +41,6 @@ export function uuid() {
 }
 
 export function ok(res, name) {
+  if (res.status !== 200) console.warn(`${name} failed status=${res.status} body=${String(res.body).slice(0, 80)}`);
   return check(res, { [`${name} 200`]: (r) => r.status === 200 });
 }

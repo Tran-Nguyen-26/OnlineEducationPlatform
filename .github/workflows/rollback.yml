@@ -1,0 +1,42 @@
+name: Rollback (ECS)
+
+# Re-points "latest" at an older, already-pushed image tag (a commit SHA from a previous Deploy) and rolls the services.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Terraform "environment" name of the stack
+        default: demo
+        required: true
+      tag:
+        description: Image tag (commit SHA) to roll back to
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  CLUSTER: oep-${{ inputs.environment }}
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Retag and roll
+        run: |
+          set -euo pipefail
+          services=(core-lms-service assessment-service worker-service api-gateway frontend)
+          for s in "${services[@]}"; do
+            manifest=$(aws ecr batch-get-image --repository-name "oep/$s" --image-ids imageTag=${{ inputs.tag }} --query 'images[0].imageManifest' --output text)
+            aws ecr put-image --repository-name "oep/$s" --image-tag latest --image-manifest "$manifest" >/dev/null || true
+            aws ecs update-service --cluster "$CLUSTER" --service "$s" --force-new-deployment >/dev/null
+          done
+          aws ecs wait services-stable --cluster "$CLUSTER" --services "${services[@]}"

@@ -36,6 +36,41 @@ public class MessagingConfig {
         return BindingBuilder.bind(notificationDeadLetterQueue).to(deadLetterExchange).with(MessagingConstants.DLQ_ROUTING_KEY);
     }
 
+    // ---- video transcoding: one job at a time, failures are dead-lettered ----------------------------------------------
+    @Bean
+    Queue videoQueue() {
+        return QueueBuilder.durable(MessagingConstants.QUEUE_VIDEO)
+                .deadLetterExchange(MessagingConstants.DLX).deadLetterRoutingKey(MessagingConstants.DLQ_VIDEO_KEY).build();
+    }
+
+    @Bean
+    Queue videoDeadLetterQueue() {
+        return QueueBuilder.durable(MessagingConstants.QUEUE_VIDEO_DLQ).build();
+    }
+
+    @Bean
+    Binding videoBinding(Queue videoQueue, TopicExchange oepExchange) {
+        return BindingBuilder.bind(videoQueue).to(oepExchange).with(MessagingConstants.RK_VIDEO_TRANSCODE);
+    }
+
+    @Bean
+    Binding videoDeadLetterBinding(Queue videoDeadLetterQueue, DirectExchange deadLetterExchange) {
+        return BindingBuilder.bind(videoDeadLetterQueue).to(deadLetterExchange).with(MessagingConstants.DLQ_VIDEO_KEY);
+    }
+
+    /** prefetch 1 + one consumer: a transcoding worker never holds more than one video. */
+    @Bean
+    org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory videoListenerFactory(
+            org.springframework.boot.autoconfigure.amqp.SimpleRabbitListenerContainerFactoryConfigurer configurer,
+            org.springframework.amqp.rabbit.connection.ConnectionFactory connectionFactory) {
+        var factory = new org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory();
+        configurer.configure(factory, connectionFactory);
+        factory.setPrefetchCount(1);
+        factory.setConcurrentConsumers(1);
+        factory.setMaxConcurrentConsumers(1);
+        return factory;
+    }
+
     @Bean
     Queue notificationQueue() {
         return QueueBuilder.durable(MessagingConstants.QUEUE_NOTIFICATION)

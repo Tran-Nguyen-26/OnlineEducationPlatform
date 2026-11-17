@@ -14,6 +14,12 @@ variable "image_tag" {
   default     = "latest"
 }
 
+variable "db_instance_class" {
+  description = "RDS size. Connection budget = (task replicas) x (primary pool 30 + replica pool 20); db.t4g.micro allows only ~100 connections"
+  type        = string
+  default     = "db.t4g.small"
+}
+
 variable "multi_az" {
   description = "RDS Multi-AZ standby (production-like availability, doubles the DB cost)"
   type        = bool

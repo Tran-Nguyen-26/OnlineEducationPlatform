@@ -15,6 +15,8 @@ spring:
     password: ${DB_PASSWORD:oep}
     hikari:
       connection-timeout: 3000
+      maximum-pool-size: 10
+      minimum-idle: 2
   jpa:
     hibernate:
       ddl-auto: none
@@ -43,6 +45,14 @@ spring:
           initial-interval: 1s
           multiplier: 2
           max-interval: 15s
+
+oep:
+  storage:
+    endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
+    access-key: ${STORAGE_ACCESS_KEY:oep}
+    secret-key: ${STORAGE_SECRET_KEY:oep_secret}
+    bucket: ${STORAGE_BUCKET:oep-content}
+    region: ${AWS_REGION:us-east-1}
 
 management:
   endpoints:

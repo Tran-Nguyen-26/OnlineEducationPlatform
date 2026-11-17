@@ -2,6 +2,10 @@ resource "random_password" "db" {
   length  = 28
   special = false
 }
+resource "random_password" "redis" {
+  length  = 32
+  special = false
+}
 resource "random_password" "rabbit" {
   length  = 28
   special = false
@@ -31,7 +35,7 @@ resource "aws_db_instance" "primary" {
   identifier                      = "${local.name}-pg"
   engine                          = "postgres"
   engine_version                  = "16"
-  instance_class                  = "db.t4g.micro"
+  instance_class                  = var.db_instance_class
   allocated_storage               = 20
   max_allocated_storage           = 100
   storage_type                    = "gp3"
@@ -54,7 +58,7 @@ resource "aws_db_instance" "replica" {
   count                  = var.create_read_replica ? 1 : 0
   identifier             = "${local.name}-pg-replica"
   replicate_source_db    = aws_db_instance.primary.identifier
-  instance_class         = "db.t4g.micro"
+  instance_class         = var.db_instance_class
   storage_encrypted      = true
   vpc_security_group_ids = [aws_security_group.data.id]
   skip_final_snapshot    = true
@@ -66,14 +70,21 @@ resource "aws_elasticache_subnet_group" "redis" {
   subnet_ids = aws_subnet.private[*].id
 }
 
-resource "aws_elasticache_cluster" "redis" {
-  cluster_id         = "${local.name}-redis"
-  engine             = "redis"
-  node_type          = "cache.t4g.micro"
-  num_cache_nodes    = 1
-  port               = 6379
-  subnet_group_name  = aws_elasticache_subnet_group.redis.name
-  security_group_ids = [aws_security_group.data.id]
+resource "aws_elasticache_replication_group" "redis" {
+  replication_group_id       = "${local.name}-redis"
+  description                = "OEP cache, rate limits, token revocation, idempotency"
+  engine                     = "redis"
+  engine_version             = "7.1"
+  node_type                  = "cache.t4g.micro"
+  num_cache_clusters         = 1
+  port                       = 6379
+  subnet_group_name          = aws_elasticache_subnet_group.redis.name
+  security_group_ids         = [aws_security_group.data.id]
+  automatic_failover_enabled = false
+  # encrypted in transit (the apps connect with REDIS_SSL=true) and protected by an AUTH token
+  transit_encryption_enabled = true
+  at_rest_encryption_enabled = true
+  auth_token                 = random_password.redis.result
 }
 
 # ------------------------------------------------------------------ RabbitMQ (Amazon MQ)
@@ -138,6 +149,7 @@ resource "aws_secretsmanager_secret_version" "app" {
   secret_string = jsonencode({
     db_password     = random_password.db.result
     rabbit_password = random_password.rabbit.result
+    redis_password  = random_password.redis.result
     admin_password  = "Adm1n-${random_password.admin.result}"
     demo_password   = "Demo-${random_password.demo.result}"
     jwt_private_key = tls_private_key.jwt.private_key_pem_pkcs8

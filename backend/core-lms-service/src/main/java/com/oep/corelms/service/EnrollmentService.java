@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class EnrollmentService {
 
+    private final AuditLogService audit;
     private final CourseRepository courses;
     private final EnrollmentRepository enrollments;
     private final UserRepository users;
@@ -86,7 +87,9 @@ public class EnrollmentService {
         e.setStatus(isFull ? EnrollmentStatus.WAITLISTED : EnrollmentStatus.ACTIVE);
         e.setWithdrawnAt(null);
         e.setRemovedAt(null);
-        return MyEnrollmentResponse.from(enrollments.save(e));
+        Enrollment savedEnrollment = enrollments.save(e);
+        audit.record(studentId, isFull ? "STUDENT_WAITLISTED" : "STUDENT_ENROLL", "COURSE", courseId, null);
+        return MyEnrollmentResponse.from(savedEnrollment);
     }
 
     /** A student may withdraw from their own active or waitlisted enrollment at any time; re-entry needs a fresh invite code. */
@@ -104,6 +107,7 @@ public class EnrollmentService {
         e.setStatus(EnrollmentStatus.WITHDRAWN);
         e.setWithdrawnAt(Instant.now());
         MyEnrollmentResponse response = MyEnrollmentResponse.from(enrollments.save(e));
+        audit.record(studentId, "STUDENT_WITHDRAW", "COURSE", e.getCourse().getId(), null);
         if (wasActive) {
             waitlistService.promoteNext(e.getCourse().getId());
         }

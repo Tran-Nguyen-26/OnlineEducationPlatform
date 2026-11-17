@@ -40,7 +40,7 @@ terraform apply -target=aws_ecr_repository.svc        # 1) create the registries
 terraform apply                                        # 3) everything else (RDS/MQ take ~10-15 min)
 terraform output url
 ```
-Release: push a new tag, `terraform apply -var image_tag=<tag>`; a failing deployment rolls back automatically
+Release: run the **Deploy** GitHub workflow (or push a new tag and `terraform apply -var image_tag=<tag>`); a failing deployment rolls back automatically
 (ECS deployment circuit breaker). Scale-out for `api-gateway` / `assessment-service` is automatic (CPU 60 %).
 
 ## Before the demo
@@ -49,7 +49,7 @@ Release: push a new tag, `terraform apply -var image_tag=<tag>`; a failing deplo
 - `terraform destroy` when finished: NAT gateway, RDS, MQ and the ALB bill per hour.
 
 ## Known limits (be honest in the report)
-- Redis has no AUTH/TLS (private subnet + security group only); enable `transit_encryption_enabled` + auth token for production.
+- Redis uses AUTH + TLS in transit (ElastiCache replication group, single node, no automatic failover).
 - CloudFront → origin uses HTTP inside AWS (origin is locked to CloudFront's prefix list); use an ACM certificate + HTTPS listener with a real domain for production.
 - Single NAT gateway and single-instance MQ: one AZ failure causes downtime. Set `multi_az=true` and add NAT/MQ redundancy for real HA.
 - No WAF, no custom domain, no remote Terraform state (add an S3 backend + DynamoDB lock for team use).

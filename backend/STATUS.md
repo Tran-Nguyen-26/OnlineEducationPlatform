@@ -110,4 +110,7 @@ Nói "làm mục N" hoặc "làm phần X" để bắt đầu — giữ đúng q
 
 | Kiểm thử tải/chịu lỗi | k6 (200 HV duyệt, 300 HV thi, 100 HV sau 1 NAT) + chaos 6 kịch bản; tìm và sửa 7 lỗi | `LOAD_TEST_REPORT.md`, `loadtest/README.md` |
 
-**Chưa làm:** test tự động, CI/CD, load test/chaos có số liệu, apply Terraform thật lên AWS, AI Tutor, HLS/CDN cho video, nhật ký cho thao tác của người không phải admin.
+| Mở rộng & video | core-lms chạy nhiều bản (gateway chia tải DNS round-robin), login không giữ kết nối DB khi băm bcrypt, HLS 720p/360p bằng ffmpeg + hls.js, nhật ký cho thao tác người dùng, Redis AUTH/TLS (Terraform) | `LOAD_TEST_REPORT.md` §5, `DEPLOYMENT.md` §2c |
+| Test & CI/CD | 24 test tự động (validator mật khẩu, playlist HLS, error handler/rate limit của gateway, migration trên Postgres thật, transcoder), workflow CI / deploy / rollback (đã qua `actionlint`) | `DEPLOYMENT.md` §2b |
+
+**Chưa làm:** test end-to-end của giao diện, soak test, chạy thật pipeline trên GitHub và Terraform trên AWS, AI Tutor, CDN cho segment video (CloudFront trước bucket).

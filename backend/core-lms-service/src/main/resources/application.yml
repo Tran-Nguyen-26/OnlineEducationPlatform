@@ -43,15 +43,17 @@ oep:
   datasource:
     routing-enabled: true
     primary:
-      connection-timeout: 3000      # fail fast when the database is down (default 30 s)
+      connection-timeout: 5000      # fail fast when the database is down (default 30 s)
       validation-timeout: 2000
-      maximum-pool-size: 20
+      minimum-idle: 5               # do not hold the whole pool open: connection budget = replicas x (primary + replica pool)
+      maximum-pool-size: 30
       jdbc-url: ${DB_URL:jdbc:postgresql://localhost:5432/oep}
       username: ${DB_USER:oep}
       password: ${DB_PASSWORD:oep}
     replica:
       connection-timeout: 3000      # fail fast when the database is down (default 30 s)
       validation-timeout: 2000
+      minimum-idle: 5               # do not hold the whole pool open: connection budget = replicas x (primary + replica pool)
       maximum-pool-size: 20
       jdbc-url: ${DB_REPLICA_URL:jdbc:postgresql://localhost:5433/oep}
       username: ${DB_REPLICA_USER:oep}

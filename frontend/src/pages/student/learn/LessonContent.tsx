@@ -4,6 +4,7 @@ import { apiClient } from '../../../lib/apiClient'
 import { Markdown } from '../../../lib/markdown'
 import type { OutlineContent, ViewUrlResponse } from '../../../types/api'
 import { YouTubePlayer } from './YouTubePlayer'
+import { HlsVideo } from './HlsVideo'
 
 function youtubeId(url: string): string | null {
   const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{11})/)
@@ -15,7 +16,7 @@ function useViewUrl(contentId: string, enabled: boolean) {
     enabled,
     queryKey: ['view-url', contentId],
     staleTime: 10 * 60 * 1000,
-    queryFn: () => apiClient.get<ViewUrlResponse>(`/api/lesson-contents/${contentId}/view-url`).then((r) => r.data.viewUrl),
+    queryFn: () => apiClient.get<ViewUrlResponse>(`/api/lesson-contents/${contentId}/view-url`).then((r) => r.data),
   })
 }
 
@@ -55,7 +56,8 @@ export function LessonContent({ content, idPrefix, onVideoPercent }: { content: 
   if (!ready) {
     return <p className="my-6 rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-400">{content.title ?? 'Tài liệu'} — nội dung đang được chuẩn bị...</p>
   }
-  const url = view.data
+  const url = view.data?.viewUrl
+  const hlsPath = view.data?.hlsUrl ?? null
   const isVideo = content.contentType === 'VIDEO' || content.mimeType?.startsWith('video/')
   const isPdf = content.contentType === 'PDF' || content.mimeType === 'application/pdf'
 
@@ -63,7 +65,8 @@ export function LessonContent({ content, idPrefix, onVideoPercent }: { content: 
     <section className="my-6">
       {content.title && <h3 className="mb-2 font-semibold text-slate-900">{content.title}</h3>}
       {view.isLoading && <p className="text-sm text-slate-400">Đang tải...</p>}
-      {url && isVideo && (
+      {url && isVideo && hlsPath && <HlsVideo hlsPath={hlsPath} fallbackUrl={url} onPercent={onVideoPercent} />}
+      {url && isVideo && !hlsPath && (
         <video
           controls
           src={url}

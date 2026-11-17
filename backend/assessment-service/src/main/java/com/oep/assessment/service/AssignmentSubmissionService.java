@@ -37,6 +37,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AssignmentSubmissionService {
 
+    private final AuditTrail audit;
     private final AssignmentRepository assignments;
     private final AssignmentSubmissionRepository submissions;
     private final SubmissionFileRepository submissionFiles;
@@ -96,6 +97,7 @@ public class AssignmentSubmissionService {
         submission.setLate(late);
         submission.setStatus(regrade ? AssignmentStatus.PENDING_REGRADE : AssignmentStatus.SUBMITTED);
         submission = submissions.save(submission);
+        audit.record(studentId, regrade ? "ASSIGNMENT_RESUBMIT" : "ASSIGNMENT_SUBMIT", "ASSIGNMENT", assignment.getId(), java.util.Map.of("late", late));
         notifyInstructors(assignment, enrollment, submission);
         return toSubmissionResponse(submission);
     }

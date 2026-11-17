@@ -1,0 +1,66 @@
+name: Deploy to AWS (ECS)
+
+# Manual release: builds the five images, pushes them to ECR (tags: the commit SHA and "latest") and rolls the ECS services.
+# ECS "deployment circuit breaker" (enabled in Terraform) rolls a failing release back by itself.
+# One-time setup: create the ECR repositories and ECS cluster with infra/aws/ecs-managed, create an IAM role that GitHub can
+# assume through OIDC, and store its ARN in the repository secret AWS_ROLE_ARN (region in the variable AWS_REGION).
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Terraform "environment" name of the stack (cluster is oep-<environment>)
+        default: demo
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  CLUSTER: oep-${{ inputs.environment }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and push images
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          TAG: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          for svc in core-lms-service assessment-service worker-service api-gateway; do
+            extra=()
+            [ "$svc" = "worker-service" ] && extra=(--build-arg INSTALL_FFMPEG=true)
+            docker build -f backend/Dockerfile --build-arg MODULE="$svc" "${extra[@]}" -t "$REGISTRY/oep/$svc:$TAG" -t "$REGISTRY/oep/$svc:latest" backend
+            docker push --all-tags "$REGISTRY/oep/$svc"
+          done
+          docker build -t "$REGISTRY/oep/frontend:$TAG" -t "$REGISTRY/oep/frontend:latest" --build-arg VITE_API_BASE_URL= frontend
+          docker push --all-tags "$REGISTRY/oep/frontend"
+      - name: Roll the ECS services and wait until they are stable
+        run: |
+          set -euo pipefail
+          services=(core-lms-service assessment-service worker-service api-gateway frontend)
+          for s in "${services[@]}"; do
+            aws ecs update-service --cluster "$CLUSTER" --service "$s" --force-new-deployment >/dev/null
+          done
+          aws ecs wait services-stable --cluster "$CLUSTER" --services "${services[@]}"
+      - name: Smoke test
+        run: |
+          url=$(aws cloudfront list-distributions --query "DistributionList.Items[?Comment=='OEP ${{ inputs.environment }}'].DomainName | [0]" --output text)
+          curl -fsS "https://$url/api/public/overview" > /dev/null
+          echo "Deployed ${{ github.sha }} to https://$url"

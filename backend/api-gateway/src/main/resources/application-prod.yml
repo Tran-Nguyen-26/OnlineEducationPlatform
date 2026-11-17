@@ -3,6 +3,8 @@ spring:
     redis:
       host: ${REDIS_HOST}
       password: ${REDIS_PASSWORD:}
+      ssl:
+        enabled: ${REDIS_SSL:false}   # ElastiCache with transit encryption needs TLS (default JVM trust store covers the AWS CA)
   security:
     oauth2:
       resourceserver:

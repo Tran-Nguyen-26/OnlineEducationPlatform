@@ -42,6 +42,7 @@ services:
   postgres:
     <<: *service
     image: postgres:16.14
+    command: ["postgres", "-c", "max_connections=300"]   # several service replicas x two pools each (default 100 is too small)
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
@@ -94,6 +95,9 @@ services:
     <<: *service
     build: {context: ., args: {MODULE: core-lms-service}}
     image: oep/core-lms-service:${IMAGE_TAG:-local}
+    mem_limit: 1g                     # login (bcrypt) is CPU/heap hungry under a burst; was 768m and peaked at 623 MB
+    deploy:
+      replicas: ${CORE_LMS_REPLICAS:-1}   # stateless: JWT key, lockout, revocation, locks all live in Redis/DB
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
@@ -133,13 +137,15 @@ services:
 
   worker-service:
     <<: *service
-    build: {context: ., args: {MODULE: worker-service}}
+    build: {context: ., args: {MODULE: worker-service, INSTALL_FFMPEG: "true"}}
     image: oep/worker-service:${IMAGE_TAG:-local}
     depends_on:
       core-lms-service: {condition: service_healthy}
+    mem_limit: 1536m                    # JVM heap (40 %) + room for ffmpeg
     environment:
-      <<: [*db, *rabbit, *tracing]
+      <<: [*db, *rabbit, *storage, *tracing]
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=40 -XX:+ExitOnOutOfMemoryError -Dsun.net.inetaddr.ttl=10
     healthcheck: *healthcheck-java
 
   api-gateway:

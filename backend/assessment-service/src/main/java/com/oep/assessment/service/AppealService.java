@@ -45,6 +45,7 @@ public class AppealService {
     private static final String SUBMISSION = "ASSIGNMENT_SUBMISSION";
     private static final String ATTEMPT = "QUIZ_ATTEMPT";
 
+    private final AuditTrail audit;
     private final GradeAppealRepository appeals;
     private final EnrollmentRepository enrollments;
     private final AssignmentSubmissionRepository submissions;
@@ -106,6 +107,7 @@ public class AppealService {
                         ap.getCourseId());
             }
         }
+        audit.record(studentId, "APPEAL_CREATE", "APPEAL", saved.getId(), null);
         return toResponse(saved);
     }
 
@@ -148,6 +150,7 @@ public class AppealService {
         ap.setResolvedBy(users.getReferenceById(userId));
         ap.setResolvedAt(Instant.now());
         appeals.save(ap);
+        audit.record(userId, "APPEAL_RESOLVE", "APPEAL", ap.getId(), java.util.Map.of("role", role));
 
         notifications.send(ap.getEnrollment().getStudent().getId(), "APPEAL_RESOLVED", "Kết quả phúc khảo — " + ap.getTargetTitle(),
                 (req.accepted() ? "Được chấp nhận" : "Không được chấp nhận") + scoreNote + ". Phản hồi: " + ap.getResponse(),

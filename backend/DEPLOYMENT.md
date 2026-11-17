@@ -43,6 +43,23 @@ Bật bằng `SPRING_PROFILES_ACTIVE=prod,demo` (compose: `CORE_PROFILES=prod,de
 
 Mã mời để học viên mới thử ghi danh: `DEMO-ENGLISH`, `DEMO-PYTHON`, `DEMO-PRESENT`. Tài khoản demo không bị buộc đổi mật khẩu để buổi trình bày trơn tru — **không bật `demo` cho hệ thống thật**.
 
+## 2b. CI/CD (GitHub Actions)
+
+| Workflow | Khi nào chạy | Làm gì |
+|---|---|---|
+| `.github/workflows/ci.yml` | mỗi push / pull request | `mvn verify` (unit test + `MigrationsTest` dựng Postgres bằng Testcontainers + test ffmpeg), `tsc` + `vite build`, build 5 image Docker, `docker compose config`, `terraform fmt/validate` cho cả hai stack |
+| `deploy.yml` | thủ công (`workflow_dispatch`) | build 5 image, đẩy lên ECR (tag = commit SHA và `latest`), `ecs update-service --force-new-deployment`, đợi ổn định, smoke test qua CloudFront; nếu bản mới lỗi, ECS circuit breaker tự rollback |
+| `rollback.yml` | thủ công | gắn lại `latest` vào một SHA cũ rồi triển khai lại |
+
+Thiết lập một lần: tạo vai trò IAM cho GitHub OIDC có quyền ECR + ECS, lưu `AWS_ROLE_ARN` (secret) và `AWS_REGION` (variable) trong repository, tạo environment trùng tên stack (`demo`). Chưa chạy được trên GitHub từ máy này — đã kiểm tra cú pháp bằng `actionlint`.
+Chạy test ở máy cục bộ: `mvn verify` (test Testcontainers tự bỏ qua nếu không có Docker; Docker Engine 29 cần `api.version=1.44`, đã cấu hình trong pom).
+
+## 2c. Video HLS
+
+Khi giáo viên/admin xác nhận tải video lên (`complete-upload`), `core-lms-service` ghi một sự kiện `video.transcode` vào outbox; `worker-service` (image có ffmpeg, mỗi lần một video) tải file gốc, tạo 2 độ phân giải (720p và 360p, không phóng to quá nguồn; đoạn 6 giây) và tải lên `hls/<contentId>/`. Trạng thái nằm ở cột `lesson_contents.transcode_status` (`PENDING → PROCESSING → READY | FAILED`); admin xem huy hiệu "HLS" trong tab nội dung và bấm "Thử lại" khi lỗi (`POST /api/admin/lesson-contents/{id}/transcode`).
+Phát: `GET /api/lesson-contents/{id}/view-url` trả thêm `hlsUrl`. Trình phát (hls.js) lấy playlist từ API (cần token, cùng quy tắc truy cập như file gốc); mỗi segment trong playlist là URL ký sẵn tới S3/MinIO nên video không đi qua server ứng dụng. Video chưa chuyển mã xong hoặc lỗi vẫn phát file gốc. Trên AWS, đặt CloudFront trước bucket (URL ký) để phát từ CDN.
+Tài nguyên: worker cần ~1,5 GB RAM (Fargate: 1 vCPU / 2 GB), image worker ~1,2 GB do có ffmpeg.
+
 ## 3. AWS target
 
 Terraform for both options lives in `../infra/aws/` (`ec2-demo`, `ecs-managed`; see its README for commands, cost and limits). The options below describe what those stacks create.

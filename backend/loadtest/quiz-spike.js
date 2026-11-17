@@ -12,6 +12,7 @@ export const options = {
   thresholds: {
     'http_req_duration{name:POST start-attempt}': ['p(95)<1500'],
     'http_req_duration{name:POST submit-attempt}': ['p(95)<2000'],
+    'http_req_duration{name:POST /api/auth/login}': ['p(95)<10000'], // reported separately: login is the bcrypt-bound part
     http_req_failed: ['rate<0.01'],
     exam_completed: [`count>=${Math.floor(students * 0.99)}`],
   },

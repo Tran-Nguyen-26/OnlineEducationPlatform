@@ -8,6 +8,8 @@ spring:
     redis:
       host: ${REDIS_HOST}
       password: ${REDIS_PASSWORD:}
+      ssl:
+        enabled: ${REDIS_SSL:false}   # ElastiCache with transit encryption needs TLS (default JVM trust store covers the AWS CA)
   rabbitmq:
     ssl:
       enabled: ${RABBIT_SSL:false}   # Amazon MQ requires TLS (port 5671)

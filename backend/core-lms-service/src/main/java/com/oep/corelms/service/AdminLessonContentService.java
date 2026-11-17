@@ -33,6 +33,7 @@ public class AdminLessonContentService {
     private static final Set<ContentType> FILE_BASED_TYPES =
             EnumSet.of(ContentType.VIDEO, ContentType.PDF, ContentType.SLIDE, ContentType.DOCUMENT, ContentType.FILE);
 
+    private final TranscodeRequester transcodeRequester;
     private final LessonRepository lessons;
     private final LessonContentRepository contents;
     private final UserRepository users;
@@ -125,6 +126,17 @@ public class AdminLessonContentService {
         content.setFileSize(request.fileSize());
         content.setDurationSeconds(request.durationSeconds());
         content.setUploadStatus(UploadStatus.AVAILABLE);
+        transcodeRequester.request(content);   // VIDEO only: adaptive HLS version is prepared in the background
+        return LessonContentResponse.from(contents.saveAndFlush(content));
+    }
+
+    /** Re-runs HLS preparation (e.g. after a FAILED transcode). */
+    @Transactional
+    public LessonContentResponse retranscode(UUID contentId) {
+        LessonContent content = findOrThrow(contentId);
+        if (!transcodeRequester.request(content)) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "Only uploaded videos can be transcoded");
+        }
         return LessonContentResponse.from(contents.saveAndFlush(content));
     }
 

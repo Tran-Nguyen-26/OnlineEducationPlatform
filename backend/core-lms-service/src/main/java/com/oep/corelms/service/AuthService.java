@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
 import java.util.Map;
@@ -48,6 +49,7 @@ public class AuthService {
     private final com.oep.corelms.security.TokenRevocationService tokenRevocation;
     private final com.oep.corelms.security.LoginAttemptService loginAttempts;
     private final AuditLogService audit;
+    private final org.springframework.transaction.PlatformTransactionManager txManager;
     private final io.micrometer.core.instrument.MeterRegistry meters;
     private final PasswordResetTokenRepository passwordResetTokens;
     private final PasswordEncoder passwordEncoder;
@@ -80,12 +82,23 @@ public class AuthService {
         return issueTokens(user, false);
     }
 
-    @Transactional
+    /**
+     * Deliberately NOT one big transaction: the bcrypt check takes ~100 ms of CPU, and holding a database connection
+     * for that long capped login throughput at (pool size / 0.1 s) and exhausted the pool when a whole class logged in
+     * at once. The lookup and the token issuing are separate short transactions; the hashing runs without a connection.
+     */
     public AuthResponse login(LoginRequest request) {
         String email = request.email().trim().toLowerCase();
         loginAttempts.assertNotLocked(email);
-        User user = users.findByEmail(request.email()).orElse(null);
-        AuthIdentity identity = user == null ? null : authIdentities.findByUser_IdAndProvider(user.getId(), AuthProvider.LOCAL).orElse(null);
+        TransactionTemplate tx = new TransactionTemplate(txManager);
+        User[] found = new User[1];
+        AuthIdentity[] foundIdentity = new AuthIdentity[1];
+        tx.executeWithoutResult(s -> {
+            found[0] = users.findByEmail(request.email()).orElse(null);
+            foundIdentity[0] = found[0] == null ? null : authIdentities.findByUser_IdAndProvider(found[0].getId(), AuthProvider.LOCAL).orElse(null);
+        });
+        User user = found[0];
+        AuthIdentity identity = foundIdentity[0];
 
         if (identity == null || identity.getPasswordHash() == null
                 || !passwordEncoder.matches(request.password(), identity.getPasswordHash())) {
@@ -102,8 +115,11 @@ public class AuthService {
 
         meters.counter("oep.business.events", "type", "login_success").increment();
         loginAttempts.reset(email);
-        audit.record(user.getId(), "LOGIN_SUCCESS", "USER", user.getId(), Map.of());
-        return issueTokens(user, identity.isMustChangePassword());
+        boolean mustChange = identity.isMustChangePassword();
+        return tx.execute(s -> {
+            audit.record(user.getId(), "LOGIN_SUCCESS", "USER", user.getId(), Map.of());
+            return issueTokens(user, mustChange);
+        });
     }
 
     @Transactional
@@ -149,6 +165,7 @@ public class AuthService {
         identity.setMustChangePassword(false);
         authIdentities.save(identity);
         tokenRevocation.revokeAccessTokens(userId);
+        audit.record(userId, "PASSWORD_CHANGED", "USER", userId, Map.of());
         // Fresh tokens: the old access token still carries must_change_password=true, which the gateway blocks on.
         return issueTokens(identity.getUser(), false);
     }

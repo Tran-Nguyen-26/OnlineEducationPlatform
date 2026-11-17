@@ -40,6 +40,7 @@ Sample data (teachers `gv.lan@oep.demo`, `gv.minh@oep.demo`; students `hs01..hs0
 |---|---|
 | `DEPLOYMENT.md` | profiles dev/prod, local prod-like stack, AWS options, environment variables, pre-demo checklist |
 | `LOAD_TEST_REPORT.md` | kết quả load test (k6) và chaos test, các lỗi tìm thấy và đã sửa; scripts ở `loadtest/` |
+| `.github/workflows/` | CI (build, test, image, terraform validate), deploy và rollback lên ECS |
 | `OPERATIONS.md` | runbook: backup/restore, async pipeline (outbox/DLQ), key rotation, monitoring, troubleshooting, ops/privacy endpoints |
 | `../infra/aws/README.md` | Terraform for AWS (`ec2-demo`, `ecs-managed`) |
 | `ENTERPRISE_READINESS.md` | capability audit + status table of reliability / security / observability work |

@@ -10,9 +10,13 @@ public final class MessagingConstants {
     public static final String DLX = "oep.events.dlx";
     public static final String QUEUE_NOTIFICATION_DLQ = "oep.worker.notification.dlq";
     public static final String DLQ_ROUTING_KEY = "notification.dead";
+    public static final String QUEUE_VIDEO = "oep.worker.video";
+    public static final String QUEUE_VIDEO_DLQ = "oep.worker.video.dlq";
+    public static final String DLQ_VIDEO_KEY = "video.dead";
     public static final String QUEUE_SCORE_SYNC = "oep.worker.score-sync";
 
     public static final String RK_QUIZ_PUBLISHED = "quiz.published";
     public static final String RK_NOTIFICATION = "notification.requested";
+    public static final String RK_VIDEO_TRANSCODE = "video.transcode";
     public static final String RK_SCORE_SYNC = "exam.score.sync";
 }

@@ -30,6 +30,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class QuizGradingService {
 
+    private final AuditTrail audit;
     private final QuizAnswerRepository quizAnswers;
     private final QuizAttemptRepository attempts;
     private final QuizResultRepository quizResults;
@@ -76,6 +77,7 @@ public class QuizGradingService {
         answer.setCorrect(req.score().compareTo(max) >= 0);
         answer.setFeedback(req.feedback());
         quizAnswers.saveAndFlush(answer);
+        audit.record(userId, "ESSAY_GRADE", "QUIZ_ANSWER", answerId, java.util.Map.of("role", role));
 
         QuizResult result = quizResults.findByAttempt_Id(attempt.getId()).orElse(null);
         if (result != null && result.getAdjustedBy() == null) {
@@ -114,6 +116,7 @@ public class QuizGradingService {
         result.setAdjustedBy(users.getReferenceById(userId));
         result.setAdjustmentReason(req.reason().trim());
         quizResults.save(result);
+        audit.record(userId, "QUIZ_SCORE_ADJUST", "QUIZ_ATTEMPT", attemptId, java.util.Map.of("role", role));
         notifications.send(attempt.getEnrollment().getStudent().getId(), "QUIZ_SCORE_ADJUSTED",
                 "Điểm quiz được điều chỉnh — " + quiz.getCourse().getTitle(),
                 "Quiz \"" + quiz.getTitle() + "\" (lần " + attempt.getAttemptNumber() + "): "

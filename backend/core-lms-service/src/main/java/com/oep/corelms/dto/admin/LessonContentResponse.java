@@ -18,7 +18,8 @@ public record LessonContentResponse(
         Long fileSize,
         Integer durationSeconds,
         UploadStatus uploadStatus,
-        int position) {
+        int position,
+        com.oep.coremodel.enums.TranscodeStatus transcodeStatus) {
 
     public static LessonContentResponse from(LessonContent content) {
         return new LessonContentResponse(
@@ -33,6 +34,7 @@ public record LessonContentResponse(
                 content.getFileSize(),
                 content.getDurationSeconds(),
                 content.getUploadStatus(),
-                content.getPosition());
+                content.getPosition(),
+                content.getTranscodeStatus());
     }
 }

@@ -62,11 +62,19 @@ Nên diễn tập khôi phục trước buổi demo. Trên AWS dùng thêm snaps
 |---|---|
 | Người dùng tải dữ liệu của mình | `GET /api/users/me/export` (nút trong trang Hồ sơ) |
 | Admin ẩn danh tài khoản (không hoàn tác; giữ điểm/ghi danh) | `POST /api/admin/users/{id}/anonymize` (nút ở chi tiết người dùng) |
-| Job lưu giữ dữ liệu 03:00 hằng ngày | `RetentionScheduler`: thông báo >180 ngày, outbox đã gửi >7 ngày, refresh token hết hạn >30 ngày (`oep.retention.*`). Không đụng điểm, ghi danh, chứng chỉ, nhật ký |
+| Job lưu giữ dữ liệu 03:00 hằng ngày | `RetentionScheduler`: thông báo >180 ngày, outbox đã gửi >7 ngày, refresh token hết hạn >30 ngày (`oep.retention.*`). bản ghi đăng nhập *thành công* >90 ngày (`oep.retention.login-audit-days`). Không đụng điểm, ghi danh, chứng chỉ, và phần còn lại của nhật ký |
+
+## 6b. Nhật ký hành động (audit)
+
+Ngoài thao tác admin, hệ thống ghi vào `audit_logs` (cùng transaction với thay đổi): đăng nhập thành công/sai/khóa tài khoản, đổi mật khẩu, học viên ghi danh/vào danh sách chờ/rút khóa, nộp quiz, nộp/nộp lại bài tập, chấm và chấm lại bài tập, chấm câu tự luận, điều chỉnh điểm quiz, gửi và xử lý phúc khảo, đăng thông báo khóa học, ẩn danh tài khoản, thao tác Vận hành. Xem ở Admin → Nhật ký (phân trang phía server).
 
 ## 7. Chạy nhiều bản (scale-out)
 
 Các job định kỳ dùng ShedLock (bảng `shedlock`) nên chỉ một bản chạy; relay outbox dùng `SKIP LOCKED` nên chạy song song an toàn. `@Version` trên Course/Quiz: sửa đồng thời trả 409 `STALE_VERSION`.
+
+## 7b. Mở rộng số bản
+
+`CORE_LMS_REPLICAS=2 docker compose -f docker-compose.prod.yml --env-file .env.prod up -d` chạy 2 bản core-lms; gateway tự chia tải theo DNS (round-robin, làm mới ~vài giây). Ngân sách kết nối DB = số bản × (pool primary tối đa 30 + pool replica tối đa 20): giữ nhỏ hơn `max_connections` của Postgres (local 300; RDS: chọn lớp máy đủ lớn hoặc dùng RDS Proxy). Lần đầu trên DB trống với profile `demo`, hãy bật **một** bản trước rồi mới scale (seeder không chống chạy song song).
 
 ## 8. Xử lý sự cố thường gặp
 

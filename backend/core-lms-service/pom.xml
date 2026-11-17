@@ -13,6 +13,7 @@
 
     <properties>
         <aws-sdk.version>2.29.1</aws-sdk.version>
+        <testcontainers.version>1.20.4</testcontainers.version> <!-- 1.19.x cannot talk to Docker Engine 29 (API >= 1.40) -->
     </properties>
 
     <dependencyManagement>
@@ -123,6 +124,16 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
@@ -131,6 +142,15 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <api.version>1.44</api.version> <!-- Testcontainers/docker-java: Docker Engine 29 rejects the old default API 1.32 -->
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
