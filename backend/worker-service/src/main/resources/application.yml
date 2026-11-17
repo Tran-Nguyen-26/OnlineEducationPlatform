@@ -1,7 +1,10 @@
 server:
+  shutdown: graceful
   port: 8083
 
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
   application:
     name: worker-service
   datasource:
@@ -17,3 +20,42 @@ spring:
     port: ${RABBIT_PORT:5673}
     username: ${RABBIT_USER:oep}
     password: ${RABBIT_PASSWORD:oep}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+    listener:
+      simple:
+        default-requeue-rejected: false   # failed messages are dead-lettered (see DLX), never requeued forever
+        retry:
+          enabled: true
+          max-attempts: 5
+          initial-interval: 1s
+          multiplier: 2
+          max-interval: 15s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized
+
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 100ms,300ms,1s,3s
+  tracing:
+    sampling:
+      probability: ${TRACE_SAMPLE_RATE:0.0}
+  otlp:
+    tracing:
+      endpoint: ${OTLP_ENDPOINT:http://localhost:4318/v1/traces}

@@ -1,5 +1,6 @@
 package com.oep.assessment.service;
 
+import com.oep.assessment.service.NotificationPublisher;
 import com.oep.assessment.dto.GradeSubmissionRequest;
 import com.oep.assessment.dto.SubmissionForGradingResponse;
 import com.oep.assessment.dto.SubmissionFileResponse;
@@ -43,7 +44,7 @@ public class TeacherGradingService {
     private final CourseInstructorRepository courseInstructors;
     private final UserRepository users;
     private final UserProfileRepository userProfiles;
-    private final RabbitTemplate rabbitTemplate;
+    private final NotificationPublisher notificationPublisher;
 
     @Transactional(readOnly = true)
     public List<TeacherAssignmentResponse> listAssignmentsForCourse(UUID courseId, UUID instructorId) {
@@ -100,7 +101,7 @@ public class TeacherGradingService {
                 studentId, "ASSIGNMENT_GRADED", "Bài tập đã được chấm — " + courseTitle, message,
                 "assignment-graded:" + grade.getId() + ":" + grade.getGradedAt().toEpochMilli(),
                 "COURSE", assignment.getCourse().getId(), Instant.now());
-        rabbitTemplate.convertAndSend(MessagingConstants.EXCHANGE, MessagingConstants.RK_NOTIFICATION, event);
+        notificationPublisher.publish(event);
     }
 
     private void requireAssignedInstructor(UUID courseId, UUID instructorId) {

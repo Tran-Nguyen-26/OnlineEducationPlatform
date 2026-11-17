@@ -1,0 +1,37 @@
+# Profile "prod": NO defaults for secrets — the service refuses to start if they are not provided (see ProdSecretsGuard).
+spring:
+  flyway:
+    url: ${DB_URL}
+    user: ${DB_USER}
+    password: ${DB_PASSWORD}
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      password: ${REDIS_PASSWORD:}
+  rabbitmq:
+    host: ${RABBIT_HOST}
+    port: ${RABBIT_PORT}
+    username: ${RABBIT_USER}
+    password: ${RABBIT_PASSWORD}
+oep:
+  datasource:
+    primary:
+      jdbc-url: ${DB_URL}
+      username: ${DB_USER}
+      password: ${DB_PASSWORD}
+    replica:
+      jdbc-url: ${DB_REPLICA_URL}
+      username: ${DB_REPLICA_USER}
+      password: ${DB_REPLICA_PASSWORD}
+  jwt:
+    private-key-file: ${JWT_PRIVATE_KEY_FILE}
+    previous-public-key-files: ${JWT_PREVIOUS_PUBLIC_KEY_FILES:}
+  admin:
+    seed:
+      email: ${ADMIN_SEED_EMAIL}
+      password: ${ADMIN_SEED_PASSWORD}
+  storage:
+    endpoint: ${STORAGE_ENDPOINT}
+    access-key: ${STORAGE_ACCESS_KEY}
+    secret-key: ${STORAGE_SECRET_KEY}
+    bucket: ${STORAGE_BUCKET}

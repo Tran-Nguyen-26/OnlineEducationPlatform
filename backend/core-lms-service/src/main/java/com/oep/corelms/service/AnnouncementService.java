@@ -1,5 +1,6 @@
 package com.oep.corelms.service;
 
+import com.oep.corelms.service.EventNotifier;
 import com.oep.corelms.dto.social.AnnouncementResponse;
 import com.oep.corelms.repository.CourseAnnouncementRepository;
 import com.oep.corelms.repository.CourseInstructorRepository;
@@ -37,7 +38,7 @@ public class AnnouncementService {
     private final EnrollmentRepository enrollments;
     private final UserRepository users;
     private final UserProfileRepository userProfiles;
-    private final RabbitTemplate rabbitTemplate;
+    private final EventNotifier eventNotifier;
 
     @Transactional(readOnly = true)
     public List<AnnouncementResponse> list(UUID courseId, UUID userId, String role) {
@@ -72,8 +73,7 @@ public class AnnouncementService {
         String preview = saved.getContent().length() > 140 ? saved.getContent().substring(0, 140) + "..." : saved.getContent();
         for (Enrollment e : enrollments.findByCourseIdAndStatus(courseId, EnrollmentStatus.ACTIVE)) {
             UUID studentId = e.getStudent().getId();
-            rabbitTemplate.convertAndSend(MessagingConstants.EXCHANGE, MessagingConstants.RK_NOTIFICATION,
-                    new NotificationRequestedEvent(studentId, "COURSE_ANNOUNCEMENT", "Thông báo khóa \"" + course.getTitle() + "\": " + saved.getTitle(),
+            eventNotifier.publish(new NotificationRequestedEvent(studentId, "COURSE_ANNOUNCEMENT", "Thông báo khóa \"" + course.getTitle() + "\": " + saved.getTitle(),
                             preview, "announcement:" + saved.getId() + ":" + studentId, "COURSE", courseId, Instant.now()));
         }
         return toResponse(saved);

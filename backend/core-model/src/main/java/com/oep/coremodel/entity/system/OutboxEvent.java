@@ -18,7 +18,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
-@Table(name = "outbox_events", indexes = {@Index(name = "idx_outbox_events_status_created_at", columnList = "status, created_at")})
+@Table(name = "outbox_events", indexes = {@Index(name = "idx_outbox_events_status_created_at", columnList = "status, created_at"), @Index(name = "idx_outbox_events_due", columnList = "status, next_attempt_at")})
 public class OutboxEvent extends BaseEntity {
 
     @Column(name = "aggregate_type", nullable = false, length = 100)
@@ -44,6 +44,13 @@ public class OutboxEvent extends BaseEntity {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+
+    /** Relay backoff: not retried before this instant. */
+    @Column(name = "next_attempt_at", nullable = false)
+    private Instant nextAttemptAt = Instant.now();
+
+    @Column(name = "last_error", nullable = true, columnDefinition = "text")
+    private String lastError;
 
     @Column(name = "processed_at", nullable = true)
     private Instant processedAt;

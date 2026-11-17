@@ -1,5 +1,6 @@
 package com.oep.assessment.scheduler;
 
+import com.oep.assessment.service.NotificationPublisher;
 import com.oep.assessment.repository.EnrollmentRepository;
 import com.oep.assessment.repository.QuizAttemptRepository;
 import com.oep.assessment.repository.QuizRepository;
@@ -30,10 +31,12 @@ public class QuizDeadlineReminderScheduler {
     private final QuizRepository quizzes;
     private final EnrollmentRepository enrollments;
     private final QuizAttemptRepository attempts;
-    private final RabbitTemplate rabbitTemplate;
+    private final NotificationPublisher notificationPublisher;
 
     @Scheduled(cron = "0 0 * * * *")
-    @Transactional(readOnly = true)
+    @net.javacrumbs.shedlock.spring.annotation.SchedulerLock(name = "quizDeadlineReminder", lockAtMostFor = "PT10M", lockAtLeastFor = "PT30S")
+    
+    @Transactional
     public void remindUpcomingDeadlines() {
         Instant now = Instant.now();
         List<Quiz> dueSoon = quizzes.findByLockedFalseAndDeadlineBetween(now, now.plus(REMIND_WINDOW_HOURS, ChronoUnit.HOURS));
@@ -49,7 +52,7 @@ public class QuizDeadlineReminderScheduler {
                         "Quiz \"" + quiz.getTitle() + "\" sẽ đóng vào " + quiz.getDeadline() + ", bạn chưa làm bài.",
                         "quiz-deadline:" + quiz.getId() + ":" + enrollment.getStudent().getId(),
                         "COURSE", quiz.getCourse().getId(), Instant.now());
-                rabbitTemplate.convertAndSend(MessagingConstants.EXCHANGE, MessagingConstants.RK_NOTIFICATION, event);
+                notificationPublisher.publish(event);
                 queued++;
             }
         }

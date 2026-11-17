@@ -1,7 +1,10 @@
 server:
+  shutdown: graceful
   port: 8080
 
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
   application:
     name: api-gateway
   data:
@@ -27,29 +30,144 @@ spring:
               - http://10.*:*
             allowedMethods: "*"
             allowedHeaders: "*"
+      httpclient:
+        connect-timeout: 2000       # ms to open a connection to a service
+        response-timeout: 30s       # whole-response budget; slower calls fail fast instead of piling up
       default-filters:
-        - name: RequestRateLimiter
+        - name: RequestRateLimiter  # baseline for every route: per user (JWT subject) or IP
           args:
             redis-rate-limiter.replenishRate: 20
             redis-rate-limiter.burstCapacity: 40
             key-resolver: "#{@userKeyResolver}"
       routes:
+        # --- stricter, purpose-built limits (evaluated before the generic routes) -------------------------------
+        - id: auth-sensitive         # brute-force / enumeration surface: per client IP
+          uri: ${CORE_LMS_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/auth/login,/api/auth/register,/api/auth/forgot-password,/api/auth/reset-password,/api/auth/refresh
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 1
+                redis-rate-limiter.burstCapacity: 8
+                key-resolver: "#{@ipKeyResolver}"
+        - id: quiz-write             # exam peaks: protect the write path per student
+          uri: ${ASSESSMENT_URL:http://localhost:8082}
+          predicates:
+            - Method=POST
+            - Path=/api/quizzes/*/attempts,/api/attempts/*/submit,/api/assignments/*/submissions
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 5
+                redis-rate-limiter.burstCapacity: 15
+                key-resolver: "#{@userKeyResolver}"
+            - name: CircuitBreaker
+              args:
+                name: assessment
+                fallbackUri: forward:/fallback
+                statusCodes: 502,503,504
+        - id: upload-urls-assessment
+          uri: ${ASSESSMENT_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/submissions/*/files/upload-url,/api/submission-files/*/complete-upload
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 2
+                redis-rate-limiter.burstCapacity: 10
+                key-resolver: "#{@userKeyResolver}"
+        - id: upload-urls-core
+          uri: ${CORE_LMS_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/admin/lesson-contents/*/upload-url,/api/users/me/avatar/upload-url,/api/courses/*/messages/*/attachments/upload-url
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 2
+                redis-rate-limiter.burstCapacity: 10
+                key-resolver: "#{@userKeyResolver}"
+        # --- generic routes: retry idempotent reads with backoff, circuit-break the whole upstream ---------------
         - id: core-lms
           uri: ${CORE_LMS_URL:http://localhost:8081}
           predicates:
             - Path=/api/auth/**,/api/admin/**,/api/users/**,/api/courses/**,/api/enrollments/**,/api/notifications/**,/api/lessons/**,/api/lesson-contents/**,/api/instructors/**,/api/certificates/**,/api/public/**
+          filters:
+            - name: Retry
+              args:
+                retries: 2
+                methods: GET
+                statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+                backoff:
+                  firstBackoff: 100ms
+                  maxBackoff: 1s
+                  factor: 2
+            - name: CircuitBreaker
+              args:
+                name: coreLms
+                fallbackUri: forward:/fallback
+                statusCodes: 502,503,504
         - id: assessment
           uri: ${ASSESSMENT_URL:http://localhost:8082}
           predicates:
             - Path=/api/gradebook/**,/api/appeals/**,/api/quizzes/**,/api/attempts/**,/api/submissions/**,/api/assignments/**,/api/submission-files/**
+          filters:
+            - name: Retry
+              args:
+                retries: 2
+                methods: GET
+                statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+                backoff:
+                  firstBackoff: 100ms
+                  maxBackoff: 1s
+                  factor: 2
+            - name: CircuitBreaker
+              args:
+                name: assessment
+                fallbackUri: forward:/fallback
+                statusCodes: 502,503,504
         # AI Tutor (Python) - add later:
         # - id: ai-tutor
         #   uri: ${AI_TUTOR_URL:http://localhost:8090}
         #   predicates:
         #     - Path=/api/ai/**
 
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50          # open when >= 50% of the last 20 calls fail
+        waitDurationInOpenState: 10s      # then probe again
+        permittedNumberOfCallsInHalfOpenState: 3
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 35s
+
 management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
+
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 100ms,300ms,1s,3s
+  tracing:
+    sampling:
+      probability: ${TRACE_SAMPLE_RATE:0.0}
+  otlp:
+    tracing:
+      endpoint: ${OTLP_ENDPOINT:http://localhost:4318/v1/traces}

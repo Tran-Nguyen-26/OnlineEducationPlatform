@@ -1,0 +1,29 @@
+# SLOs: availability 99.5% (5xx ratio < 0.5%), p95 latency < 500ms for reads, async pipeline backlog < 1 min.
+groups:
+  - name: oep-slo
+    rules:
+      - alert: HighErrorRate
+        expr: sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m])) / sum(rate(http_server_requests_seconds_count[5m])) > 0.005
+        for: 5m
+        labels: {severity: page}
+        annotations: {summary: "5xx ratio above the 0.5% SLO for 5 minutes"}
+      - alert: SlowRequests
+        expr: histogram_quantile(0.95, sum by (le, application) (rate(http_server_requests_seconds_bucket[5m]))) > 0.5
+        for: 10m
+        labels: {severity: ticket}
+        annotations: {summary: "p95 latency above 500 ms on {{ $labels.application }}"}
+      - alert: ServiceDown
+        expr: up{job="oep"} == 0
+        for: 1m
+        labels: {severity: page}
+        annotations: {summary: "{{ $labels.instance }} is not reachable"}
+      - alert: OutboxBacklog
+        expr: oep_outbox_pending > 100
+        for: 5m
+        labels: {severity: ticket}
+        annotations: {summary: "Outbox has more than 100 undelivered events (broker or relay problem)"}
+      - alert: DeadLetterQueueNotEmpty
+        expr: oep_outbox_failed > 0
+        for: 1m
+        labels: {severity: ticket}
+        annotations: {summary: "Outbox events gave up after retries - see Admin > Vận hành"}

@@ -38,6 +38,12 @@ public class AuditLogService {
         auditLogs.save(entry);
     }
 
+    /** Own transaction, so the entry survives when the caller's transaction rolls back (e.g. a rejected login). */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public void recordIndependent(UUID actorId, String action, String targetType, UUID targetId, Map<String, Object> metadata) {
+        record(actorId, action, targetType, targetId, metadata);
+    }
+
     @Transactional(readOnly = true)
     public List<AuditLogResponse> list() {
         return auditLogs.findAllByOrderByCreatedAtDesc().stream().map(this::toResponse).toList();

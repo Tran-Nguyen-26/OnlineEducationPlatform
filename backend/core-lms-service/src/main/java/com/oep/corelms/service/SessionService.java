@@ -1,5 +1,6 @@
 package com.oep.corelms.service;
 
+import com.oep.corelms.service.EventNotifier;
 import com.oep.corelms.dto.social.SessionDtos;
 import com.oep.corelms.repository.AttendanceRecordRepository;
 import com.oep.corelms.repository.CourseInstructorRepository;
@@ -51,7 +52,7 @@ public class SessionService {
     private final EnrollmentRepository enrollments;
     private final UserRepository users;
     private final UserProfileRepository userProfiles;
-    private final RabbitTemplate rabbitTemplate;
+    private final EventNotifier eventNotifier;
 
     @Transactional(readOnly = true)
     public List<SessionDtos.SessionResponse> list(UUID courseId, UUID userId, String role) {
@@ -97,8 +98,7 @@ public class SessionService {
         CourseSession saved = sessions.saveAndFlush(s);
         for (Enrollment e : enrollments.findByCourseIdAndStatus(courseId, EnrollmentStatus.ACTIVE)) {
             UUID studentId = e.getStudent().getId();
-            rabbitTemplate.convertAndSend(MessagingConstants.EXCHANGE, MessagingConstants.RK_NOTIFICATION,
-                    new NotificationRequestedEvent(studentId, "SESSION_SCHEDULED", "Buổi học mới: " + saved.getTitle(),
+            eventNotifier.publish(new NotificationRequestedEvent(studentId, "SESSION_SCHEDULED", "Buổi học mới: " + saved.getTitle(),
                             "Khóa \"" + course.getTitle() + "\" — " + WHEN.format(saved.getStartsAt())
                                     + (saved.getLocation() != null && !saved.getLocation().isBlank() ? " — " + saved.getLocation() : ""),
                             "session:" + saved.getId() + ":" + studentId, "COURSE", courseId, Instant.now()));

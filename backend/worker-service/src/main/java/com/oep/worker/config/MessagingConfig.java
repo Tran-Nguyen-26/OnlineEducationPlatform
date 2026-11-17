@@ -3,7 +3,9 @@ package com.oep.worker.config;
 import com.oep.coremodel.constant.MessagingConstants;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
+import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
@@ -18,9 +20,28 @@ public class MessagingConfig {
         return new TopicExchange(MessagingConstants.EXCHANGE);
     }
 
+    /** Messages that fail after the listener's retries are dead-lettered here instead of being requeued forever. */
+    @Bean
+    DirectExchange deadLetterExchange() {
+        return new DirectExchange(MessagingConstants.DLX);
+    }
+
+    @Bean
+    Queue notificationDeadLetterQueue() {
+        return QueueBuilder.durable(MessagingConstants.QUEUE_NOTIFICATION_DLQ).build();
+    }
+
+    @Bean
+    Binding notificationDeadLetterBinding(Queue notificationDeadLetterQueue, DirectExchange deadLetterExchange) {
+        return BindingBuilder.bind(notificationDeadLetterQueue).to(deadLetterExchange).with(MessagingConstants.DLQ_ROUTING_KEY);
+    }
+
     @Bean
     Queue notificationQueue() {
-        return new Queue(MessagingConstants.QUEUE_NOTIFICATION, true);
+        return QueueBuilder.durable(MessagingConstants.QUEUE_NOTIFICATION)
+                .deadLetterExchange(MessagingConstants.DLX)
+                .deadLetterRoutingKey(MessagingConstants.DLQ_ROUTING_KEY)
+                .build();
     }
 
     @Bean

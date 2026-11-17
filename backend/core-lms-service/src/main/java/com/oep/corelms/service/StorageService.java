@@ -34,7 +34,17 @@ public class StorageService {
     }
 
     /** contentType must match exactly what the client sends as the PUT Content-Type header, or MinIO rejects the signature. */
+    /** Types that can execute in a browser or on a host: never accepted as uploads, whatever the caller claims. */
+    private static final java.util.Set<String> BLOCKED_TYPES = java.util.Set.of(
+            "text/html", "application/xhtml+xml", "image/svg+xml", "application/x-msdownload", "application/x-sh",
+            "application/x-executable", "application/x-dosexec", "application/javascript", "text/javascript", "application/java-archive");
+
     public String presignUpload(String objectKey, String contentType) {
+        String ct = contentType == null ? "" : contentType.toLowerCase().trim();
+        if (BLOCKED_TYPES.contains(ct) || objectKey.toLowerCase().matches(".*\\.(exe|sh|bat|cmd|msi|jar|html?|js|svg)$")) {
+            throw new com.oep.coremodel.exception.BusinessException(com.oep.coremodel.exception.ErrorCode.VALIDATION_FAILED,
+                    "Loại tệp này không được phép tải lên");
+        }
         PutObjectRequest putRequest = PutObjectRequest.builder()
                 .bucket(bucket)
                 .key(objectKey)

@@ -36,6 +36,7 @@ import java.util.UUID;
 public class AdminUserService {
 
     private final UserRepository users;
+    private final com.oep.corelms.security.TokenRevocationService tokenRevocation;
     private final AuthIdentityRepository authIdentities;
     private final UserProfileRepository userProfiles;
     private final PasswordEncoder passwordEncoder;
@@ -129,6 +130,9 @@ public class AdminUserService {
         User user = users.findById(targetUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "User not found"));
         user.setAccountStatus(newStatus);
+        if (newStatus != AccountStatus.ACTIVE) {
+            tokenRevocation.revokeAllAccessTokens(user.getId());
+        }
         return toResponse(users.save(user));
     }
 

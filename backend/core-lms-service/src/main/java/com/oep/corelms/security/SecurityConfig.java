@@ -28,12 +28,13 @@ public class SecurityConfig {
 
     @Bean
     public JwtDecoder jwtDecoder(JwtKeyService keyService) {
-        try {
-            RSAPublicKey publicKey = keyService.getRsaKey().toRSAPublicKey();
-            return NimbusJwtDecoder.withPublicKey(publicKey).build();
-        } catch (JOSEException e) {
-            throw new IllegalStateException("Failed to build JwtDecoder from RSA key", e);
-        }
+        // Verify against the whole key set (current + previous keys kept for rotation), selected by the token's kid.
+        com.nimbusds.jwt.proc.DefaultJWTProcessor<com.nimbusds.jose.proc.SecurityContext> processor = new com.nimbusds.jwt.proc.DefaultJWTProcessor<>();
+        processor.setJWSKeySelector(new com.nimbusds.jose.proc.JWSVerificationKeySelector<>(
+                com.nimbusds.jose.JWSAlgorithm.RS256, new com.nimbusds.jose.jwk.source.ImmutableJWKSet<>(keyService.publicJwkSet())));
+        NimbusJwtDecoder decoder = new NimbusJwtDecoder(processor);
+        decoder.setJwtValidator(org.springframework.security.oauth2.jwt.JwtValidators.createDefault());
+        return decoder;
     }
 
     @Bean
@@ -56,7 +57,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/refresh",
                                 "/api/auth/forgot-password", "/api/auth/reset-password",
                                 "/api/certificates/verify/**", "/api/public/**",
-                                "/.well-known/jwks.json", "/actuator/health").permitAll()
+                                "/.well-known/jwks.json", "/actuator/health", "/actuator/health/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/actuator/prometheus").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt

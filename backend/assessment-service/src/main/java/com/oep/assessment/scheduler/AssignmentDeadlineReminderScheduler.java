@@ -29,7 +29,9 @@ public class AssignmentDeadlineReminderScheduler {
     private final NotificationPublisher notifications;
 
     @Scheduled(cron = "0 5 * * * *")
-    @Transactional(readOnly = true)
+    @net.javacrumbs.shedlock.spring.annotation.SchedulerLock(name = "assignmentDeadlineReminder", lockAtMostFor = "PT10M", lockAtLeastFor = "PT30S")
+    
+    @Transactional
     public void remindUpcomingDeadlines() {
         Instant now = Instant.now();
         int queued = 0;

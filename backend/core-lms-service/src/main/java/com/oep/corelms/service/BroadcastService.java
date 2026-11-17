@@ -1,5 +1,6 @@
 package com.oep.corelms.service;
 
+import com.oep.corelms.service.EventNotifier;
 import com.oep.corelms.dto.admin.BroadcastRequest;
 import com.oep.corelms.repository.UserRepository;
 import com.oep.coremodel.constant.MessagingConstants;
@@ -22,7 +23,7 @@ import java.util.UUID;
 public class BroadcastService {
 
     private final UserRepository users;
-    private final RabbitTemplate rabbitTemplate;
+    private final EventNotifier eventNotifier;
 
     @Transactional(readOnly = true)
     public int broadcast(BroadcastRequest request) {
@@ -34,8 +35,7 @@ public class BroadcastService {
         String batchId = UUID.randomUUID().toString();
         List<User> recipients = users.findByRoleInAndAccountStatus(roles, AccountStatus.ACTIVE);
         for (User u : recipients) {
-            rabbitTemplate.convertAndSend(MessagingConstants.EXCHANGE, MessagingConstants.RK_NOTIFICATION,
-                    new NotificationRequestedEvent(u.getId(), "SYSTEM_ANNOUNCEMENT", request.title().trim(), request.message().trim(),
+            eventNotifier.publish(new NotificationRequestedEvent(u.getId(), "SYSTEM_ANNOUNCEMENT", request.title().trim(), request.message().trim(),
                             "broadcast:" + batchId + ":" + u.getId(), "SYSTEM", null, Instant.now()));
         }
         return recipients.size();

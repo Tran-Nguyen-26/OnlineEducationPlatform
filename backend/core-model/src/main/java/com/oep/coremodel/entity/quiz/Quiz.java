@@ -23,6 +23,10 @@ import java.util.UUID;
 @Entity
 @Table(name = "quizzes", indexes = {@Index(name = "idx_quizzes_course_id", columnList = "course_id"), @Index(name = "idx_quizzes_lesson_id", columnList = "lesson_id")})
 public class Quiz extends BaseEntity {
+    @jakarta.persistence.Version
+    @Column(name = "version", nullable = false)
+    private Long version = 0L;
+
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "course_id", nullable = false)

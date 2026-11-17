@@ -16,6 +16,7 @@ import { TeachersPage } from './pages/admin/TeachersPage'
 import { UsersPage } from './pages/admin/UsersPage'
 import { AuditLogPage } from './pages/admin/AuditLogPage'
 import { FinancePage } from './pages/admin/FinancePage'
+import { OpsPage } from './pages/admin/OpsPage'
 import { ReportsPage } from './pages/admin/ReportsPage'
 import { BroadcastPage } from './pages/admin/BroadcastPage'
 import { UserDetailPage } from './pages/admin/UserDetailPage'
@@ -80,6 +81,7 @@ function App() {
           <Route path="users/:userId" element={<UserDetailPage />} />
           <Route path="finance" element={<FinancePage />} />
           <Route path="reports" element={<ReportsPage />} />
+          <Route path="ops" element={<OpsPage />} />
           <Route path="grading" element={<PendingGradingPage />} />
           <Route path="broadcast" element={<BroadcastPage />} />
           <Route path="audit-logs" element={<AuditLogPage />} />

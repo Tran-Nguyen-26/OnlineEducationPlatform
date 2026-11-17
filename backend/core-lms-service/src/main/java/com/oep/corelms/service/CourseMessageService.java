@@ -1,5 +1,6 @@
 package com.oep.corelms.service;
 
+import com.oep.corelms.service.EventNotifier;
 import com.oep.corelms.dto.social.MessageResponse;
 import com.oep.corelms.repository.CourseChannelRepository;
 import com.oep.corelms.repository.CourseInstructorRepository;
@@ -44,7 +45,7 @@ public class CourseMessageService {
     private final UserRepository users;
     private final UserProfileRepository userProfiles;
     private final LessonRepository lessons;
-    private final RabbitTemplate rabbitTemplate;
+    private final EventNotifier eventNotifier;
     private final com.oep.corelms.repository.MessageAttachmentRepository attachmentRepo;
     private final StorageService storageService;
 
@@ -103,7 +104,7 @@ public class CourseMessageService {
                     recipientId, "COURSE_MESSAGE", "Tin nhắn mới trong \"" + course.getTitle() + "\"",
                     senderName + ": " + preview, "message:" + message.getId() + ":" + recipientId,
                     "COURSE", course.getId(), Instant.now());
-            rabbitTemplate.convertAndSend(MessagingConstants.EXCHANGE, MessagingConstants.RK_NOTIFICATION, event);
+            eventNotifier.publish(event);
         }
     }
 

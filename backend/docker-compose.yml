@@ -46,6 +46,32 @@ services:
     volumes:
       - minio_data:/data
 
+  # ---- Observability (docker compose --profile observability up) -------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    profiles: ["observability"]
+    network_mode: host            # scrapes the services running on the host (localhost:8080-8083)
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    profiles: ["observability"]
+    network_mode: host            # UI on :3000 (admin/admin)
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+    profiles: ["observability"]
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports: ["16686:16686", "4318:4318"]   # UI + OTLP/HTTP traces
+
 volumes:
   pgdata:
   pgdata-replica:

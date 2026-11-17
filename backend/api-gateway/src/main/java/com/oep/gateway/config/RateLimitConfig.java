@@ -10,8 +10,20 @@ import java.security.Principal;
 @Configuration
 public class RateLimitConfig {
 
+    /** Key by client IP (X-Forwarded-For first hop when behind a proxy) — used for unauthenticated, abuse-prone endpoints. */
+    @Bean
+    KeyResolver ipKeyResolver() {
+        return exchange -> {
+            String xff = exchange.getRequest().getHeaders().getFirst("X-Forwarded-For");
+            if (xff != null && !xff.isBlank()) return Mono.just(xff.split(",")[0].trim());
+            var addr = exchange.getRequest().getRemoteAddress();
+            return Mono.just(addr != null ? addr.getAddress().getHostAddress() : "unknown");
+        };
+    }
+
     /** Rate-limit per logged-in user (JWT subject); fall back to client IP for anonymous calls. */
     @Bean
+    @org.springframework.context.annotation.Primary
     KeyResolver userKeyResolver() {
         return exchange -> exchange.getPrincipal()
                 .map(Principal::getName)

@@ -1,0 +1,17 @@
+spring:
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      password: ${REDIS_PASSWORD:}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${JWK_SET_URI}
+  cloud:
+    gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            # exact production origins only (no localhost / private-network patterns)
+            allowedOriginPatterns: ${CORS_ALLOWED_ORIGINS}

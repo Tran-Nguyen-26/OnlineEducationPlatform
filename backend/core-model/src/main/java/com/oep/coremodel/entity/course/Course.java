@@ -21,6 +21,10 @@ import java.util.UUID;
 @Entity
 @Table(name = "courses", indexes = {@Index(name = "idx_courses_lifecycle_status", columnList = "lifecycle_status"), @Index(name = "idx_courses_subject_id", columnList = "subject_id"), @Index(name = "idx_courses_created_by", columnList = "created_by")})
 public class Course extends BaseEntity {
+    @jakarta.persistence.Version
+    @Column(name = "version", nullable = false)
+    private Long version = 0L;
+
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "subject_id", nullable = false)

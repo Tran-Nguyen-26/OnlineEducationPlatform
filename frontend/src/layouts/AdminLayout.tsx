@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { Bell, BookOpen, GraduationCap, LayoutDashboard, LogOut, Menu, BarChart3, ClipboardCheck, Megaphone, Receipt, ScrollText, User, Users as UsersIcon } from 'lucide-react'
+import { Bell, BookOpen, GraduationCap, LayoutDashboard, LogOut, Menu, Activity, BarChart3, ClipboardCheck, Megaphone, Receipt, ScrollText, User, Users as UsersIcon } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { cn } from '../lib/cn'
 import { NotificationBell } from '../components/NotificationBell'
@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { to: '/admin/grading', label: 'Chấm bài & phúc khảo', icon: ClipboardCheck },
   { to: '/admin/finance', label: 'Học phí & công nợ', icon: Receipt },
   { to: '/admin/broadcast', label: 'Thông báo hệ thống', icon: Megaphone },
+  { to: '/admin/ops', label: 'Vận hành', icon: Activity },
   { to: '/admin/audit-logs', label: 'Nhật ký', icon: ScrollText },
   { to: '/admin/notifications', label: 'Thông báo của tôi', icon: Bell },
   { to: '/admin/profile', label: 'Hồ sơ cá nhân', icon: User },

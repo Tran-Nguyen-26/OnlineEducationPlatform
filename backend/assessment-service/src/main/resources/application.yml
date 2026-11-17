@@ -1,7 +1,10 @@
 server:
+  shutdown: graceful
   port: 8082
 
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
   application:
     name: assessment-service
   datasource:
@@ -32,3 +35,36 @@ oep:
     bucket: ${STORAGE_BUCKET:oep-content}
     region: us-east-1
     upload-url-ttl-seconds: 900
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+  show-actuator: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized
+
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 100ms,300ms,1s,3s
+  tracing:
+    sampling:
+      probability: ${TRACE_SAMPLE_RATE:0.0}
+  otlp:
+    tracing:
+      endpoint: ${OTLP_ENDPOINT:http://localhost:4318/v1/traces}

@@ -1,5 +1,6 @@
 package com.oep.corelms.scheduler;
 
+import com.oep.corelms.service.EventNotifier;
 import com.oep.corelms.repository.CourseInviteCodeRepository;
 import com.oep.coremodel.constant.MessagingConstants;
 import com.oep.coremodel.entity.registration.CourseInviteCode;
@@ -24,10 +25,12 @@ public class InviteCodeExpiryReminderScheduler {
     private static final long REMIND_WINDOW_HOURS = 24;
 
     private final CourseInviteCodeRepository inviteCodes;
-    private final RabbitTemplate rabbitTemplate;
+    private final EventNotifier eventNotifier;
 
     @Scheduled(cron = "0 0 * * * *")
-    @Transactional(readOnly = true)
+    @net.javacrumbs.shedlock.spring.annotation.SchedulerLock(name = "inviteCodeExpiryReminder", lockAtMostFor = "PT10M", lockAtLeastFor = "PT30S")
+    
+    @Transactional
     public void remindExpiringCodes() {
         Instant now = Instant.now();
         List<CourseInviteCode> expiringSoon = inviteCodes.findByActiveTrueAndExpiresAtBetween(now, now.plus(REMIND_WINDOW_HOURS, ChronoUnit.HOURS));
@@ -39,7 +42,7 @@ public class InviteCodeExpiryReminderScheduler {
                     "Mã mời sắp hết hạn — " + code.getCourse().getTitle(),
                     "Mã \"" + code.getCode() + "\" của khóa \"" + code.getCourse().getTitle() + "\" sẽ hết hạn vào " + code.getExpiresAt() + ".",
                     "invite-code-expiring:" + code.getId(), "COURSE", code.getCourse().getId(), Instant.now());
-            rabbitTemplate.convertAndSend(MessagingConstants.EXCHANGE, MessagingConstants.RK_NOTIFICATION, event);
+            eventNotifier.publish(event);
         }
         if (!expiringSoon.isEmpty()) {
             log.info("Queued {} invite-code-expiring reminder(s)", expiringSoon.size());

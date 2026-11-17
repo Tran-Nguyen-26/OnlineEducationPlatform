@@ -30,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 /** Student self-registration + login/refresh/logout/change-password for every role. */
@@ -44,6 +45,10 @@ public class AuthService {
     private final AuthIdentityRepository authIdentities;
     private final UserProfileRepository userProfiles;
     private final RefreshTokenRepository refreshTokens;
+    private final com.oep.corelms.security.TokenRevocationService tokenRevocation;
+    private final com.oep.corelms.security.LoginAttemptService loginAttempts;
+    private final AuditLogService audit;
+    private final io.micrometer.core.instrument.MeterRegistry meters;
     private final PasswordResetTokenRepository passwordResetTokens;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService tokenService;
@@ -77,19 +82,27 @@ public class AuthService {
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        User user = users.findByEmail(request.email())
-                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_CREDENTIALS, "Invalid email or password"));
-        AuthIdentity identity = authIdentities.findByUser_IdAndProvider(user.getId(), AuthProvider.LOCAL)
-                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_CREDENTIALS, "Invalid email or password"));
+        String email = request.email().trim().toLowerCase();
+        loginAttempts.assertNotLocked(email);
+        User user = users.findByEmail(request.email()).orElse(null);
+        AuthIdentity identity = user == null ? null : authIdentities.findByUser_IdAndProvider(user.getId(), AuthProvider.LOCAL).orElse(null);
 
-        if (identity.getPasswordHash() == null
+        if (identity == null || identity.getPasswordHash() == null
                 || !passwordEncoder.matches(request.password(), identity.getPasswordHash())) {
+            meters.counter("oep.business.events", "type", "login_failed").increment();
+            boolean locked = loginAttempts.recordFailure(email);
+            if (user != null) {
+                audit.recordIndependent(user.getId(), locked ? "ACCOUNT_LOCKED" : "LOGIN_FAILED", "USER", user.getId(), Map.of());
+            }
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS, "Invalid email or password");
         }
         if (user.getAccountStatus() != AccountStatus.ACTIVE) {
             throw new BusinessException(ErrorCode.ACCOUNT_DISABLED, "Account is disabled");
         }
 
+        meters.counter("oep.business.events", "type", "login_success").increment();
+        loginAttempts.reset(email);
+        audit.record(user.getId(), "LOGIN_SUCCESS", "USER", user.getId(), Map.of());
         return issueTokens(user, identity.isMustChangePassword());
     }
 
@@ -135,6 +148,7 @@ public class AuthService {
         identity.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         identity.setMustChangePassword(false);
         authIdentities.save(identity);
+        tokenRevocation.revokeAccessTokens(userId);
         // Fresh tokens: the old access token still carries must_change_password=true, which the gateway blocks on.
         return issueTokens(identity.getUser(), false);
     }
@@ -193,6 +207,7 @@ public class AuthService {
         identity.setPasswordHash(passwordEncoder.encode(newPassword));
         identity.setMustChangePassword(false);
         authIdentities.save(identity);
+        tokenRevocation.revokeAccessTokens(user.getId());
 
         token.setUsed(true);
         passwordResetTokens.save(token);
