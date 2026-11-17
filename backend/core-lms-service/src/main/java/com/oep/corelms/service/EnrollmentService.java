@@ -39,7 +39,7 @@ public class EnrollmentService {
     /** Maps to the response DTO here, still inside the transaction, so course/subject lazy-load safely. */
     @Transactional
     public MyEnrollmentResponse enroll(UUID courseId, UUID studentId, String inviteCode) {
-        Course course = courses.findById(courseId)
+        Course course = courses.findByIdForUpdate(courseId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Course not found"));
 
         if (course.getLifecycleStatus() != CourseLifecycleStatus.PUBLISHED) {

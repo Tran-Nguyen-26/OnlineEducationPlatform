@@ -41,7 +41,7 @@ public class NotificationPreferenceController {
     @PutMapping("/api/users/me/notification-preferences")
     @Transactional
     public Map<String, Boolean> update(@AuthenticationPrincipal Jwt jwt, @RequestBody Update req) {
-        if (!NotificationCategory.ALL.contains(req.category())) {
+        if (req.category() == null || !NotificationCategory.ALL.contains(req.category())) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "Unknown category");
         }
         UUID id = UUID.fromString(jwt.getSubject());

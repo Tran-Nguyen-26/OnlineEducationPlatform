@@ -93,7 +93,7 @@ export function ReportsPage() {
             </tbody>
           </table>
         </div>
-        <p className="mt-1 text-xs text-slate-400">Tỷ lệ tính trên ACTIVE + COMPLETED + rút + bị xóa. Bỏ học ≥ 30% được tô đỏ.</p>
+        <p className="mt-1 text-xs text-slate-400">Tỷ lệ tính trên số lượt đang học + hoàn thành + rút + bị xóa. Bỏ học ≥ 30% được tô đỏ.</p>
       </section>
 
       <section>

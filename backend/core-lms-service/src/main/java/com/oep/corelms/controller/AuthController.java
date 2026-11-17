@@ -51,10 +51,9 @@ public class AuthController {
     }
 
     @PostMapping("/change-password")
-    public ResponseEntity<Void> changePassword(@AuthenticationPrincipal Jwt jwt,
-                                                @Valid @RequestBody ChangePasswordRequest request) {
-        authService.changePassword(UUID.fromString(jwt.getSubject()), request);
-        return ResponseEntity.noContent().build();
+    public AuthResponse changePassword(@AuthenticationPrincipal Jwt jwt,
+                                        @Valid @RequestBody ChangePasswordRequest request) {
+        return authService.changePassword(UUID.fromString(jwt.getSubject()), request);
     }
 
     @GetMapping("/me")

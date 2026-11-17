@@ -126,7 +126,7 @@ public class AuthService {
     }
 
     @Transactional
-    public void changePassword(UUID userId, ChangePasswordRequest request) {
+    public AuthResponse changePassword(UUID userId, ChangePasswordRequest request) {
         AuthIdentity identity = authIdentities.findByUser_IdAndProvider(userId, AuthProvider.LOCAL)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Local credentials not found"));
         if (!passwordEncoder.matches(request.currentPassword(), identity.getPasswordHash())) {
@@ -135,6 +135,8 @@ public class AuthService {
         identity.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         identity.setMustChangePassword(false);
         authIdentities.save(identity);
+        // Fresh tokens: the old access token still carries must_change_password=true, which the gateway blocks on.
+        return issueTokens(identity.getUser(), false);
     }
 
     /**

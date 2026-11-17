@@ -61,6 +61,8 @@ public class QuizAttemptService {
     private final QuizAnswerRepository quizAnswers;
     private final QuizResultRepository quizResults;
     private final EnrollmentRepository enrollments;
+    private static final long LATE_GRACE_SECONDS = 20;
+
     private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
@@ -134,6 +136,9 @@ public class QuizAttemptService {
         Map<UUID, AnswerInput> answerByQuestion = request.answers() == null ? Map.of()
                 : request.answers().stream().collect(Collectors.toMap(AnswerInput::questionId, a -> a, (a, b) -> a));
 
+        // Time limit is enforced server-side: the client auto-submits at 0, so anything beyond the grace window scores 0.
+        boolean lateBeyondGrace = quiz.getTimeLimitSeconds() != null
+                && Instant.now().isAfter(attempt.getStartedAt().plusSeconds(quiz.getTimeLimitSeconds() + LATE_GRACE_SECONDS));
         List<QuestionResult> questionResults = new ArrayList<>();
         int pendingManual = 0;
 
@@ -145,7 +150,13 @@ public class QuizAttemptService {
             String selectedJson = null;
             String textAnswer = input == null ? null : input.textAnswer();
 
-            if (question.getQuestionType() == QuestionType.ESSAY) {
+            if (lateBeyondGrace) {
+                correct = false;
+                awarded = BigDecimal.ZERO;
+                if (question.getQuestionType() != QuestionType.ESSAY && question.getQuestionType() != QuestionType.KEYWORD_FILL) {
+                    selectedJson = toJson(input == null || input.selectedOptionIds() == null ? List.of() : input.selectedOptionIds());
+                }
+            } else if (question.getQuestionType() == QuestionType.ESSAY) {
                 // Graded by hand later: no correctness / score yet.
                 correct = null;
                 awarded = null;

@@ -22,7 +22,7 @@ public class WaitlistService {
 
     @Transactional
     public void promoteNext(UUID courseId) {
-        Course course = courses.findById(courseId).orElse(null);
+        Course course = courses.findByIdForUpdate(courseId).orElse(null);
         if (course == null || course.getCapacity() == null) {
             return; // unlimited capacity: nobody is ever waitlisted for this course
         }

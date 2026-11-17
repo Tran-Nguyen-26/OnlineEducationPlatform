@@ -1,3 +1,4 @@
+import { tokenStore } from '../lib/tokenStore'
 import { AuthShell } from '../components/AuthShell'
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -19,7 +20,8 @@ export function ChangePasswordPage() {
     setSubmitting(true)
     setError(null)
     try {
-      await apiClient.post('/api/auth/change-password', { currentPassword, newPassword })
+      const { data } = await apiClient.post<{ accessToken: string; refreshToken: string }>('/api/auth/change-password', { currentPassword, newPassword })
+      tokenStore.setTokens(data.accessToken, data.refreshToken) // tokens issued after the change no longer carry must_change_password
       const me = await refreshMe()
       const home = me.role === 'ADMIN' ? '/admin' : me.role === 'INSTRUCTOR' ? '/teacher' : '/student'
       navigate(home, { replace: true })

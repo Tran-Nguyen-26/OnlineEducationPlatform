@@ -11,4 +11,9 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
     List<Course> findAllByOrderByCreatedAtDesc();
     List<Course> findByLifecycleStatusOrderByCreatedAtDesc(CourseLifecycleStatus status);
     long countByLifecycleStatus(CourseLifecycleStatus status);
+
+    /** Row lock so concurrent enrollments/promotions on one course are serialized (capacity check + insert must be atomic). */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select c from Course c where c.id = :id")
+    java.util.Optional<Course> findByIdForUpdate(@org.springframework.data.repository.query.Param("id") UUID id);
 }
