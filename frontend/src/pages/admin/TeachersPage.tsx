@@ -50,7 +50,7 @@ export function TeachersPage() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Giáo viên</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Giáo viên</h1>
         <Button onClick={openCreate}>
           <Plus size={16} /> Tạo tài khoản giáo viên
         </Button>

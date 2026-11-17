@@ -61,7 +61,7 @@ export function UserDetailPage() {
         <ArrowLeft size={16} /> Quay lại danh sách người dùng
       </Link>
       <div className="mb-6 flex items-center gap-3">
-        <h1 className="text-2xl font-bold text-slate-900">{u.fullName ?? u.email}</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">{u.fullName ?? u.email}</h1>
         <Badge status={u.accountStatus} />
         <span className="text-sm text-slate-500">{u.role === 'ADMIN' ? 'Admin' : u.role === 'INSTRUCTOR' ? 'Giáo viên' : 'Học sinh'} · {u.email} · tạo ngày {new Date(u.createdAt).toLocaleDateString('vi-VN')}</span>
       </div>

@@ -1,3 +1,4 @@
+import { TabBar } from '../../components/ui/Page'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
@@ -5,7 +6,6 @@ import { ArrowLeft } from 'lucide-react'
 import { apiClient } from '../../lib/apiClient'
 import type { CourseResponse } from '../../types/api'
 import { Badge } from '../../components/Badge'
-import { cn } from '../../lib/cn'
 import { OverviewTab } from './course-detail/OverviewTab'
 import { ContentTab } from './course-detail/ContentTab'
 import { QuizzesTab } from './course-detail/QuizzesTab'
@@ -50,7 +50,7 @@ export function CourseDetailPage() {
 
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">{course.title}</h1>
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">{course.title}</h1>
           <p className="mt-1 text-sm text-slate-500">
             {course.subjectName} · Tạo bởi {course.createdByEmail}
           </p>
@@ -59,20 +59,7 @@ export function CourseDetailPage() {
         <Badge status={course.lifecycleStatus} />
       </div>
 
-      <div className="mb-6 flex gap-1 border-b border-slate-200">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={cn(
-              'px-4 py-2 text-sm font-medium border-b-2 -mb-px',
-              tab === t.key ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700',
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <TabBar tabs={TABS} active={tab} onChange={setTab} />
 
       {tab === 'overview' && <OverviewTab course={course} />}
       {tab === 'content' && <ContentTab courseId={courseId} />}

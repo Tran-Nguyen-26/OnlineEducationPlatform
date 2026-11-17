@@ -19,14 +19,14 @@ export function TasksPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold text-slate-900">Bài tập & Quiz</h1>
+      <h1 className="mb-1 text-2xl font-extrabold tracking-tight text-slate-900">Bài tập & Quiz</h1>
       <p className="mb-4 text-sm text-slate-500">Tất cả bài tập và quiz của các khóa bạn đang học, sắp theo hạn nộp.</p>
       <div className="mb-4 flex flex-wrap gap-2">
         {FILTERS.map((f) => (
           <button
             key={f.key}
             onClick={() => setFilter(f.key)}
-            className={`rounded-full border px-3 py-1 text-sm ${filter === f.key ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 text-slate-600'}`}
+            className={`rounded-full border px-3 py-1 text-sm ${filter === f.key ? 'border-transparent bg-brand-gradient text-white shadow-md shadow-indigo-500/25' : 'border-slate-300 bg-white text-slate-600 hover:border-indigo-300'}`}
           >
             {f.label}
           </button>

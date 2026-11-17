@@ -31,7 +31,7 @@ export function CalendarPage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="mb-1 text-2xl font-bold text-slate-900">Lịch của tôi</h1>
+      <h1 className="mb-1 text-2xl font-extrabold tracking-tight text-slate-900">Lịch của tôi</h1>
       <p className="mb-6 text-sm text-slate-500">Buổi học, hạn quiz và hạn bài tập của các khóa bạn đang học — 7 ngày qua đến 60 ngày tới.</p>
       {query.isLoading && <p className="text-slate-400">Đang tải...</p>}
       {!query.isLoading && groups.length === 0 && <p className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-400">Không có sự kiện nào trong khoảng thời gian này.</p>}

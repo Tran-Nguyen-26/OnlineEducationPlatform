@@ -94,7 +94,7 @@ export function PendingGradingPage() {
   return (
     <div className="space-y-10">
       <div>
-        <h1 className="mb-1 text-2xl font-bold text-slate-900">Cần chấm bài</h1>
+        <h1 className="mb-1 text-2xl font-extrabold tracking-tight text-slate-900">Cần chấm bài</h1>
         <p className="text-sm text-slate-500">
           {readOnly ? 'Theo dõi hàng đợi chấm bài của toàn trung tâm. Việc chấm điểm và xử lý phúc khảo do giáo viên phụ trách thực hiện.' : 'Bài tập, câu tự luận và yêu cầu phúc khảo đang chờ bạn xử lý — lâu nhất lên đầu.'}
         </p>

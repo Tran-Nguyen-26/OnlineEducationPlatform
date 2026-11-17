@@ -28,7 +28,7 @@ export function BroadcastPage() {
 
   return (
     <div className="max-w-xl">
-      <h1 className="mb-1 text-2xl font-bold text-slate-900">Thông báo toàn hệ thống</h1>
+      <h1 className="mb-1 text-2xl font-extrabold tracking-tight text-slate-900">Thông báo toàn hệ thống</h1>
       <p className="mb-4 text-sm text-slate-500">
         Gửi thông báo trong ứng dụng tới mọi tài khoản đang hoạt động của nhóm được chọn (VD: nghỉ lễ, thay đổi lịch, bảo trì). Để thông báo riêng cho một khóa, dùng tab "Thông báo" trong khóa đó.
       </p>

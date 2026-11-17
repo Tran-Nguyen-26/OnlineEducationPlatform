@@ -25,7 +25,7 @@ export function NotificationsPage() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Thông báo</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Thông báo</h1>
         <Button size="sm" variant="secondary" onClick={() => markAll.mutate()} disabled={!allRows.some((n) => !n.read)}>
           Đánh dấu tất cả đã đọc
         </Button>

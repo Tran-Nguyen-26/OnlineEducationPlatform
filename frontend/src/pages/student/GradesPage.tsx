@@ -13,7 +13,7 @@ export function GradesPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold text-slate-900">Điểm số</h1>
+      <h1 className="mb-1 text-2xl font-extrabold tracking-tight text-slate-900">Điểm số</h1>
       <p className="mb-4 text-sm text-slate-500">Điểm quiz (theo chính sách tính điểm của từng quiz) và điểm bài tập đã được chấm, theo từng khóa.</p>
       {loading && <p className="text-slate-400">Đang tải...</p>}
       <div className="space-y-4">

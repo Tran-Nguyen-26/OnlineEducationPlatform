@@ -80,7 +80,7 @@ export function CoursesPage() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Khóa học</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Khóa học</h1>
         <Button onClick={openCreate} disabled={!subjects?.length}>
           <Plus size={16} /> Tạo khóa học
         </Button>

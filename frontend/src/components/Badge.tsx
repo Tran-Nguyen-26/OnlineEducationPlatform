@@ -25,7 +25,14 @@ const COLORS: Record<string, string> = {
   REJECTED: 'bg-red-100 text-red-700',
 }
 
-const LABELS: Record<string, string> = { OPEN: 'Đang chờ xử lý', ACCEPTED: 'Được chấp nhận', REJECTED: 'Không chấp nhận' }
+const LABELS: Record<string, string> = {
+  OPEN: 'Đang chờ xử lý', ACCEPTED: 'Được chấp nhận', REJECTED: 'Không chấp nhận',
+  ACTIVE: 'Đang hoạt động', PUBLISHED: 'Công khai', DRAFT: 'Lưu nháp', ARCHIVED: 'Lưu trữ', DISABLED: 'Vô hiệu hóa',
+  COMPLETED: 'Hoàn thành', WITHDRAWN: 'Đã rút', REMOVED: 'Đã loại', WAITLISTED: 'Danh sách chờ',
+  PAID: 'Đã đóng đủ', PARTIAL: 'Đóng một phần', UNPAID: 'Chưa đóng',
+  GRADED: 'Đã chấm', SUBMITTED: 'Đã nộp', PENDING_REGRADE: 'Chờ chấm lại', PENDING: 'Đang chờ', UPLOADED: 'Đã tải lên',
+  AVAILABLE: 'Sẵn sàng', FAILED: 'Lỗi',
+}
 
 export function Badge({ status }: { status: string }) {
   return (

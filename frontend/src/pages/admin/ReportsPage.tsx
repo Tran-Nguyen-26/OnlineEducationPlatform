@@ -31,7 +31,7 @@ export function ReportsPage() {
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Báo cáo & thống kê</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Báo cáo & thống kê</h1>
         <div className="flex gap-2">
           <Button size="sm" variant="secondary" onClick={() => downloadCsv('bao-cao-khoa-hoc.csv', [
             ['Khóa học', 'Trạng thái', 'Đang học', 'Hoàn thành', 'Rút', 'Bị xóa', 'Danh sách chờ', 'Tỷ lệ hoàn thành (%)', 'Tỷ lệ bỏ học (%)'],

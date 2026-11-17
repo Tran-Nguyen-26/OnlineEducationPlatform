@@ -14,7 +14,7 @@ export function MyCoursesPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-slate-900">Khóa học của tôi</h1>
+      <h1 className="mb-6 text-2xl font-extrabold tracking-tight text-slate-900">Khóa học của tôi</h1>
 
       {coursesQuery.isLoading && <p className="text-slate-400">Đang tải...</p>}
       {coursesQuery.data?.length === 0 && <p className="text-slate-400">Bạn chưa được gán dạy khóa học nào.</p>}

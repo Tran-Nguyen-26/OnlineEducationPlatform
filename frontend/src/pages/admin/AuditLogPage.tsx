@@ -28,7 +28,7 @@ export function AuditLogPage() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Nhật ký hành động</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Nhật ký hành động</h1>
         <span className="text-sm text-slate-500">{rows.length} bản ghi</span>
       </div>
 

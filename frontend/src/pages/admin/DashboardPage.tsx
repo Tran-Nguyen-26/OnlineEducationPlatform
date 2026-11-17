@@ -1,14 +1,11 @@
+import { BookOpen, GraduationCap, Library, Users } from 'lucide-react'
+import { StatCard } from '../../components/ui/Page'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '../../lib/apiClient'
 import type { AdminDashboardStatsResponse } from '../../types/api'
 
-function StatCard({ label, value }: { label: string; value: number | string | undefined }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="text-sm font-medium text-slate-500">{label}</div>
-      <div className="mt-2 text-3xl font-bold text-slate-900">{value ?? '—'}</div>
-    </div>
-  )
+function AdminStat({ label, value, icon, tone }: { label: string; value: number | string | undefined; icon: typeof BookOpen; tone: 'indigo' | 'teal' | 'amber' | 'sky' }) {
+  return <StatCard label={label} value={value ?? '—'} icon={icon} tone={tone} />
 }
 
 function Breakdown({ title, rows }: { title: string; rows: { label: string; value: number }[] }) {
@@ -45,13 +42,13 @@ export function DashboardPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-slate-900">Tổng quan</h1>
+      <h1 className="mb-6 text-2xl font-extrabold tracking-tight text-slate-900">Tổng quan</h1>
 
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard label="Môn học" value={s?.totalSubjects} />
-        <StatCard label="Khóa học" value={s?.totalCourses} />
-        <StatCard label="Giáo viên" value={s?.totalTeachers} />
-        <StatCard label="Học sinh" value={s?.totalStudents} />
+        <AdminStat label="Môn học" value={s?.totalSubjects} icon={Library} tone="indigo" />
+        <AdminStat label="Khóa học" value={s?.totalCourses} icon={BookOpen} tone="sky" />
+        <AdminStat label="Giáo viên" value={s?.totalTeachers} icon={Users} tone="teal" />
+        <AdminStat label="Học sinh" value={s?.totalStudents} icon={GraduationCap} tone="amber" />
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">

@@ -1,3 +1,5 @@
+import { CheckCircle2, Receipt, Wallet } from 'lucide-react'
+import { StatCard, TabBar } from '../../components/ui/Page'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
@@ -42,17 +44,14 @@ export function FinancePage() {
   }
 
   const card = (label: string, value: string) => (
-    <div className="rounded-lg border border-slate-200 bg-white p-5">
-      <div className="text-sm text-slate-500">{label}</div>
-      <div className="mt-1 text-2xl font-bold text-slate-900">{value}</div>
-    </div>
+    <StatCard label={label} value={value} icon={label.startsWith('Còn') ? Wallet : label.startsWith('Đã') ? CheckCircle2 : Receipt} tone={label.startsWith('Còn') ? 'rose' : label.startsWith('Đã') ? 'teal' : 'indigo'} />
   )
   const th = 'px-4 py-3 font-medium'
 
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Học phí & công nợ</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Học phí & công nợ</h1>
         <Button variant="secondary" size="sm" onClick={exportCurrent}>Xuất CSV</Button>
       </div>
       <p className="mb-4 text-sm text-slate-500">
@@ -64,17 +63,7 @@ export function FinancePage() {
         {card('Còn nợ', vnd(s?.outstanding))}
       </div>
 
-      <div className="mb-4 flex gap-1 border-b border-slate-200">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${tab === t.key ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500'}`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <TabBar tabs={TABS} active={tab} onChange={setTab} className="!mb-4" />
 
       <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
         {tab === 'courses' && (

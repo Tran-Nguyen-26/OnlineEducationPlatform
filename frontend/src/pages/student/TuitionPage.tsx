@@ -16,7 +16,7 @@ export function TuitionPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold text-slate-900">Học phí</h1>
+      <h1 className="mb-1 text-2xl font-extrabold tracking-tight text-slate-900">Học phí</h1>
       <p className="mb-4 text-sm text-slate-500">Các khoản thanh toán do trung tâm ghi nhận. Thanh toán trực tiếp tại trung tâm.</p>
       <div className="mb-4 grid grid-cols-3 gap-3 text-sm">
         <div className="rounded-lg border border-slate-200 bg-white p-4"><div className="text-slate-500">Tổng học phí</div><div className="text-lg font-semibold">{vnd(totalFee)}</div></div>

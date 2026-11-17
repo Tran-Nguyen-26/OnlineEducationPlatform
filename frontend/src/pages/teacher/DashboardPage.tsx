@@ -1,3 +1,5 @@
+import { BookOpen, ClipboardCheck, Clock, Users } from 'lucide-react'
+import { PageHeader, StatCard } from '../../components/ui/Page'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { apiClient } from '../../lib/apiClient'
@@ -18,23 +20,19 @@ export function TeacherDashboardPage() {
   const d = dash.data
   const waiting = pending.data ?? []
 
-  const stat = (label: string, value: number | string) => (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
-      <div className="text-sm text-slate-500">{label}</div>
-      <div className="text-2xl font-semibold text-slate-900">{value}</div>
-    </div>
+  const stat = (label: string, value: number | string, icon: typeof BookOpen, tone: 'indigo' | 'teal' | 'amber' | 'rose') => (
+    <StatCard label={label} value={value} icon={icon} tone={tone} />
   )
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold text-slate-900">Xin chào, {user?.fullName ?? user?.email}</h1>
-      <p className="mb-4 text-sm text-slate-500">Tổng quan các khóa bạn đang phụ trách.</p>
+      <PageHeader title={`Xin chào, ${user?.fullName ?? user?.email}`} subtitle="Tổng quan các khóa bạn đang phụ trách." />
 
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        {stat('Khóa học phụ trách', d?.courseCount ?? '—')}
-        {stat('Học sinh đang học', d?.activeStudents ?? '—')}
-        {stat('Bài chờ chấm', waiting.length)}
-        {stat('Bài nộp muộn chờ chấm', waiting.filter((w) => w.late).length)}
+        {stat('Khóa học phụ trách', d?.courseCount ?? '—', BookOpen, 'indigo')}
+        {stat('Học sinh đang học', d?.activeStudents ?? '—', Users, 'teal')}
+        {stat('Bài chờ chấm', waiting.length, ClipboardCheck, 'amber')}
+        {stat('Bài nộp muộn chờ chấm', waiting.filter((w) => w.late).length, Clock, 'rose')}
       </div>
 
       <section className="mb-6 rounded-lg border border-slate-200 bg-white p-4">

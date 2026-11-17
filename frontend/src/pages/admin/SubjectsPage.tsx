@@ -72,7 +72,7 @@ export function SubjectsPage() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Môn học</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Môn học</h1>
         <Button onClick={openCreate}>
           <Plus size={16} /> Thêm môn học
         </Button>

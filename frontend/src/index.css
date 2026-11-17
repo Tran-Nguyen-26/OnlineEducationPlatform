@@ -110,3 +110,9 @@ main h1 { letter-spacing: -0.015em; }
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
   [data-reveal] { opacity: 1; transform: none; }
 }
+
+@media print {
+  body { background: #fff; }
+  aside, .print\:hidden-chrome { display: none !important; }
+  main { padding: 0 !important; overflow: visible !important; }
+}

@@ -80,7 +80,7 @@ export function ProfilePage() {
 
   return (
     <div className="max-w-xl">
-      <h1 className="mb-4 text-2xl font-bold text-slate-900">Hồ sơ cá nhân</h1>
+      <h1 className="mb-4 text-2xl font-extrabold tracking-tight text-slate-900">Hồ sơ cá nhân</h1>
       <div className="mb-4 flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-5">
         <Avatar size={72} name={user?.fullName} />
         <div>

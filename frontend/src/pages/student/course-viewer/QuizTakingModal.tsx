@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Clock, XCircle } from 'lucide-react'
+import { CheckCircle2, ClipboardCheck, Clock, XCircle } from 'lucide-react'
 import { apiClient, getApiErrorMessage } from '../../../lib/apiClient'
 import type { AttemptResultResponse, StartAttemptResponse } from '../../../types/api'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
-import { Modal } from '../../../components/ui/Modal'
 
 type Answers = Record<string, { selectedOptionIds?: string[]; textAnswer?: string }>
 
@@ -82,7 +81,16 @@ export function QuizTakingModal({ quizId, courseId, start, onClose }: {
   const q = start.questions[current]
 
   return (
-    <Modal title="Làm bài" open onClose={result ? onClose : () => { if (window.confirm('Thoát sẽ không lưu bài làm. Bạn chắc chắn?')) onClose() }}>
+    <div className="fixed inset-0 z-50 flex flex-col bg-canvas" role="dialog" aria-modal="true" aria-label="Làm bài">
+      <div className="glass flex h-16 shrink-0 items-center justify-between border-x-0 border-t-0 px-5">
+        <div className="flex items-center gap-2.5 font-extrabold tracking-tight text-slate-900">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-gradient text-white shadow-lg shadow-indigo-500/30"><ClipboardCheck size={18} /></span>
+          Làm bài
+        </div>
+        <button onClick={result ? onClose : () => { if (window.confirm('Thoát sẽ không lưu bài làm. Bạn chắc chắn?')) onClose() }} className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100" aria-label="Đóng">{result ? 'Đóng' : 'Thoát'}</button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 sm:p-8">
+        <div className="surface mx-auto w-full max-w-3xl p-6 sm:p-8">
       {result ? (
         <div>
           <p className="mb-1 text-lg font-semibold text-slate-900">
@@ -95,7 +103,7 @@ export function QuizTakingModal({ quizId, courseId, start, onClose }: {
           )}
           {result.pendingManual > 0 && <p className="mb-3 rounded-md bg-amber-50 p-3 text-sm text-amber-800">Có {result.pendingManual} câu tự luận đang chờ giáo viên chấm — điểm hiện tại là điểm tạm tính, bạn sẽ nhận thông báo khi chấm xong.</p>}
           {result.questionResults.length === 0 && result.score !== null && <p className="mb-3 text-sm text-slate-500">Giáo viên không công khai đáp án chi tiết của bài này.</p>}
-          <ul className="mb-4 max-h-[50vh] space-y-2 overflow-y-auto text-sm">
+          <ul className="mb-4 max-h-none space-y-2 overflow-y-auto text-sm">
             {result.questionResults.map((qr, idx) => {
               const question = start.questions.find((x) => x.questionId === qr.questionId)
               return (
@@ -123,23 +131,24 @@ export function QuizTakingModal({ quizId, courseId, start, onClose }: {
         </div>
       ) : (
         <div>
-          <div className="mb-3 flex items-center justify-between text-sm">
-            <span className="text-slate-500">Đã trả lời {answeredCount}/{start.questions.length}</span>
+          <div className="mb-2 flex items-center justify-between text-sm">
+            <span className="font-medium text-slate-600">Đã trả lời {answeredCount}/{start.questions.length}</span>
             {remaining !== null && (
               <span className={`flex items-center gap-1 font-medium ${remaining <= 60 ? 'text-red-600' : 'text-slate-700'}`}><Clock size={14} /> {fmt(remaining)}</span>
             )}
           </div>
-          <div className="mb-4 flex flex-wrap gap-1.5">
+          <div className="mb-5 h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-teal-400 transition-all" style={{ width: `${(answeredCount / Math.max(1, start.questions.length)) * 100}%` }} /></div>
+          <div className="mb-5 flex flex-wrap gap-1.5">
             {start.questions.map((x, i) => (
               <button key={x.questionId} onClick={() => setCurrent(i)}
-                className={`h-8 w-8 rounded-md border text-xs font-medium ${i === current ? 'border-slate-900 bg-slate-900 text-white' : answered(x.questionId) ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-slate-300 text-slate-600'}`}>
+                className={`h-8 w-8 rounded-md border text-xs font-medium ${i === current ? 'border-transparent bg-brand-gradient text-white shadow-md shadow-indigo-500/25' : answered(x.questionId) ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-slate-300 bg-white text-slate-600 hover:border-indigo-300'}`}>
                 {i + 1}
               </button>
             ))}
           </div>
           {q && (
             <div className="mb-4 min-h-40">
-              <p className="mb-3 text-sm font-medium text-slate-800">Câu {current + 1} ({q.points} điểm): {q.questionText}</p>
+              <p className="mb-4 text-lg font-semibold text-slate-900">Câu {current + 1} ({q.points} điểm): {q.questionText}</p>
               {q.questionType === 'ESSAY' ? (
                 <>
                   <textarea
@@ -157,7 +166,7 @@ export function QuizTakingModal({ quizId, courseId, start, onClose }: {
                 <div className="space-y-2">
                   {q.questionType === 'MULTIPLE_CHOICE' && <p className="text-xs text-slate-400">Chọn tất cả đáp án đúng.</p>}
                   {q.options.map((opt) => (
-                    <label key={opt.id} className="flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                    <label key={opt.id} className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-base text-slate-800 transition hover:border-indigo-300 hover:bg-indigo-50/50 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50 has-[:checked]:ring-2 has-[:checked]:ring-indigo-500/20">
                       <input
                         type={q.questionType === 'MULTIPLE_CHOICE' ? 'checkbox' : 'radio'}
                         name={q.questionId}
@@ -181,6 +190,8 @@ export function QuizTakingModal({ quizId, courseId, start, onClose }: {
           </div>
         </div>
       )}
-    </Modal>
+        </div>
+      </div>
+    </div>
   )
 }
