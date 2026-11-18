@@ -1,0 +1,12 @@
+# Small-instance override (4 GB RAM + 2 GB swap) for the class demo. Used after docker-compose.aws.yml.
+#   docker compose -f docker-compose.prod.yml -f docker-compose.aws.yml -f docker-compose.demo.yml --env-file .env.prod up -d --build
+# Observability (Prometheus/Grafana/Jaeger) stays off: it is behind the "observability" profile.
+services:
+  worker-service:
+    mem_limit: 768m                      # prod: 1536m. Use short demo videos (ffmpeg transcoding is slower here)
+    environment:
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=50 -XX:+ExitOnOutOfMemoryError -Dsun.net.inetaddr.ttl=10
+  postgres:
+    mem_limit: 512m
+  rabbitmq:
+    mem_limit: 384m

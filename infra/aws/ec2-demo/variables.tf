@@ -1,6 +1,7 @@
 variable "region" {
-  type    = string
-  default = "ap-southeast-1"
+  description = "This account's SCP only allows ap-southeast-2 (Sydney)"
+  type        = string
+  default     = "ap-southeast-2"
 }
 
 variable "environment" {
@@ -9,9 +10,9 @@ variable "environment" {
 }
 
 variable "instance_type" {
-  description = "2 vCPU / 8 GB is the practical minimum for the 9 containers"
+  description = "2 vCPU / 4 GB (+2 GB swap) is enough for a class demo; c7i-flex.large is Free-Plan eligible. Use m7i-flex.large (8 GB) for more headroom."
   type        = string
-  default     = "t3.large"
+  default     = "c7i-flex.large"
 }
 
 variable "repo_url" {

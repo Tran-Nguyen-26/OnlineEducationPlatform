@@ -3,6 +3,13 @@
 set -euxo pipefail
 exec > >(tee -a /var/log/oep-bootstrap.log) 2>&1
 
+# 2 GB swap: the box has 4 GB RAM; this absorbs the Maven/Docker build peak and JVM bursts
+fallocate -l 2G /swapfile
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
 apt-get update -y
 apt-get install -y ca-certificates curl git openssl
 curl -fsSL https://get.docker.com | sh
@@ -37,5 +44,5 @@ DEMO_PASSWORD=${demo_password}
 ENV
 chmod 600 .env.prod
 
-docker compose -f docker-compose.prod.yml -f docker-compose.aws.yml --env-file .env.prod up -d --build
+docker compose -f docker-compose.prod.yml -f docker-compose.aws.yml -f docker-compose.demo.yml --env-file .env.prod up -d --build
 echo "OEP started: ${public_origin}"
