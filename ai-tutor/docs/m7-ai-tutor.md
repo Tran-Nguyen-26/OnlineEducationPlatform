@@ -38,12 +38,14 @@
 - M3 enrollment states are `ACTIVE`, `COMPLETED`, `WITHDRAWN`, `REMOVED`. `WITHDRAWN` and `REMOVED` retain history but do not have current learning access. M7's confirmed first-release policy uses `ACTIVE` only and denies `COMPLETED`; revisit if M2/M3 course-content policy changes.
 - A `PRIVATE` course is accessible to an eligible Student only after M3 successfully enrolls them via the invite-code flow. `PUBLIC + PUBLISHED` catalog visibility is **not** authorization to view AI-grounding material.
 - M2 already has Admin lesson-content upload endpoints and a `FILE` content type. Its M7 indexing event hook, Markdown/JSON MIME allowlist and Admin processing-status management route still need integration. M7 pagination/error conventions and some M3 access details remain contract work.
+- The live backend hides content from lessons that are still locked in a `SEQUENTIAL` course and blocks learning content before an `UPCOMING` course starts. M7 may index eligible published content once per course, but it must restrict retrieval to the lessons currently readable by that Student. The private authorization contract must carry or resolve this per-request lesson scope before chat routes are connected.
 
 ## 2. Authorization matrix and invariants
 
 | Actor / course and enrollment state | Create/list/read/delete own M7 chat | Ask on M2 content | Notes |
 | --- | :---: | :---: | --- |
 | Student + `PUBLISHED` + `ACTIVE` | Yes | Yes | PUBLIC or PRIVATE; PRIVATE requires prior valid enrollment |
+| Student + `PUBLISHED` + `ACTIVE` + `UPCOMING` phase | No | No | Existing M2 learning content is not open yet |
 | Student + `PUBLISHED` + `COMPLETED` | No | No | First-release rule; revisit if M2/M3 later changes completed-student access |
 | Student + `WITHDRAWN` or `REMOVED` | No | No | Retain stored history; do not expose via M7 APIs |
 | Student + `ARCHIVED`, `DRAFT` or `DISABLED` | No | No | Even if an enrollment row exists |
@@ -56,10 +58,10 @@
 2. Spring Boot checks that the course is `PUBLISHED` and verifies the Student's `ACTIVE` M3 enrollment for the requested `courseId`. If a required check is unavailable, return **503 and fail closed**; never fall back to permissive chat.
 3. Spring Boot forwards verified identity and `course_id` to a **private** FastAPI endpoint over an authenticated service-to-service channel (e.g. short-lived signed internal assertion, restricted network). FastAPI validates issuer, audience, expiry, signature and course claim. A mere untrusted `X-User-Id` header is insufficient.
 4. M7 enforces `(conversation.user_id == verified_user_id)` **and** `(conversation.course_id == verified_course_id)` on read/write/delete. Unknown or foreign conversation IDs return **404** to avoid enumeration.
-5. Search must filter **inside the vector query** by verified `course_id`, active source version and authorized source state; filtering LLM output *after* retrieving cross-course chunks is forbidden.
+5. Search must filter **inside the vector query** by verified `course_id`, Student-readable `lesson_id` scope, active source version and authorized source state; filtering LLM output *after* retrieving forbidden chunks is insufficient.
 6. A file citation link uses the existing M2 endpoint `GET /api/lesson-contents/{contentId}/view-url`, which independently rechecks permission. Never issue raw storage keys or durable public file URLs.
 7. Recheck access on every turn, including a follow-up in a previously valid conversation. Do not rely on permission observed when the conversation was created.
-8. Block M7 chat and history while the Student has a quiz `IN_PROGRESS` in the same course. There is no per-lesson AI switch. Index and retrieve eligible `AVAILABLE` content of the authorized `PUBLISHED` course automatically; a course-level chat can use evidence from any eligible lesson in that course. The assessment state and content eligibility must be authoritative, not client-supplied.
+8. Block M7 chat and history while the Student has a quiz `IN_PROGRESS` in the same course. There is no per-lesson AI switch. Index eligible `AVAILABLE` content of the `PUBLISHED` course automatically; a course-level chat can use evidence only from lessons currently unlocked for that Student. The assessment state and content/lesson eligibility must be authoritative, not client-supplied.
 
 > **Revocation consistency:** An authorization decision applies to one request. In-flight requests, caches and already-issued presigned URLs may have different revocation latency. M7 must not cache enrollment entitlements across requests for the MVP; decide any stronger immediate-cancellation requirement explicitly.
 

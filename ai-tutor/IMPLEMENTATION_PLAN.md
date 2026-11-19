@@ -23,6 +23,7 @@ The M7 design and OpenAPI describe intended behavior, not implemented endpoints.
 - [ ] Create an independent Python/FastAPI service and Java client/gateway integration. Spring derives user identity from JWT, checks Student/course entitlement and quiz policy, sends a signed short-lived user/course assertion to the private service; Python verifies it and never trusts client-supplied identity headers.
   - [x] Bootstrap the independent FastAPI package with a locked `uv` environment and fail-closed HS256 student-assertion verifier. Verify issuer/audience/scope, UUID claims, 60-second lifetime, path course and request ID with focused unit and HTTP-dependency tests. The Java issuer, authorized proxy endpoints and indexing scope remain open.
   - [x] Add the conditional core LMS student-assertion issuer with a dedicated secret, exact claim set and 60-second TTL. Verify signature/claims, unique token IDs, invalid secrets and disabled-by-default configuration in Java tests; rerun the Python verifier tests. Public authorization/proxy endpoints and indexing scope remain open.
+  - [x] Add a primary-routed core LMS access policy for Student role, `PUBLISHED` course, `ACTIVE` enrollment, non-upcoming content and no same-course `IN_PROGRESS` quiz. Test denial and acceptance branches. Per-student unlocked-lesson scope and the public/private proxy are still open.
 - [ ] Decide AI-owned relational tables and migration ownership. Reconcile the existing `core-model` entities and `V1__baseline.sql` before new migrations or writes.
 
 ### F2. Eligible content and indexing
@@ -35,7 +36,7 @@ The M7 design and OpenAPI describe intended behavior, not implemented endpoints.
 
 ### F3. Course-isolated retrieval and grounded answers
 
-- [ ] Implement `retrieve(courseId, lessonId, query)` with mandatory verified `course_id`, eligible-content and current-source constraints inside vector search; validate returned IDs against authoritative M7 source state. Prefer the current lesson when supplied. Never use another course or unavailable content as fallback.
+- [ ] Implement `retrieve(courseId, lessonId, query)` with mandatory verified `course_id`, per-student unlocked-lesson scope, eligible-content and current-source constraints inside vector search; validate returned IDs against authoritative M7 source state. Prefer the current lesson when supplied. Never use another course, locked lesson or unavailable content as fallback.
 - [ ] Ground each answer in returned chunks, validate cited IDs server-side, show source title/excerpt/page or JSON path when available, and abstain when evidence is missing. A citation link obtains a fresh protected access URL from M2.
 - [ ] Use separate system instructions and untrusted retrieved context. Do not let source text override permissions, citation validation or course scope.
 
@@ -49,7 +50,7 @@ The M7 design and OpenAPI describe intended behavior, not implemented endpoints.
 
 ### F5. Functional guardrails and focused tests
 
-- [ ] Enforce Student-only access to eligible `PUBLISHED` courses with `ACTIVE` enrollment; deny `COMPLETED`. Block AI during an `IN_PROGRESS` quiz **in the same course**, including chat history, using authoritative assessment state. Use only eligible `AVAILABLE` content from the authorized course as evidence, without a per-lesson AI toggle. Fail closed when required checks are unavailable.
+- [ ] Enforce Student-only access to eligible `PUBLISHED` courses with `ACTIVE` enrollment; deny `COMPLETED` and block an `UPCOMING` course until learning content opens. Block AI during an `IN_PROGRESS` quiz **in the same course**, including chat history, using authoritative assessment state. Use only eligible `AVAILABLE` content from lessons currently unlocked for that student; M2's `SEQUENTIAL` rule must not be bypassed. There is no per-lesson AI toggle. Fail closed when required checks are unavailable.
 - [ ] Implement the agreed completed JSON response for the first chat release, keeping the provider interface capable of later token events. Record SSE as a later functional enhancement and preserve idempotency when it is added.
 - [ ] Add focused tests for each parser, duplicate/stale/delete jobs, course isolation, owner isolation, access revocation, idempotency, generation/embedding provider switching, abstention, citation validation and Java → Python contract. Run the same vector-store contract tests against pgvector and Pinecone adapters; verify no unsupported source can produce an answer.
 

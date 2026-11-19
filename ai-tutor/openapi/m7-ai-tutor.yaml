@@ -93,8 +93,9 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
-      x-error-codes: [AI_COURSE_ACCESS_DENIED, ENROLLMENT_CHECK_UNAVAILABLE]
+      x-error-codes: [AI_COURSE_ACCESS_DENIED, QUIZ_LOCKED, ENROLLMENT_CHECK_UNAVAILABLE]
 
   /courses/{courseId}/ai/conversations:
     post:
@@ -128,9 +129,10 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
-      x-error-codes: [AI_COURSE_ACCESS_DENIED, ENROLLMENT_CHECK_UNAVAILABLE]
+      x-error-codes: [AI_COURSE_ACCESS_DENIED, QUIZ_LOCKED, ENROLLMENT_CHECK_UNAVAILABLE]
     get:
       tags: [AI Tutor Conversations]
       operationId: listMyAiConversations
@@ -159,6 +161,7 @@ paths:
                 pagination: { page: 1, page_size: 20, total: 1, has_next: false }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
 
@@ -188,6 +191,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
     delete:
       tags: [AI Tutor Conversations]
@@ -209,6 +213,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
       x-open-decision: Proposed purge windows (30 days after user delete; 12 months inactivity) await approval.
 
@@ -258,6 +263,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
     post:
@@ -267,7 +273,8 @@ paths:
       description: |
         Verify user, course, conversation ownership and idempotency key before
         retrieving evidence. Source retrieval must be constrained by verified
-        course_id and current eligible content revisions. If evidence is missing,
+        course_id, the Student's currently unlocked lessons and current eligible
+        content revisions. If evidence is missing,
         return 201 with ABSTAINED and an empty citations array; do not fallback
         to a general LLM. If the course has no indexed eligible source yet,
         return 409 AI_INDEX_NOT_READY without generating an answer.
@@ -330,6 +337,7 @@ paths:
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
       x-error-codes:
         - AI_INDEX_NOT_READY
+        - QUIZ_LOCKED
         - IDEMPOTENCY_CONFLICT
         - AI_REQUEST_IN_PROGRESS
         - AI_RATE_LIMITED

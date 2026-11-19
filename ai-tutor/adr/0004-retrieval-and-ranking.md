@@ -7,11 +7,11 @@
 
 ## Context
 
-M7 must retrieve only authorized, current content for one verified course and cite the retrieved evidence. The current draft suggests dense vector search with initial `K=5`, while the legacy design calls for HNSW and a `(course_id, lesson_id)` B-tree index. Course filtering and abstention thresholds need evaluation, not guesswork.
+M7 must retrieve only authorized, current content for one verified course and cite the retrieved evidence. In `SEQUENTIAL` courses, the live M2 backend also locks future lessons per Student, so vector search must use that Student's currently readable lesson scope. The current draft suggests dense vector search with initial `K=5`, while the legacy design calls for HNSW and a `(course_id, lesson_id)` B-tree index. Filtering and abstention thresholds need evaluation, not guesswork.
 
 ## Decision drivers
 
-- No cross-course results or stale/deleted sources.
+- No cross-course, locked-lesson or stale/deleted results.
 - Good recall for both paraphrased questions and exact technical terms.
 - Stable citation support and safe abstention when evidence is weak or contradictory.
 - Predictable latency and manageable implementation complexity.
@@ -35,11 +35,11 @@ M7 must retrieve only authorized, current content for one verified course and ci
 
 ## Proposal or decision
 
-**Proposal only:** establish a dense-only baseline. If Pinecone is selected, include the verified `course_id` in the vector query metadata filter and validate returned IDs against current `READY` source versions in M7's relational store before giving text to the model. If pgvector is selected, apply course and source-state predicates in SQL. Compare candidate sizes such as 5 and 10 against a small golden set. Add lexical hybrid retrieval or reranking only if measured quality justifies them. Tune abstention against answerable and unanswerable questions.
+**Proposal only:** establish a dense-only baseline. Apply verified `course_id` and the Student's currently readable `lesson_id` set inside either vector-store query, then validate returned IDs against current `READY` source versions in M7's relational store before giving text to the model. The Java → Python private contract must transmit or resolve this per-request lesson scope; course access alone is insufficient. Compare candidate sizes such as 5 and 10 against a small golden set. Add lexical hybrid retrieval or reranking only if measured quality justifies them. Tune abstention against answerable and unanswerable questions.
 
 ## Consequences
 
-Retrieval evaluation must report Recall@K, citation support, abstention precision/recall, latency and cross-course leakage negatives. With Pinecone, two-store source eligibility and deletion need explicit consistency tests. With pgvector HNSW, SQL metadata filters remain mandatory, but approximate search can apply filters after candidate scanning; configure iterative scans or use another measured strategy to avoid under-filled results. A filter-related recall problem is not permission to relax the authorization predicate.
+Retrieval evaluation must report Recall@K, citation support, abstention precision/recall, latency and cross-course/locked-lesson leakage negatives. With Pinecone, two-store source eligibility and deletion need explicit consistency tests. With pgvector HNSW, SQL metadata filters remain mandatory, but approximate search can apply filters after candidate scanning; configure iterative scans or use another measured strategy to avoid under-filled results. A filter-related recall problem is not permission to relax the authorization predicate.
 
 ## Revisit when
 

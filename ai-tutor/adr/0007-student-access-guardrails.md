@@ -35,7 +35,7 @@ M7's first-release product scope is Student-only, with a `PUBLISHED` course and 
 
 ## Proposal or decision
 
-**Accepted first-release policy:** M7 chat, status and conversation/history endpoints are Student-only. Require a `PUBLISHED` course and `ACTIVE` enrollment; deny `COMPLETED`, `WITHDRAWN`, `REMOVED`, archived and disabled access. Block AI chat and history while the Student has an `IN_PROGRESS` quiz in the same course using authoritative assessment state. There is no per-lesson AI switch. Only current, eligible `AVAILABLE` learning content of the authorized `PUBLISHED` course may provide retrieval evidence. Spring checks authoritative M3/assessment/M2 policy on each request and fails closed if a required check is unavailable. Do not accept client-supplied eligibility flags.
+**Accepted first-release policy:** M7 chat, status and conversation/history endpoints are Student-only. Require a `PUBLISHED` course and `ACTIVE` enrollment; deny `COMPLETED`, `WITHDRAWN`, `REMOVED`, archived, disabled and not-yet-open course access. Block AI chat and history while the Student has an `IN_PROGRESS` quiz in the same course using authoritative assessment state. There is no per-lesson AI switch. Only current, eligible `AVAILABLE` learning content in lessons currently readable by that Student may provide retrieval evidence; respect M2's `SEQUENTIAL` locks. Spring checks authoritative M3/assessment/M2 policy on each request and fails closed if a required check is unavailable. Do not accept client-supplied eligibility flags.
 
 ## Consequences
 
