@@ -1,13 +1,19 @@
 # M7 private Java Spring Boot → Python FastAPI contract (draft)
 
-**Status:** Functional scope and public path agreed; private integration details remain a draft and endpoints are not yet implemented. Public requests go to Spring Boot at `/api/courses/{courseId}/ai/...`, matching the live gateway's `/api/courses/**` pattern; the browser never calls these private paths. Shared public request/response schemas are in [`m7-ai-tutor.yaml`](../openapi/m7-ai-tutor.yaml). The first release returns a completed JSON chat response, with SSE retained as a later functional enhancement. Finalize service identity before implementing the Java client and FastAPI handlers.
+**Status:** Functional scope and public path agreed. The student service-assertion verification is implemented and tested in Python; the Java issuer, private chat/index handlers and exact error mapping remain to implement. Public requests go to Spring Boot at `/api/courses/{courseId}/ai/...`, matching the live gateway's `/api/courses/**` pattern; the browser never calls these private paths. Shared public request/response schemas are in [`m7-ai-tutor.yaml`](../openapi/m7-ai-tutor.yaml). The first release returns a completed JSON chat response, with SSE retained as a later functional enhancement.
 
 ## Responsibilities
 
 1. Spring Boot authenticates the end-user JWT and checks Student role, `PUBLISHED` course, `ACTIVE` enrollment and no `IN_PROGRESS` quiz in that course on **every** M7 request, including status, history and replay. Retrieval uses only current `AVAILABLE` learning content of the authorized course and supported formats; there is no per-lesson AI switch. Instructors and Admin receive no M7 access. Spring derives `user_id` from the authenticated principal. If an authoritative check is unavailable, fail closed with 503.
-2. Spring Boot sends a private request to M7 with a short-lived signed service assertion carrying issuer, audience `m7-ai-tutor`, verified subject, course ID, issue/expiry time, request ID and a unique token ID. The assertion design (signature/key rotation and optional mTLS) is pending ADR-0009; never accept a browser-supplied user/course header as identity.
+2. The core LMS Spring Boot service sends a private request to M7 with a dedicated HS256 service assertion after its live authorization checks. Its secret is distinct from the public end-user JWT key and is supplied to both services as `AI_TUTOR_SERVICE_JWT_SECRET` (at least 32 UTF-8 bytes). Never accept a browser-supplied user/course header as identity.
 3. FastAPI validates the assertion, compares its course claim with the path and enforces conversation owner/course on reads, writes and deletes. A foreign conversation ID returns 404. FastAPI owns RAG, persistence and provider adapters; it must not read the public end-user JWT as its only service credential.
 4. Spring Boot forwards public request IDs and `Idempotency-Key` to M7, maps M7 errors to the public envelope, and does not silently retry a non-idempotent send with a new key. Java and Python must share contract tests for success and error cases.
+
+## Student assertion contract
+
+- `Authorization: Bearer <internal-jwt>` and `X-Request-Id: <UUID>` are required on every private student route. The token uses HS256 with `iss=oep-core-lms`, `aud=m7-ai-tutor`, `scope=ai:student`, and required `sub` (verified Student UUID), `course_id` (verified course UUID), `request_id` (same UUID as the header), `jti` (unique UUID), and integer-second `iat`, `nbf`, `exp` claims.
+- The token lifetime is positive and at most 60 seconds; `nbf` cannot precede `iat`. FastAPI accepts at most three seconds of clock skew and requires the token course to match `{courseId}`. A missing, malformed, expired, incorrectly signed or mismatched assertion returns 401 before business logic. FastAPI does not accept the public user JWT as a substitute.
+- The Java service must mint a fresh assertion only after checking Student role, `PUBLISHED` course, `ACTIVE` enrollment and same-course quiz state for that request. The Python verifier is implemented; Java minting, deployment secret provisioning, rotation procedure and indexing-service scope are pending. No private route is publicly exposed.
 
 ## Proposed private routes
 
@@ -29,4 +35,4 @@ The existing private indexing operations in the OpenAPI remain `POST /internal/v
 
 - The first release returns one JSON `ChatTurnResponse`. The original checklist's SSE remains a later functional enhancement. Before adding it, define event types, a final citation/usage event, terminal errors, disconnect behavior and `Idempotency-Key` replay on both sides.
 - Forward `AI_INDEX_NOT_READY` (409), `AI_CONVERSATION_NOT_FOUND` (404), `IDEMPOTENCY_CONFLICT` / `AI_REQUEST_IN_PROGRESS` (409), and provider unavailability (503) without exposing provider credentials or internal traces. Authorization denial happens in Spring before any M7 retrieval/LLM call.
-- Every call includes `X-Request-Id`; send-message includes `Idempotency-Key`. Exact internal JWT claims, TTL and key rotation, service timeout and retry mapping are the remaining contract decisions.
+- Every call includes `X-Request-Id`; send-message includes `Idempotency-Key`. Indexing-service assertion scope, service timeout and retry mapping remain to be specified with their handlers. A coordinated secret-rotation procedure is needed before deployment.

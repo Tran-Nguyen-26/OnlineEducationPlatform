@@ -92,22 +92,24 @@ flowchart TD
 
 **Integration boundary:** The agreed public path is `/api/courses/{courseId}/ai/...`, matching the live gateway's `/api/courses/**` pattern. Spring Boot must call the equivalent private FastAPI handlers after authorization; the method/path/body/error mapping is tracked in [`java-python-api.md`](java-python-api.md). This is a design contract, **not** proof of an implemented Java client, gateway route or Python handler. Internal endpoints use service credentials and must not be publicly routed.
 
-**Proposed Spring Boot → FastAPI identity assertion (not client-controllable):**
+**Spring Boot → FastAPI student assertion (implemented on the Python verification side; Java issuance pending):**
 
 ```json
 {
-  "iss": "oep-gateway",
+  "iss": "oep-core-lms",
   "aud": "m7-ai-tutor",
   "sub": "33333333-3333-4333-8333-333333333333",
   "course_id": "11111111-1111-4111-8111-111111111111",
-  "access_type": "STUDENT_ACTIVE",
+  "scope": "ai:student",
+  "request_id": "77777777-7777-4777-8777-777777777777",
   "iat": 1792634400,
+  "nbf": 1792634400,
   "exp": 1792634460,
   "jti": "88888888-8888-4888-8888-888888888888"
 }
 ```
 
-These claims are **illustrative**, not an approved JWT/issuer contract. Only the gateway may issue the signed assertion after checking live M2/M3 permissions; FastAPI must validate its signature and claims rather than trust client headers. The public end-user JWT must not be blindly forwarded as an internal service credential. A mutually authenticated alternative (mTLS plus verified context) is also possible.
+The core LMS Spring Boot service will issue this dedicated HS256 assertion after checking live course, enrollment and quiz state. Its secret is distinct from the public end-user JWT key, and its lifetime is at most 60 seconds. FastAPI verifies issuer, audience, signature, times, `ai:student` scope, UUID claims, the path course and `X-Request-Id`. The example values are illustrative. No client-controlled identity header is trusted. See [ADR-0009](../adr/0009-service-to-service-identity.md) for the full boundary; Java issuance and private network deployment remain to implement.
 
 **Storage decision:** pgvector is the temporary deployment default. Keep M7-owned conversation, request, source-version and job records in PostgreSQL. Implement **both** `PgvectorStore` and `PineconeStore` behind one `VectorStore` interface (`upsert`, course-filtered `query`, revision `deactivate/delete`, `health`), selected by configuration. The RAG, ingestion, chat, public API and private Java → Python API must not branch on the store name. Both adapters return normalized chunk IDs and scores and pass the same course/version/deletion tests. Identify an embedding space by provider/model/version, dimension and task/preprocessing settings; store its key with source revisions and chunks. With pgvector, use a native `vector` column and create a dimension-specific expression/partial index for the active space (initially 1024 dimensions), with course/current-source and embedding-space predicates inside SQL. Never compare vectors across spaces. With Pinecone, generate embeddings outside Pinecone, use a bring-your-own-vectors index for each dimension/space, filter by verified `course_id` in the vector query and revalidate returned IDs against current `READY` source revisions in PostgreSQL. In either store, deactivation must exclude old evidence from answers before acknowledging M2. Switching stores requires moving or rebuilding vectors and verifying current source versions; it does not change M7's HTTP contracts. An embedding-space change requires a new compatible index and re-embedding. Confirm an authoritative M2 metadata read interface if the services do not share a safe view.
 
@@ -310,13 +312,13 @@ Do not assume M5 is the notification owner: the supplied M2 notes themselves fla
 
 **Confirmed for the first release:** M7 is a separate Python/FastAPI service called privately by Spring Boot. M7 chat/status/history is Student-only. Require `ACTIVE` enrollment, block same-course `IN_PROGRESS` quiz and automatically use eligible `AVAILABLE` learning content in a `PUBLISHED` course, with no per-lesson AI switch. Public M7 uses `/api/courses/{courseId}/ai/...`, completed JSON chat turns, and 404 for foreign conversation IDs. Use pgvector as the temporary deployment default with both pgvector and Pinecone adapters. Start with Groq `openai/gpt-oss-120b` and Jina `jina-embeddings-v5-text-small` (1024 dimensions), while keeping provider/model choice configurable and implementing Groq/OpenAI/Gemini generation and Jina/OpenAI/Gemini embedding adapters. Ingest `TEXT`, text PDF, MD and JSON; map MD/JSON Admin uploads through M2 `FILE`. The synchronous M2–M7 invalidation handshake, index-readiness definitions and idempotent atomic chat turns remain agreed.
 
-**Engineering contracts to finalize against the live backend before cross-service coding:**
+**Engineering contracts to finish against the live backend:**
 
 1. Define the M2 content event/outbox payload and authoritative source/version read interface; retain the separate synchronous deactivation API.
-2. Define the signed private service assertion, issuer/audience/TTL/key rotation, exact Java → Python request/response mapping and contract tests in `java-python-api.md` and OpenAPI.
-3. Reconcile AI table/migration ownership with the existing Java entities and baseline migration. Locate the authoritative same-course quiz checker and instructor authorization/audit flow in the live backend.
+2. Implement Java issuance of the agreed student assertion and define the indexing-service scope, exact Java → Python request/response mapping and contract tests in `java-python-api.md` and OpenAPI. Document deployment secret rotation.
+3. Reconcile AI table/migration ownership with the existing Java entities and baseline migration. Locate the authoritative same-course quiz checker in the live backend.
 4. Validate M2 `FILE` MIME/extension/size rules and whether `AVAILABLE` content in a `PUBLISHED` course has any additional visibility gate. Keep arbitrary user/account JSON outside M7 ingestion.
 
 **Later non-functional decisions:** retention and backup purge, production Jina account/model terms, deployment region, cost limits, load targets and SSE details. None of these is claimed implemented or measured here.
 
-**Design status:** The functional scope is agreed; private integration details, code, migrations and end-to-end verification remain to be completed.
+**Design status:** The functional scope is agreed. Python service bootstrap and student-assertion verification are implemented and tested; Java integration, private handlers, migrations and end-to-end verification remain to be completed.

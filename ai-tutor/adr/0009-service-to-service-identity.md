@@ -1,13 +1,13 @@
 # ADR-0009: Gateway-to-M7 service identity
 
-- **Status:** Proposed
-- **Decision date:** Pending
-- **Decision owner(s):** Platform/security team
+- **Status:** Accepted for the first-release student assertion; Java issuance and indexing scope pending implementation
+- **Decision date:** 2026-11-19
+- **Decision owner(s):** M7 team
 - **Related ADRs:** [0007 Student guardrails](0007-student-access-guardrails.md)
 
 ## Context
 
-React calls the Spring gateway with the end-user JWT. The gateway checks course entitlement and calls private FastAPI. M7 must know the verified user, course and access type without trusting client-controlled identity headers. The current M7 draft illustrates a short-lived signed assertion and also mentions mTLS with verified context as an alternative.
+React calls the Spring gateway with the end-user JWT. The gateway routes M7 public paths to core LMS, where Spring checks course entitlement and calls private FastAPI. M7 must know the verified user and course without trusting client-controlled identity headers. The Python verification side is now implemented for student assertions.
 
 ## Decision drivers
 
@@ -18,10 +18,10 @@ React calls the Spring gateway with the end-user JWT. The gateway checks course 
 
 ## Options considered
 
-### Option A: Short-lived signed internal JWT
+### Option A: Short-lived signed internal JWT with dedicated HS256 secret
 
 - Benefits: carries subject, course, access type, issuer, audience and expiry; independently verifiable by M7.
-- Costs and risks: signing-key distribution/rotation, replay protection and claim-contract ownership.
+- Costs and risks: both services need a shared secret and coordinated rotation; a stolen assertion remains valid until its short expiry.
 
 ### Option B: mTLS plus trusted identity headers
 
@@ -35,15 +35,15 @@ React calls the Spring gateway with the end-user JWT. The gateway checks course 
 
 ## Proposal or decision
 
-**Proposal only:** use mTLS for service identity plus a short-lived signed assertion for verified user/course context, unless the platform's gateway already provides an equally strong standard. Never trust an unsigned `X-User-Id` or client-supplied course claim. Define issuer, audience, expiry, key rotation and replay behavior before implementation.
+**Accepted for the student route boundary:** core LMS signs a dedicated HS256 assertion with `AI_TUTOR_SERVICE_JWT_SECRET` (at least 32 UTF-8 bytes), separate from the public JWT signing key. Required claims are `iss=oep-core-lms`, `aud=m7-ai-tutor`, `scope=ai:student`, `sub`, `course_id`, `request_id`, `jti`, `iat`, `nbf`, and `exp`; ID claims are UUIDs and timestamps are integer seconds. Lifetime is at most 60 seconds. The Python service accepts at most three seconds of clock skew and compares the token course and request ID with the path/header. Invalid assertions receive 401. Only core LMS may mint these tokens after current Student/course/enrollment/quiz checks. The private service must be reachable only over the internal network; deployment supplies the shared secret and transport encryption. Indexing-service scope and coordinated secret rotation are separate integration work.
 
 ## Consequences
 
-Gateway authorization must occur before proxying. FastAPI validates service identity and assertion claims. All public reads and sends still re-check current course entitlement through the gateway.
+Core LMS authorization must occur before proxying. FastAPI validates the dedicated assertion claims. All public reads and sends still re-check current course entitlement through core LMS. Revoking course access blocks new Java-issued assertions immediately; an already issued token expires within 60 seconds. The signed `request_id` ties the token to its request header, while chat idempotency protects duplicate persisted turns.
 
 ## Revisit when
 
-Revisit when the platform security team publishes the shared service-auth standard.
+Revisit when the platform security team publishes a shared service-auth standard or when deployment requires mTLS or overlapping key rotation.
 
 ## References
 

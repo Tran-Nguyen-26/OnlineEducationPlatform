@@ -474,7 +474,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Short-lived internal service credential, validated by FastAPI.
+      description: Dedicated HS256 internal JWT. Student assertions require iss=oep-core-lms, aud=m7-ai-tutor, scope=ai:student, UUID subject/course/request/jti and a lifetime of at most 60 seconds; the Python verifier is implemented. Indexing-service scope remains to implement.
   parameters:
     CourseId:
       name: courseId

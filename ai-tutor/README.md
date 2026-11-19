@@ -1,0 +1,23 @@
+# M7 AI Tutor service
+
+Python/FastAPI is a private service called by the Spring Boot backend. The first implementation slice provides a runnable service and verification of short-lived internal student assertions. Chat, indexing and public Java proxy routes are not implemented yet; track them in [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
+
+## Local setup
+
+Requires Python 3.11+ and `uv`.
+
+```powershell
+uv sync --locked
+$env:AI_TUTOR_SERVICE_JWT_SECRET = '<a unique secret of at least 32 UTF-8 bytes>'
+uv run --locked uvicorn oep_ai_tutor.app:create_app --factory --host 127.0.0.1 --port 8000
+```
+
+`GET /healthz` returns `{"status":"ok"}`. The service refuses to start when `AI_TUTOR_SERVICE_JWT_SECRET` is absent or shorter than 32 bytes. Supply the same dedicated secret to the future Spring Boot internal assertion signer; do not reuse the public end-user JWT signing key. Keep the private service off public gateway routes.
+
+## Tests
+
+```powershell
+uv run --locked pytest -q
+```
+
+See [the Java/Python contract](docs/java-python-api.md) for assertion claims and private paths. The test suite exercises the actual FastAPI authentication dependency through an isolated test route; no unimplemented chat route is exposed in the service.

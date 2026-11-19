@@ -16,11 +16,11 @@ This folder records the decisions that shape M7 AI Tutor so the team can explain
 | [0006](0006-indexing-event-delivery.md) | Indexing event delivery | Proposed |
 | [0007](0007-student-access-guardrails.md) | Student access, quiz and content guardrails | Accepted: Student-only M7; no per-lesson AI switch |
 | [0008](0008-conversation-retention.md) | Conversation retention and deletion | Proposed |
-| [0009](0009-service-to-service-identity.md) | Gateway-to-M7 service identity | Proposed |
+| [0009](0009-service-to-service-identity.md) | Core LMS-to-M7 student assertion | Accepted verifier; Java issuer pending |
 | [0010](0010-content-invalidation-handshake.md) | M2-M7 content invalidation handshake | Accepted |
 | [0011](0011-chat-idempotency-and-retry.md) | Chat idempotency and retry | Accepted |
 | [0012](0012-public-api-conventions.md) | Public API conventions | Accepted for first release |
 | [0013](0013-index-readiness-states.md) | Index readiness states | Accepted |
 | [0014](0014-model-selection.md) | ADR-AI-001: initial Groq/Jina configuration; historical shortlist for later evaluation | Accepted initial configuration |
 
-ADRs 0003, 0004, 0006, 0008 and 0009 still contain implementation details or later non-functional proposals. Accepted ADRs record the team's confirmed first-release choices; a configured provider, model or vector store can still be changed through its adapter boundary, with data migration where required.
+ADRs 0003, 0004, 0006 and 0008 still contain implementation details or later non-functional proposals. ADR-0009 records the implemented Python verifier and remaining Java/deployment work. Accepted ADRs record the team's confirmed first-release choices; a configured provider, model or vector store can still be changed through its adapter boundary, with data migration where required.

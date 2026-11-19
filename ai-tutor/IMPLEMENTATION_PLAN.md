@@ -21,6 +21,7 @@ The M7 design and OpenAPI describe intended behavior, not implemented endpoints.
 
 - [ ] Finalize the agreed public `/api/courses/{courseId}/ai/...` contract and the private Spring Boot → FastAPI API: exact paths, methods, request/response schemas, service authentication, error mapping and request IDs. Publish the private contract for the Java team before implementing either side.
 - [ ] Create an independent Python/FastAPI service and Java client/gateway integration. Spring derives user identity from JWT, checks Student/course entitlement and quiz policy, sends a signed short-lived user/course assertion to the private service; Python verifies it and never trusts client-supplied identity headers.
+  - [x] Bootstrap the independent FastAPI package with a locked `uv` environment and fail-closed HS256 student-assertion verifier. Verify issuer/audience/scope, UUID claims, 60-second lifetime, path course and request ID with focused unit and HTTP-dependency tests. The Java issuer, authorized proxy endpoints and indexing scope remain open.
 - [ ] Decide AI-owned relational tables and migration ownership. Reconcile the existing `core-model` entities and `V1__baseline.sql` before new migrations or writes.
 
 ### F2. Eligible content and indexing
@@ -87,7 +88,7 @@ These targets are retained for a separate milestone; none is claimed met by the 
 
 ## Engineering contracts to finalize before cross-service integration
 
-1. Specify M2 indexing event delivery, authoritative content/version reads and the private Spring → Python identity assertion in executable OpenAPI and tests. Prefer the existing backend outbox/RabbitMQ pattern; keep the agreed synchronous deactivation path separate.
+1. Specify M2 indexing event delivery and authoritative content/version reads in executable OpenAPI and tests. Complete Java issuance and private route contracts for the student assertion already verified in Python. Prefer the existing backend outbox/RabbitMQ pattern; keep the agreed synchronous deactivation path separate.
 2. Assign AI table migration ownership exclusively to M7 and reconcile legacy Java AI entities/baseline tables before either service writes them.
 3. Locate the authoritative same-course quiz checker in the live backend. Add the `FILE` MIME rules and Admin-facing index status integration in M2; verify the actual M2 course/content visibility semantics.
 4. Verify Jina's account/model terms for any production or commercial use. The functional implementation may start with the configured research/prototype account.
