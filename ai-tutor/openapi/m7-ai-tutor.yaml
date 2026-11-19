@@ -37,7 +37,7 @@ info:
     generation_provider: 'INITIAL CONFIGURATION: Groq openai/gpt-oss-120b; Groq, OpenAI and Gemini adapters behind a provider-neutral interface'
     embedding_provider: 'AGREED INITIAL CONFIGURATION: Jina jina-embeddings-v5-text-small, 1024 dimensions, query/passage task modes; Jina, OpenAI and Gemini adapters selected by configuration'
     vector_store: 'AGREED: pgvector temporary default; pgvector and Pinecone adapters behind VectorStore, selected by configuration; embedding spaces are recorded and indexed separately; switching stores requires vector migration/re-indexing'
-    spring_python_api: 'DRAFT: private route mapping and service assertion in docs/java-python-api.md; no Python handler or Java client yet'
+    spring_python_api: 'DRAFT: private route mapping in docs/java-python-api.md; Python student assertion verifier and Java issuer implemented, authorized proxy and private chat handlers pending'
     chat_transport: 'AGREED: completed JSON response first; SSE retained as a later functional enhancement'
     access_guardrails: 'AGREED: Student-only M7; block chat/history during IN_PROGRESS quiz in same course; retrieve eligible AVAILABLE content in authorized PUBLISHED course; no per-lesson AI switch'
     general_assistant: 'OUT OF SCOPE for initial MVP; no ungrounded response fallback'
@@ -474,7 +474,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Dedicated HS256 internal JWT. Student assertions require iss=oep-core-lms, aud=m7-ai-tutor, scope=ai:student, UUID subject/course/request/jti and a lifetime of at most 60 seconds; the Python verifier is implemented. Indexing-service scope remains to implement.
+      description: Dedicated HS256 internal JWT. Student assertions require iss=oep-core-lms, aud=m7-ai-tutor, scope=ai:student, UUID subject/course/request/jti and a lifetime of at most 60 seconds; the Python verifier and Java issuer are implemented. Indexing-service scope remains to implement.
   parameters:
     CourseId:
       name: courseId

@@ -40,6 +40,9 @@ spring:
     password: ${RABBIT_PASSWORD:oep}
 
 oep:
+  ai-tutor:
+    enabled: ${AI_TUTOR_ENABLED:false}
+    service-jwt-secret: ${AI_TUTOR_SERVICE_JWT_SECRET:}
   datasource:
     routing-enabled: true
     primary:

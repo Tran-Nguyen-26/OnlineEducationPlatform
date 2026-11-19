@@ -1,6 +1,6 @@
 # M7 private Java Spring Boot → Python FastAPI contract (draft)
 
-**Status:** Functional scope and public path agreed. The student service-assertion verification is implemented and tested in Python; the Java issuer, private chat/index handlers and exact error mapping remain to implement. Public requests go to Spring Boot at `/api/courses/{courseId}/ai/...`, matching the live gateway's `/api/courses/**` pattern; the browser never calls these private paths. Shared public request/response schemas are in [`m7-ai-tutor.yaml`](../openapi/m7-ai-tutor.yaml). The first release returns a completed JSON chat response, with SSE retained as a later functional enhancement.
+**Status:** Functional scope and public path agreed. The student service-assertion verifier in Python and issuer in core LMS are implemented and independently tested; Java authorization/proxy routes, private chat/index handlers and exact error mapping remain to implement. Public requests go to Spring Boot at `/api/courses/{courseId}/ai/...`, matching the live gateway's `/api/courses/**` pattern; the browser never calls these private paths. Shared public request/response schemas are in [`m7-ai-tutor.yaml`](../openapi/m7-ai-tutor.yaml). The first release returns a completed JSON chat response, with SSE retained as a later functional enhancement.
 
 ## Responsibilities
 
@@ -13,7 +13,7 @@
 
 - `Authorization: Bearer <internal-jwt>` and `X-Request-Id: <UUID>` are required on every private student route. The token uses HS256 with `iss=oep-core-lms`, `aud=m7-ai-tutor`, `scope=ai:student`, and required `sub` (verified Student UUID), `course_id` (verified course UUID), `request_id` (same UUID as the header), `jti` (unique UUID), and integer-second `iat`, `nbf`, `exp` claims.
 - The token lifetime is positive and at most 60 seconds; `nbf` cannot precede `iat`. FastAPI accepts at most three seconds of clock skew and requires the token course to match `{courseId}`. A missing, malformed, expired, incorrectly signed or mismatched assertion returns 401 before business logic. FastAPI does not accept the public user JWT as a substitute.
-- The Java service must mint a fresh assertion only after checking Student role, `PUBLISHED` course, `ACTIVE` enrollment and same-course quiz state for that request. The Python verifier is implemented; Java minting, deployment secret provisioning, rotation procedure and indexing-service scope are pending. No private route is publicly exposed.
+- The Java issuer can mint a fresh assertion, but its caller must first check Student role, `PUBLISHED` course, `ACTIVE` enrollment and same-course quiz state for that request. Both signing and verification are implemented; authorization/proxy wiring, deployment secret provisioning, rotation procedure and indexing-service scope are pending. No private route is publicly exposed.
 
 ## Proposed private routes
 

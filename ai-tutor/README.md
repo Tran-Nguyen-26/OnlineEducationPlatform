@@ -12,7 +12,7 @@ $env:AI_TUTOR_SERVICE_JWT_SECRET = '<a unique secret of at least 32 UTF-8 bytes>
 uv run --locked uvicorn oep_ai_tutor.app:create_app --factory --host 127.0.0.1 --port 8000
 ```
 
-`GET /healthz` returns `{"status":"ok"}`. The service refuses to start when `AI_TUTOR_SERVICE_JWT_SECRET` is absent or shorter than 32 bytes. Supply the same dedicated secret to the future Spring Boot internal assertion signer; do not reuse the public end-user JWT signing key. Keep the private service off public gateway routes.
+`GET /healthz` returns `{"status":"ok"}`. The service refuses to start when `AI_TUTOR_SERVICE_JWT_SECRET` is absent or shorter than 32 bytes. Core LMS has a conditional assertion issuer configured with `AI_TUTOR_ENABLED=true` and the same dedicated secret; its authorized proxy routes are still pending. Do not reuse the public end-user JWT signing key. Keep the private service off public gateway routes.
 
 ## Tests
 

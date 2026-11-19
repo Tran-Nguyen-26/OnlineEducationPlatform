@@ -92,7 +92,7 @@ flowchart TD
 
 **Integration boundary:** The agreed public path is `/api/courses/{courseId}/ai/...`, matching the live gateway's `/api/courses/**` pattern. Spring Boot must call the equivalent private FastAPI handlers after authorization; the method/path/body/error mapping is tracked in [`java-python-api.md`](java-python-api.md). This is a design contract, **not** proof of an implemented Java client, gateway route or Python handler. Internal endpoints use service credentials and must not be publicly routed.
 
-**Spring Boot → FastAPI student assertion (implemented on the Python verification side; Java issuance pending):**
+**Spring Boot → FastAPI student assertion (issuer and verifier implemented; authorized proxy wiring pending):**
 
 ```json
 {
@@ -109,7 +109,7 @@ flowchart TD
 }
 ```
 
-The core LMS Spring Boot service will issue this dedicated HS256 assertion after checking live course, enrollment and quiz state. Its secret is distinct from the public end-user JWT key, and its lifetime is at most 60 seconds. FastAPI verifies issuer, audience, signature, times, `ai:student` scope, UUID claims, the path course and `X-Request-Id`. The example values are illustrative. No client-controlled identity header is trusted. See [ADR-0009](../adr/0009-service-to-service-identity.md) for the full boundary; Java issuance and private network deployment remain to implement.
+The core LMS Spring Boot issuer creates this dedicated HS256 assertion; the future controller must call it only after checking live course, enrollment and quiz state. Its secret is distinct from the public end-user JWT key, and its lifetime is at most 60 seconds. FastAPI verifies issuer, audience, signature, times, `ai:student` scope, UUID claims, the path course and `X-Request-Id`. The example values are illustrative. No client-controlled identity header is trusted. See [ADR-0009](../adr/0009-service-to-service-identity.md) for the full boundary; authorization/proxy wiring and private network deployment remain to implement.
 
 **Storage decision:** pgvector is the temporary deployment default. Keep M7-owned conversation, request, source-version and job records in PostgreSQL. Implement **both** `PgvectorStore` and `PineconeStore` behind one `VectorStore` interface (`upsert`, course-filtered `query`, revision `deactivate/delete`, `health`), selected by configuration. The RAG, ingestion, chat, public API and private Java → Python API must not branch on the store name. Both adapters return normalized chunk IDs and scores and pass the same course/version/deletion tests. Identify an embedding space by provider/model/version, dimension and task/preprocessing settings; store its key with source revisions and chunks. With pgvector, use a native `vector` column and create a dimension-specific expression/partial index for the active space (initially 1024 dimensions), with course/current-source and embedding-space predicates inside SQL. Never compare vectors across spaces. With Pinecone, generate embeddings outside Pinecone, use a bring-your-own-vectors index for each dimension/space, filter by verified `course_id` in the vector query and revalidate returned IDs against current `READY` source revisions in PostgreSQL. In either store, deactivation must exclude old evidence from answers before acknowledging M2. Switching stores requires moving or rebuilding vectors and verifying current source versions; it does not change M7's HTTP contracts. An embedding-space change requires a new compatible index and re-embedding. Confirm an authoritative M2 metadata read interface if the services do not share a safe view.
 
@@ -315,10 +315,10 @@ Do not assume M5 is the notification owner: the supplied M2 notes themselves fla
 **Engineering contracts to finish against the live backend:**
 
 1. Define the M2 content event/outbox payload and authoritative source/version read interface; retain the separate synchronous deactivation API.
-2. Implement Java issuance of the agreed student assertion and define the indexing-service scope, exact Java → Python request/response mapping and contract tests in `java-python-api.md` and OpenAPI. Document deployment secret rotation.
+2. Connect the implemented Java issuer and Python verifier through authorized proxy routes; define the indexing-service scope, exact Java → Python request/response mapping and cross-service contract tests in `java-python-api.md` and OpenAPI. Document deployment secret rotation.
 3. Reconcile AI table/migration ownership with the existing Java entities and baseline migration. Locate the authoritative same-course quiz checker in the live backend.
 4. Validate M2 `FILE` MIME/extension/size rules and whether `AVAILABLE` content in a `PUBLISHED` course has any additional visibility gate. Keep arbitrary user/account JSON outside M7 ingestion.
 
 **Later non-functional decisions:** retention and backup purge, production Jina account/model terms, deployment region, cost limits, load targets and SSE details. None of these is claimed implemented or measured here.
 
-**Design status:** The functional scope is agreed. Python service bootstrap and student-assertion verification are implemented and tested; Java integration, private handlers, migrations and end-to-end verification remain to be completed.
+**Design status:** The functional scope is agreed. Python service bootstrap, student-assertion verification and the core LMS issuer are implemented and independently tested; authorized Java proxy routes, private handlers, migrations and end-to-end verification remain to be completed.

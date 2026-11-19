@@ -1,6 +1,6 @@
 # ADR-0009: Gateway-to-M7 service identity
 
-- **Status:** Accepted for the first-release student assertion; Java issuance and indexing scope pending implementation
+- **Status:** Accepted for the first-release student assertion; issuer and verifier implemented, proxy wiring pending
 - **Decision date:** 2026-11-19
 - **Decision owner(s):** M7 team
 - **Related ADRs:** [0007 Student guardrails](0007-student-access-guardrails.md)
@@ -40,6 +40,10 @@ React calls the Spring gateway with the end-user JWT. The gateway routes M7 publ
 ## Consequences
 
 Core LMS authorization must occur before proxying. FastAPI validates the dedicated assertion claims. All public reads and sends still re-check current course entitlement through core LMS. Revoking course access blocks new Java-issued assertions immediately; an already issued token expires within 60 seconds. The signed `request_id` ties the token to its request header, while chat idempotency protects duplicate persisted turns.
+
+## Implementation status
+
+The Java issuer and Python verifier are implemented and independently tested. The issuer is conditional on `AI_TUTOR_ENABLED=true`, so existing core LMS startup is unchanged by default; enabling M7 without a sufficiently long secret fails startup. Authorization/proxy wiring and a cross-service runtime test still remain.
 
 ## Revisit when
 
