@@ -10,7 +10,7 @@ from oep_ai_tutor.migrate import MigrationDriftError, migrate, migration_files
 
 
 def test_migration_versions_are_consecutive_and_database_url_is_required() -> None:
-    assert [version for version, _, _ in migration_files()] == [1]
+    assert [version for version, _, _ in migration_files()] == [1, 2]
     with pytest.raises(ValueError, match="AI_TUTOR_DATABASE_URL"):
         migrate("")
 
@@ -23,15 +23,17 @@ def test_postgres_schema_migrates_idempotently_and_enforces_ownership_constraint
     if not dsn:
         pytest.skip("Set AI_TUTOR_TEST_DATABASE_URL to an isolated PostgreSQL database")
 
-    assert migrate(dsn) == [1]
+    assert migrate(dsn) == [1, 2]
     assert migrate(dsn) == []
 
     with psycopg.connect(dsn) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
-                "SELECT count(*) FROM ai_tutor.schema_migrations WHERE version = 1"
+                "SELECT count(*) FROM ai_tutor.schema_migrations WHERE version IN (1, 2)"
             )
-            assert cursor.fetchone() == (1,)
+            assert cursor.fetchone() == (2,)
+            cursor.execute("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
+            assert cursor.fetchone() is not None
             cursor.execute(
                 "SELECT count(*) FROM information_schema.tables "
                 "WHERE table_schema = 'ai_tutor' AND table_name LIKE 'ai_%'"
@@ -101,6 +103,16 @@ def test_postgres_schema_migrates_idempotently_and_enforces_ownership_constraint
                 with connection.transaction():
                     cursor.execute(chunk_sql, (uuid4(), revision_id, uuid4(), lesson_id))
             cursor.execute(chunk_sql, (uuid4(), revision_id, course_id, lesson_id))
+            with pytest.raises(psycopg.errors.CheckViolation):
+                with connection.transaction():
+                    cursor.execute(
+                        "INSERT INTO ai_tutor.ai_source_chunks "
+                        "(id, source_revision_id, course_id, lesson_id, chunk_index, chunk_text, "
+                        "token_count, embedding_space_key, embedding_dimension, embedding) "
+                        "VALUES (%s, %s, %s, %s, 1, 'Wrong dimensions', 2, 'jina-v5', 1024, "
+                        "'[1,2,3]'::vector)",
+                        (uuid4(), revision_id, course_id, lesson_id),
+                    )
 
             event_id = uuid4()
             job_sql = (

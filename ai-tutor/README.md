@@ -20,7 +20,7 @@ Provision a dedicated PostgreSQL database role for M7 with permission to create/
 uv run --locked python -m oep_ai_tutor.migrate
 ```
 
-The runner applies numbered SQL files transactionally under an advisory lock, records SHA-256 checksums in `ai_tutor.schema_migrations`, and rejects edits to an already applied migration. Re-running it with no pending migration is safe. The initial migration creates relational metadata and constraints; pgvector storage and the vector adapters are later work. It does not alter Java Flyway history or the historical `public.ai_*` tables. Set `AI_TUTOR_DATABASE_URL` and run migrations before using the private conversation routes. Without the URL, those routes return 503.
+The runner applies numbered SQL files transactionally under an advisory lock, records SHA-256 checksums in `ai_tutor.schema_migrations`, and rejects edits to an already applied migration. Re-running it with no pending migration is safe. V1 creates relational metadata and constraints; V2 requires a PostgreSQL installation with the pgvector extension available and adds native vector storage, dimension validation and an initial 1024-dimensional HNSW index. The database role applying V2 must be allowed to create the extension, or an administrator must install it first. Vector adapters remain open. These migrations do not alter Java Flyway history or the historical `public.ai_*` tables. Set `AI_TUTOR_DATABASE_URL` and run migrations before using the private conversation routes. Without the URL, those routes return 503.
 
 Set `AI_TUTOR_EMBEDDING_SPACE_KEY` to the active provider/model/dimension space before using the status route. Status counts only the latest revision of each content in that space and the asserted course. Missing database or space configuration returns 503. The key must match the one later used by indexing and retrieval; switching embedding spaces requires re-indexing.
 
@@ -44,4 +44,4 @@ uv run --locked pytest -q
 
 See [the Java/Python contract](docs/java-python-api.md) for assertion claims and private paths. The test suite exercises the FastAPI authentication dependency, conversation ownership, SQL constraints, parsing and mocked provider HTTP contracts. No unimplemented send-turn route is exposed in the service.
 
-The PostgreSQL migration integration test runs when `AI_TUTOR_TEST_DATABASE_URL` points to an **isolated, disposable** PostgreSQL database. It verifies fresh/repeat migration, checksum drift and the database constraints. Without that variable it is skipped by the normal `pytest` command.
+The PostgreSQL migration integration test runs when `AI_TUTOR_TEST_DATABASE_URL` points to an **isolated, disposable** PostgreSQL database with pgvector installed (for example, the `pgvector/pgvector:0.8.7-pg17` Docker image). It verifies fresh/repeat migration, checksum drift, dimension rejection and the database constraints. Without that variable it is skipped by the normal `pytest` command.
