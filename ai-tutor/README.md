@@ -1,6 +1,8 @@
 # M7 AI Tutor service
 
-Python/FastAPI is a private service called by the Spring Boot backend. It verifies short-lived internal student assertions, owns versioned relational migrations and serves private status and conversation/history routes. Spring has authorized public proxy routes. Send-turn, indexing and retrieval handlers are still pending; track them in [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
+Python/FastAPI is a private service called by the Spring Boot backend. It verifies short-lived internal student assertions, owns versioned relational migrations and serves private status and conversation/history routes. It also has standalone parsers for the four agreed content formats. Spring has authorized public proxy routes. Send-turn, indexing and retrieval handlers are still pending; track them in [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
+
+`oep_ai_tutor.parsing` converts inline `TEXT`, text PDF, Markdown `.md` and JSON `.json` into citation-aware passages and bounded chunks. PDF page, Markdown heading and JSON path remain attached to each chunk. Empty or image-only PDFs report `OCR_REQUIRED`; encrypted PDFs and unsupported file types are rejected. These functions are not yet connected to the M2 upload or M7 indexing worker. The M2 file-size policy and Admin-visible processing state are still to be implemented.
 
 M7 owns its PostgreSQL tables and migrations in the `ai_tutor` schema. The historical `public.ai_*` tables from the Java baseline are unused; see [ADR 0015](adr/0015-ai-relational-ownership.md). The migration is implemented, but application database writes are not yet connected.
 

@@ -38,6 +38,8 @@ M2 supports inline text and file content including PDF, DOCX/document, slides an
 
 **Accepted format scope; chunking details proposed:** use deterministic, structure-aware chunking for inline `TEXT`, text PDF, `.md` and `.json`. Preserve PDF page, Markdown heading and JSON path where available alongside lesson/content/version metadata. Flatten scalar leaves of Admin-uploaded learning-content JSON into stable `path: value` passages; do not ingest arbitrary user/account JSON. Map `.md`/`.json` through M2 `FILE` with a MIME/extension allowlist. Start around 500–800 tokens with modest overlap, then measure retrieval quality. DOCX, slides, `LINK` crawling and video transcription are outside this release.
 
+The standalone parser now implements the four formats and returns passage/chunk provenance. Its current chunk window is configurable and character-based (default 3,000 characters with 300 characters of overlap); the 500–800 token target still requires retrieval evaluation. The parser checks `.md`/`.json` extension and MIME, while the authoritative M2 upload size/allowlist and asynchronous worker remain to be wired.
+
 ## Consequences
 
 Parser and chunker versions must be recorded on source revisions so re-indexing is reproducible. Chunk IDs are version-specific. Tables, scanned PDFs, footnotes and OCR remain explicit test cases or out of scope until the parser handles them reliably.
