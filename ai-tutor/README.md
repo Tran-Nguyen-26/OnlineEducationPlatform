@@ -4,6 +4,8 @@ Python/FastAPI is a private service called by the Spring Boot backend. It verifi
 
 `oep_ai_tutor.embeddings` provides Jina, OpenAI and Gemini adapters behind a shared `EmbeddingProvider` interface. Jina `jina-embeddings-v5-text-small` at 1024 dimensions is the default; set `AI_TUTOR_EMBEDDING_PROVIDER` (`jina`, `openai`, `gemini`), `AI_TUTOR_EMBEDDING_MODEL`, `AI_TUTOR_EMBEDDING_DIMENSION` and the selected provider's `JINA_API_KEY`, `OPENAI_API_KEY` or `GEMINI_API_KEY`. Pass an `httpx.Client` with a bounded timeout to `embedding_provider_from_env`. The adapters reject missing, non-finite or wrong-dimension vectors and use passage/document versus query task modes. Keep `AI_TUTOR_EMBEDDING_SPACE_KEY` aligned with the selected provider, model, dimension and task settings; changing any of these requires re-indexing. The adapters are tested with mocked provider responses but are not yet called by the indexing or retrieval pipeline.
 
+`oep_ai_tutor.generation` provides Groq, OpenAI and Gemini completed-response adapters. The default is Groq `openai/gpt-oss-120b`; choose an adapter with `AI_TUTOR_GENERATION_PROVIDER` (`groq`, `openai`, `gemini`), set `AI_TUTOR_GENERATION_MODEL` for alternate providers, `AI_TUTOR_MAX_OUTPUT_TOKENS` for the output cap, and the selected `GROQ_API_KEY`, `OPENAI_API_KEY` or `GEMINI_API_KEY`. Pass a bounded-timeout `httpx.Client` to `generation_provider_from_env`. The caller supplies trusted instructions separately from user/assistant messages; retrieved content must be passed as untrusted message content. Adapters reject truncated, empty or malformed responses and normalize input/output token counts. They are not yet connected to send-turn or citation validation.
+
 `oep_ai_tutor.parsing` converts inline `TEXT`, text PDF, Markdown `.md` and JSON `.json` into citation-aware passages and bounded chunks. PDF page, Markdown heading and JSON path remain attached to each chunk. Empty or image-only PDFs report `OCR_REQUIRED`; encrypted PDFs and unsupported file types are rejected. M2 now validates AI-eligible Admin uploads (20 MiB PDF; 5 MiB Markdown/JSON) against the stored object's size and MIME type, and the Admin UI checks size before upload. Parsing is not yet connected to M7 indexing; Admin-visible processing state remains open.
 
 M7 owns its PostgreSQL tables and migrations in the `ai_tutor` schema. The historical `public.ai_*` tables from the Java baseline are unused; see [ADR 0015](adr/0015-ai-relational-ownership.md). The migration is implemented, but application database writes are not yet connected.
@@ -30,7 +32,7 @@ $env:AI_TUTOR_SERVICE_JWT_SECRET = '<a unique secret of at least 32 UTF-8 bytes>
 uv run --locked uvicorn oep_ai_tutor.app:create_app --factory --host 127.0.0.1 --port 8000
 ```
 
-`GET /healthz` returns `{"status":"ok"}`. The service refuses to start when `AI_TUTOR_SERVICE_JWT_SECRET` is absent or shorter than 32 bytes. Core LMS now has conditional public proxy routes configured with `AI_TUTOR_ENABLED=true`, the same dedicated secret and `AI_TUTOR_BASE_URL` pointing to the private FastAPI origin (for example, `http://127.0.0.1:8000` outside Docker). The FastAPI chat/status handlers are not implemented yet, so enabling the proxy does not make chat functional. Do not reuse the public end-user JWT signing key. Keep the private service off public gateway routes.
+`GET /healthz` returns `{"status":"ok"}`. The service refuses to start when `AI_TUTOR_SERVICE_JWT_SECRET` is absent or shorter than 32 bytes. Core LMS now has conditional public proxy routes configured with `AI_TUTOR_ENABLED=true`, the same dedicated secret and `AI_TUTOR_BASE_URL` pointing to the private FastAPI origin (for example, `http://127.0.0.1:8000` outside Docker). Private status and conversation/history handlers work; send-turn and indexing do not yet exist, so enabling the proxy does not make chat functional. Do not reuse the public end-user JWT signing key. Keep the private service off public gateway routes.
 
 ## Tests
 
@@ -38,6 +40,6 @@ uv run --locked uvicorn oep_ai_tutor.app:create_app --factory --host 127.0.0.1 -
 uv run --locked pytest -q
 ```
 
-See [the Java/Python contract](docs/java-python-api.md) for assertion claims and private paths. The test suite exercises the FastAPI authentication dependency, conversation ownership and SQL constraints. No unimplemented status or send-turn route is exposed in the service.
+See [the Java/Python contract](docs/java-python-api.md) for assertion claims and private paths. The test suite exercises the FastAPI authentication dependency, conversation ownership, SQL constraints, parsing and mocked provider HTTP contracts. No unimplemented send-turn route is exposed in the service.
 
 The PostgreSQL migration integration test runs when `AI_TUTOR_TEST_DATABASE_URL` points to an **isolated, disposable** PostgreSQL database. It verifies fresh/repeat migration, checksum drift and the database constraints. Without that variable it is skipped by the normal `pytest` command.
