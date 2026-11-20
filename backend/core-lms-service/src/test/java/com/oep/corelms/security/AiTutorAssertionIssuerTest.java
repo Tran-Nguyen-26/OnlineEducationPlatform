@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Import;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -51,6 +52,24 @@ class AiTutorAssertionIssuerTest {
     void rejectsMissingOrShortDedicatedSecret() {
         assertThrows(IllegalArgumentException.class, () -> new AiTutorAssertionIssuer(""));
         assertThrows(IllegalArgumentException.class, () -> new AiTutorAssertionIssuer("too-short"));
+    }
+
+    @Test
+    void bindsReadableLessonsToTheStudentAssertion() throws Exception {
+        UUID first = UUID.fromString("11111111-1111-4111-8111-111111111111");
+        UUID second = UUID.fromString("22222222-2222-4222-8222-222222222222");
+        String digest = "a22ad13a7d741402a16b943ba95a73481dfdbcece26d55a1e987bc81bec9b89b";
+        assertEquals(digest, AiTutorLessonScope.sha256(List.of(second, first)));
+        assertEquals(digest, AiTutorLessonScope.sha256(List.of(first, second, first)));
+        assertEquals("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                AiTutorLessonScope.sha256(List.of()));
+
+        AiTutorAssertionIssuer issuer = new AiTutorAssertionIssuer(SECRET);
+        String scoped = issuer.issueStudentWithLessonScope(UUID.randomUUID(), UUID.randomUUID(),
+                UUID.randomUUID(), List.of(second, first));
+        SignedJWT token = SignedJWT.parse(scoped);
+        assertTrue(token.verify(new MACVerifier(SECRET.getBytes(StandardCharsets.UTF_8))));
+        assertEquals(digest, token.getJWTClaimsSet().getStringClaim("lesson_scope_sha256"));
     }
 
     @Test

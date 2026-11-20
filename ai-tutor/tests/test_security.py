@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from hashlib import sha256
 from uuid import UUID, uuid4
 
 import jwt
@@ -15,6 +16,7 @@ from oep_ai_tutor.security import (
     AssertionVerifier,
     InvalidServiceAssertion,
     StudentAssertion,
+    require_signed_lesson_scope,
     require_student_assertion,
 )
 
@@ -54,6 +56,55 @@ def test_valid_assertion_is_bound_to_verified_user_course_and_request() -> None:
     assert result.user_id == USER_ID
     assert result.course_id == COURSE_ID
     assert result.request_id == REQUEST_ID
+
+
+def test_signed_lesson_scope_matches_java_canonical_digest() -> None:
+    first = "11111111-1111-4111-8111-111111111111"
+    second = "22222222-2222-4222-8222-222222222222"
+    digest = "a22ad13a7d741402a16b943ba95a73481dfdbcece26d55a1e987bc81bec9b89b"
+    assertion = AssertionVerifier(SECRET).verify_student(
+        token(lesson_scope_sha256=digest), course_id=COURSE_ID, request_id=REQUEST_ID
+    )
+    assert assertion.require_lesson_scope([second, first]) == (UUID(second), UUID(first))
+    assert digest == sha256(f"{first}\n{second}".encode()).hexdigest()
+
+    for invalid in ([first], [first, first, second], ["AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA", second]):
+        with pytest.raises(InvalidServiceAssertion):
+            assertion.require_lesson_scope(invalid)
+
+    unscoped = AssertionVerifier(SECRET).verify_student(
+        token(), course_id=COURSE_ID, request_id=REQUEST_ID
+    )
+    with pytest.raises(InvalidServiceAssertion):
+        unscoped.require_lesson_scope([first, second])
+
+
+def test_malformed_lesson_scope_digest_is_rejected() -> None:
+    for invalid in ("wrong", "A" * 64, 123):
+        with pytest.raises(InvalidServiceAssertion):
+            AssertionVerifier(SECRET).verify_student(
+                token(lesson_scope_sha256=invalid), course_id=COURSE_ID, request_id=REQUEST_ID
+            )
+
+
+def test_private_handler_rejects_a_tampered_lesson_list(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AI_TUTOR_SERVICE_JWT_SECRET", SECRET)
+    app = create_app()
+
+    def probe(body: dict[str, list[str]], identity: StudentAssertion = Depends(require_student_assertion)) -> dict[str, int]:
+        return {"count": len(require_signed_lesson_scope(identity, body["readable_lesson_ids"]))}
+
+    app.add_api_route("/internal/v1/ai/courses/{courseId}/_scope_probe", probe, methods=["POST"])
+    first = "11111111-1111-4111-8111-111111111111"
+    second = "22222222-2222-4222-8222-222222222222"
+    headers = {
+        "Authorization": f"Bearer {token(lesson_scope_sha256='a22ad13a7d741402a16b943ba95a73481dfdbcece26d55a1e987bc81bec9b89b')}",
+        "X-Request-Id": str(REQUEST_ID),
+    }
+    path = f"/internal/v1/ai/courses/{COURSE_ID}/_scope_probe"
+    with TestClient(app) as client:
+        assert client.post(path, headers=headers, json={"readable_lesson_ids": [first, second]}).json() == {"count": 2}
+        assert client.post(path, headers=headers, json={"readable_lesson_ids": [first]}).status_code == 401
 
 
 @pytest.mark.parametrize(

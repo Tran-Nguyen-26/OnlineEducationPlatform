@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 /** Issues a dedicated, course-bound assertion after the caller has passed M7 access checks. */
@@ -32,11 +33,22 @@ public class AiTutorAssertionIssuer {
     }
 
     public String issueStudent(UUID userId, UUID courseId, UUID requestId) {
-        return issueStudentAt(userId, courseId, requestId, Instant.now());
+        return issueStudentAt(userId, courseId, requestId, null, Instant.now());
     }
 
     String issueStudentAt(UUID userId, UUID courseId, UUID requestId, Instant now) {
-        JWTClaimsSet claims = new JWTClaimsSet.Builder()
+        return issueStudentAt(userId, courseId, requestId, null, now);
+    }
+
+    /** The caller must obtain lessonIds from AiTutorAccessPolicy in this request. */
+    public String issueStudentWithLessonScope(UUID userId, UUID courseId, UUID requestId,
+                                              List<UUID> lessonIds) {
+        return issueStudentAt(userId, courseId, requestId, AiTutorLessonScope.sha256(lessonIds), Instant.now());
+    }
+
+    private String issueStudentAt(UUID userId, UUID courseId, UUID requestId, String lessonScopeSha256,
+                                  Instant now) {
+        JWTClaimsSet.Builder claimsBuilder = new JWTClaimsSet.Builder()
                 .issuer("oep-core-lms")
                 .audience("m7-ai-tutor")
                 .subject(userId.toString())
@@ -46,8 +58,11 @@ public class AiTutorAssertionIssuer {
                 .jwtID(UUID.randomUUID().toString())
                 .issueTime(Date.from(now))
                 .notBeforeTime(Date.from(now))
-                .expirationTime(Date.from(now.plusSeconds(TTL_SECONDS)))
-                .build();
+                .expirationTime(Date.from(now.plusSeconds(TTL_SECONDS)));
+        if (lessonScopeSha256 != null) {
+            claimsBuilder.claim("lesson_scope_sha256", lessonScopeSha256);
+        }
+        JWTClaimsSet claims = claimsBuilder.build();
         SignedJWT token = new SignedJWT(
                 new JWSHeader.Builder(JWSAlgorithm.HS256).type(JOSEObjectType.JWT).build(),
                 claims

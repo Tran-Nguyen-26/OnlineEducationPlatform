@@ -288,6 +288,10 @@ paths:
         request completion are committed atomically. Authorization is checked
         before replaying a cached response. An ambiguous provider timeout may
         cause a repeated provider charge, but must not create a second committed turn.
+        Spring derives readable_lesson_ids from its live M2 lesson-access policy
+        and adds them only to the private send-message body. A SHA-256 digest of
+        the canonical list is signed in the service assertion; Python verifies
+        this binding before retrieval. The public request accepts no lesson IDs.
       parameters:
         - $ref: '#/components/parameters/CourseId'
         - $ref: '#/components/parameters/ConversationId'

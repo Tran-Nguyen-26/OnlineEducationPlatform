@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from hashlib import sha256
+import hmac
+import re
 from uuid import UUID
 
 import jwt
@@ -23,6 +26,25 @@ class StudentAssertion:
     course_id: UUID
     request_id: UUID
     token_id: UUID
+    lesson_scope_sha256: str | None
+
+    def require_lesson_scope(self, lesson_ids: list[str]) -> tuple[UUID, ...]:
+        """Verify the private chat body's lesson set against the signed assertion."""
+        if self.lesson_scope_sha256 is None or not isinstance(lesson_ids, list):
+            raise InvalidServiceAssertion("Missing signed lesson scope")
+        try:
+            parsed = tuple(UUID(item) for item in lesson_ids)
+            if any(str(value) != raw for value, raw in zip(parsed, lesson_ids)):
+                raise ValueError("Lesson IDs must use canonical UUID spelling")
+            if len(set(parsed)) != len(parsed):
+                raise ValueError("Duplicate lesson ID")
+            canonical = "\n".join(sorted(str(value) for value in parsed))
+            digest = sha256(canonical.encode("utf-8")).hexdigest()
+            if not hmac.compare_digest(digest, self.lesson_scope_sha256):
+                raise ValueError("Lesson scope does not match assertion")
+            return parsed
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise InvalidServiceAssertion("Invalid signed lesson scope") from exc
 
 
 class InvalidServiceAssertion(ValueError):
@@ -70,7 +92,13 @@ class AssertionVerifier:
             token_id = UUID(claims["jti"])
             if asserted_course_id != course_id or asserted_request_id != request_id:
                 raise ValueError("Assertion does not match the request")
-            return StudentAssertion(user_id, course_id, request_id, token_id)
+            lesson_scope_sha256 = claims.get("lesson_scope_sha256")
+            if lesson_scope_sha256 is not None and (
+                not isinstance(lesson_scope_sha256, str)
+                or re.fullmatch(r"[0-9a-f]{64}", lesson_scope_sha256) is None
+            ):
+                raise ValueError("Malformed lesson scope digest")
+            return StudentAssertion(user_id, course_id, request_id, token_id, lesson_scope_sha256)
         except (jwt.PyJWTError, ValueError, TypeError, KeyError) as exc:
             raise InvalidServiceAssertion("Invalid internal service assertion") from exc
 
@@ -87,6 +115,18 @@ def require_student_assertion(request: Request, courseId: UUID) -> StudentAssert
             token, course_id=courseId, request_id=request_id
         )
     except (InvalidServiceAssertion, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid internal service assertion",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+
+
+def require_signed_lesson_scope(assertion: StudentAssertion, lesson_ids: list[str]) -> tuple[UUID, ...]:
+    """HTTP boundary for the private send-message handler before source retrieval."""
+    try:
+        return assertion.require_lesson_scope(lesson_ids)
+    except InvalidServiceAssertion as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid internal service assertion",
