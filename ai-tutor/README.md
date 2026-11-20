@@ -2,6 +2,8 @@
 
 Python/FastAPI is a private service called by the Spring Boot backend. The first implementation slice provides a runnable service and verification of short-lived internal student assertions. Chat, indexing and public Java proxy routes are not implemented yet; track them in [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 
+M7 owns its future PostgreSQL tables and migrations in the `ai_tutor` schema. The historical `public.ai_*` tables from the Java baseline are unused; see [ADR 0015](adr/0015-ai-relational-ownership.md). No M7 migration or database write is implemented yet.
+
 ## Local setup
 
 Requires Python 3.11+ and `uv`.

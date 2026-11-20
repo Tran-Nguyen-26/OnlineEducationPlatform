@@ -22,5 +22,6 @@ This folder records the decisions that shape M7 AI Tutor so the team can explain
 | [0012](0012-public-api-conventions.md) | Public API conventions | Accepted for first release |
 | [0013](0013-index-readiness-states.md) | Index readiness states | Accepted |
 | [0014](0014-model-selection.md) | ADR-AI-001: initial Groq/Jina configuration; historical shortlist for later evaluation | Accepted initial configuration |
+| [0015](0015-ai-relational-ownership.md) | M7 relational schema ownership and legacy Java AI tables | Accepted |
 
 ADRs 0003, 0004, 0006 and 0008 still contain implementation details or later non-functional proposals. ADR-0009 records the implemented issuer/verifier and remaining proxy/deployment work. Accepted ADRs record the team's confirmed first-release choices; a configured provider, model or vector store can still be changed through its adapter boundary, with data migration where required.

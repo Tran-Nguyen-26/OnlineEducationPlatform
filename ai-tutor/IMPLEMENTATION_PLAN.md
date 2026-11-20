@@ -25,7 +25,7 @@ The M7 design and OpenAPI describe intended behavior, not implemented endpoints.
   - [x] Add the conditional core LMS student-assertion issuer with a dedicated secret, exact claim set and 60-second TTL. Verify signature/claims, unique token IDs, invalid secrets and disabled-by-default configuration in Java tests; rerun the Python verifier tests. Public authorization/proxy endpoints and indexing scope remain open.
   - [x] Add a primary-routed core LMS access policy for Student role, `PUBLISHED` course, `ACTIVE` enrollment, non-upcoming content and no same-course `IN_PROGRESS` quiz. Test denial and acceptance branches. Per-student unlocked-lesson scope and the public/private proxy are still open.
   - [x] Extract a shared M2 lesson-access service for `SEQUENTIAL` course locks, use it for protected content and the Student outline, and expose a per-enrollment readable-lesson ID list for the future AI proxy. Verify locked content stays hidden and lessons unlock in order. Transporting that list to M7 and enforcing it inside vector search remain open.
-- [ ] Decide AI-owned relational tables and migration ownership. Reconcile the existing `core-model` entities and `V1__baseline.sql` before new migrations or writes.
+- [x] Decide AI-owned relational tables and migration ownership. M7 owns a separate `ai_tutor` schema and its migrations; unused Java AI mappings are removed, while historical `public.ai_*` tables in immutable `V1__baseline.sql` remain untouched pending a data audit. See ADR 0015. The first M7 migration and its schema tests remain open under F2.
 
 ### F2. Eligible content and indexing
 

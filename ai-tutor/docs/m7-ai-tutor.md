@@ -158,7 +158,7 @@ erDiagram
 | `ai_message_citations` | UUID PK; `message_id`, `chunk_id`/snapshot metadata, ordinal; only for grounded assistant messages |
 | `ai_index_jobs` | UUID PK; source/version/action, `event_id` unique, `status`, `attempt_count`, error and timestamps |
 
-`users`, `courses` and `lesson_contents` belong to other modules. Cross-service database foreign keys may not be possible; validation and ownership responsibilities must be made explicit at the integration boundary. There is **no** new M7 enrollment or course membership table.
+`users`, `courses` and `lesson_contents` belong to other modules. M7 stores their UUIDs without cross-service foreign keys and validates them through the signed access and indexing contracts. There is **no** new M7 enrollment or course membership table. Per [ADR 0015](../adr/0015-ai-relational-ownership.md), these logical tables will be created in M7's own `ai_tutor` schema by M7 migrations; the unrelated historical `public.ai_*` baseline tables are not used.
 
 ## 5. Content eligibility and indexing state machine
 

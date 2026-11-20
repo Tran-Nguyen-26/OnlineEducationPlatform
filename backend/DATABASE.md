@@ -226,7 +226,7 @@ AI tutor (`ai_conversations`, `ai_messages`, `ai_document_chunks`) nằm ngoài 
 
 ## 6. Ngoài phạm vi tài liệu nghiệp vụ hiện tại
 
-`entity/ai/*` (`ai_conversations`, `ai_messages`, `ai_document_chunks`) phục vụ tính năng AI Tutor (RAG + Pinecone) được nêu trong sơ đồ kiến trúc ở `CLAUDE.md` nhưng **không** nằm trong tài liệu nghiệp vụ Admin/Giáo viên/Học sinh hiện tại. Giữ nguyên, không đụng tới — nếu nghiệp vụ chưa cần, có thể bỏ qua các bảng này khi review schema.
+Các JPA mapping `entity/ai/*` cũ đã được gỡ để triển khai M7. Ba bảng lịch sử `public.ai_conversations`, `public.ai_messages` và `public.ai_document_chunks` vẫn nằm trong Flyway V1 bất biến, nhưng Java và M7 không sử dụng. M7 sở hữu bảng và migration mới trong schema `ai_tutor` riêng; xem `ai-tutor/adr/0015-ai-relational-ownership.md`. Cần kiểm tra dữ liệu trên từng môi trường trước khi dọn các bảng cũ.
 
 ## 7. Xác thực (đã triển khai trong `core-lms-service`)
 
