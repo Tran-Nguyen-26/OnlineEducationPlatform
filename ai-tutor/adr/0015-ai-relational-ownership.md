@@ -42,5 +42,5 @@ without making Spring depend on M7's schema. Deployment must provision a
 separate M7 migration role/schema and run M7 migrations before starting M7.
 The legacy public tables remain as unused data until an audited cleanup.
 
-The table shapes in the M7 design are logical requirements; exact SQL
-constraints and indexes are defined and tested with the first M7 migration.
+The initial M7 migration now defines and tests the relational tables, constraints
+and indexes. Vector storage and adapter-specific migrations remain separate.

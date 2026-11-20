@@ -148,17 +148,17 @@ erDiagram
     ai_index_jobs }o--|| ai_source_revisions : handles
 ```
 
-| M7 table (proposed) | Key fields / constraints |
+| M7 table | Key fields / constraints |
 | --- | --- |
 | `ai_conversations` | UUID `id` PK; `user_id`, `course_id` FKs or validated external IDs; title, created/updated/deleted timestamps; index `(user_id, course_id, updated_at)` |
 | `ai_messages` | UUID PK; `conversation_id`, `role`, `content`, `answer_status`, `created_at`; index `(conversation_id, created_at, id)` |
 | `ai_chat_requests` | UUID PK; unique `(user_id, conversation_id, idempotency_key)`; `payload_hash`, `status`, `response_message_id`, timestamps |
-| `ai_source_revisions` | UUID PK; `(content_id, version_number)` unique; `course_id`, `lesson_id`, `content_type`, `state`, checksum, `embedding_space_key`; one current `READY` revision per content at a time |
+| `ai_source_revisions` | UUID PK; `(content_id, version_number, embedding_space_key)` unique; `course_id`, `lesson_id`, `content_type`, `state`, checksum; one current `READY` revision per content **and embedding space** at a time, so re-embedding can prepare a new space without losing the old one |
 | `ai_source_chunks` | UUID PK; `source_revision_id`, `course_id`, `chunk_index`, `text`, page/heading/JSON path nullable, `embedding_space_key`, `embedding_dimension`; unique `(source_revision_id, chunk_index)`; pgvector adapter owns native `vector` storage, Pinecone adapter owns vector IDs; neither changes the logical chunk contract |
 | `ai_message_citations` | UUID PK; `message_id`, `chunk_id`/snapshot metadata, ordinal; only for grounded assistant messages |
 | `ai_index_jobs` | UUID PK; source/version/action, `event_id` unique, `status`, `attempt_count`, error and timestamps |
 
-`users`, `courses` and `lesson_contents` belong to other modules. M7 stores their UUIDs without cross-service foreign keys and validates them through the signed access and indexing contracts. There is **no** new M7 enrollment or course membership table. Per [ADR 0015](../adr/0015-ai-relational-ownership.md), these logical tables will be created in M7's own `ai_tutor` schema by M7 migrations; the unrelated historical `public.ai_*` baseline tables are not used.
+`users`, `courses` and `lesson_contents` belong to other modules. M7 stores their UUIDs without cross-service foreign keys and validates them through the signed access and indexing contracts. There is **no** new M7 enrollment or course membership table. Per [ADR 0015](../adr/0015-ai-relational-ownership.md), the initial relational tables are created in M7's own `ai_tutor` schema by its versioned migration; vector storage remains pending. The unrelated historical `public.ai_*` baseline tables are not used.
 
 ## 5. Content eligibility and indexing state machine
 
@@ -318,9 +318,9 @@ Do not assume M5 is the notification owner: the supplied M2 notes themselves fla
 
 1. Define the M2 content event/outbox payload and authoritative source/version read interface; retain the separate synchronous deactivation API.
 2. Implement the private Python handlers behind the new Java proxy; define the indexing-service scope, complete the Java → Python success/error contract tests and align the public OpenAPI error envelope with Spring ProblemDetail. Document deployment secret rotation.
-3. Create and test M7-owned migrations in the `ai_tutor` schema per ADR 0015; preserve the historical Java baseline tables pending a data audit.
+3. Extend the implemented M7-owned migration set for vector storage and adapters; preserve the historical Java baseline tables pending a data audit.
 4. Validate M2 `FILE` MIME/extension/size rules and whether `AVAILABLE` content in a `PUBLISHED` course has any additional visibility gate. Keep arbitrary user/account JSON outside M7 ingestion.
 
 **Later non-functional decisions:** retention and backup purge, production Jina account/model terms, deployment region, cost limits, load targets and SSE details. None of these is claimed implemented or measured here.
 
-**Design status:** The functional scope is agreed. Python service bootstrap and assertion verification, core LMS issuer, course/quiz guard, shared readable-lesson calculation, signed lesson-scope binding and authorized Java proxy routes are implemented and tested. Private Python handlers, vector-search enforcement, M7 migrations and end-to-end chat remain to be completed.
+**Design status:** The functional scope is agreed. Python service bootstrap and assertion verification, core LMS issuer, course/quiz guard, shared readable-lesson calculation, signed lesson-scope binding, authorized Java proxy routes and the first M7 relational migration are implemented and tested. Private Python handlers, vector storage/search enforcement and end-to-end chat remain to be completed.
