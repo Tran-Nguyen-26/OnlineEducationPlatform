@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
@@ -16,6 +17,9 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class StorageService {
+
+    public record StoredObjectInfo(long sizeBytes, String mimeType) {
+    }
 
     private final S3Presigner presigner;
     private final software.amazon.awssdk.services.s3.S3Client s3;
@@ -75,5 +79,11 @@ public class StorageService {
                 .getObjectRequest(getRequest)
                 .build();
         return presigner.presignGetObject(presignRequest).url().toString();
+    }
+
+    /** Verify the object actually uploaded before accepting an AI-eligible learning file. */
+    public StoredObjectInfo inspectObject(String objectKey) {
+        var response = s3.headObject(HeadObjectRequest.builder().bucket(bucket).key(objectKey).build());
+        return new StoredObjectInfo(response.contentLength(), response.contentType());
     }
 }

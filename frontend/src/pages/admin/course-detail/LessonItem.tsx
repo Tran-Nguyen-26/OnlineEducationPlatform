@@ -31,6 +31,28 @@ import { ContentHistoryModal } from './ContentHistoryModal'
 import { Badge } from '../../../components/Badge'
 
 const FILE_BASED_TYPES: ContentType[] = ['VIDEO', 'PDF', 'SLIDE', 'DOCUMENT', 'FILE']
+const PDF_MAX_BYTES = 20 * 1024 * 1024
+const MARKDOWN_JSON_MAX_BYTES = 5 * 1024 * 1024
+
+function aiUploadError(contentType: ContentType, file: File): string | null {
+  const extension = file.name.toLowerCase().split('.').pop()
+  if (contentType === 'PDF') {
+    if (extension !== 'pdf') return 'Tài liệu PDF cần tệp .pdf.'
+    if (file.size > PDF_MAX_BYTES) return 'Tài liệu PDF tối đa 20 MiB.'
+  }
+  if (contentType === 'FILE' && (extension === 'md' || extension === 'json') && file.size > MARKDOWN_JSON_MAX_BYTES) {
+    return 'Tệp Markdown/JSON tối đa 5 MiB.'
+  }
+  return null
+}
+
+function uploadMimeType(contentType: ContentType, file: File): string {
+  const extension = file.name.toLowerCase().split('.').pop()
+  if (contentType === 'PDF' && extension === 'pdf') return 'application/pdf'
+  if (contentType === 'FILE' && extension === 'md') return 'text/markdown'
+  if (contentType === 'FILE' && extension === 'json') return 'application/json'
+  return file.type || 'application/octet-stream'
+}
 
 const TYPE_LABEL: Record<ContentType, string> = {
   TEXT: 'Văn bản',
@@ -69,10 +91,15 @@ export function LessonItem({ lesson }: { lesson: LessonResponse }) {
   const [historyFor, setHistoryFor] = useState<LessonContentResponse | null>(null)
 
   async function uploadFile(content: LessonContentResponse, file: File) {
+    const validationError = aiUploadError(content.contentType, file)
+    if (validationError) {
+      setUploadErrors((prev) => ({ ...prev, [content.id]: validationError }))
+      return
+    }
     setUploadingIds((prev) => new Set(prev).add(content.id))
     setUploadErrors((prev) => ({ ...prev, [content.id]: '' }))
     try {
-      const mimeType = file.type || 'application/octet-stream'
+      const mimeType = uploadMimeType(content.contentType, file)
       const { data } = await apiClient.post<UploadUrlResponse>(`/api/admin/lesson-contents/${content.id}/upload-url`, {
         fileName: file.name,
         mimeType,
@@ -172,6 +199,13 @@ export function LessonItem({ lesson }: { lesson: LessonResponse }) {
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    if (editing === 'new' && file) {
+      const validationError = aiUploadError(contentType, file)
+      if (validationError) {
+        setFormError(validationError)
+        return
+      }
+    }
     if (editing === 'new') createMutation.mutate()
     else if (editing) updateMutation.mutate(editing)
   }

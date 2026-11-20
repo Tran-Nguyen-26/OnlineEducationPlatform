@@ -106,6 +106,8 @@ public class AdminLessonContentService {
             throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "This content type does not take a file upload");
         }
 
+        AiTutorLearningFilePolicy.maximumBytes(content.getContentType(), request.fileName(), request.mimeType());
+
         String objectKey = storageService.newObjectKey(request.fileName());
         content.setObjectKey(objectKey);
         content.setFileName(request.fileName());
@@ -122,6 +124,21 @@ public class AdminLessonContentService {
         LessonContent content = findOrThrow(contentId);
         if (content.getObjectKey() == null) {
             throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "No upload was requested for this content");
+        }
+        long maximumBytes = AiTutorLearningFilePolicy.maximumBytes(
+                content.getContentType(), content.getFileName(), content.getMimeType());
+        if (maximumBytes > 0) {
+            StorageService.StoredObjectInfo stored = storageService.inspectObject(content.getObjectKey());
+            if (stored.sizeBytes() != request.fileSize()
+                    || !AiTutorLearningFilePolicy.baseMime(stored.mimeType()).equals(
+                    AiTutorLearningFilePolicy.baseMime(content.getMimeType()))) {
+                throw new BusinessException(ErrorCode.VALIDATION_FAILED,
+                        "Uploaded file size or MIME type does not match the confirmed learning content");
+            }
+            if (stored.sizeBytes() > maximumBytes) {
+                throw new BusinessException(ErrorCode.VALIDATION_FAILED,
+                        "Learning content exceeds the allowed upload size");
+            }
         }
         content.setFileSize(request.fileSize());
         content.setDurationSeconds(request.durationSeconds());
