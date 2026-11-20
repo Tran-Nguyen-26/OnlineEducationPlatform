@@ -5,8 +5,8 @@ info:
   description: |
     REVIEW DRAFT (updated 2026-11-20). The external Spring Boot proxy routes,
     internal assertion verifier and issuer are implemented; private Python
-    status/send/index handlers and vector storage are pending; private
-    conversation/history handlers are implemented. The initial M7 relational
+    send/index handlers and vector storage are pending; private
+    status/conversation/history handlers are implemented. The initial M7 relational
     migration is implemented. Public error examples
     below still need alignment with Spring's live ProblemDetail envelope.
 
@@ -73,8 +73,10 @@ paths:
       description: |
         Student only: PUBLISHED + ACTIVE enrollment. Instructors and ADMIN have no
         M7 AI Tutor access. Never expose another course's source titles.
+        Counts use the latest revision per content in the configured embedding
+        space and asserted course. Unsupported sources count as failed.
         NOT_READY: no queryable or pending/processing source (zero counts means no
-        eligible source; failed_sources > 0 means indexing failed). INDEXING: no
+        eligible source; failed_sources > 0 means indexing failed or unsupported). INDEXING: no
         source is queryable yet, and at least one is pending/processing. READY:
         every eligible source has a current queryable revision. DEGRADED: at least
         one source is queryable while another eligible source is pending, processing
@@ -642,7 +644,9 @@ components:
       description: |
         ready_sources counts current queryable sources; indexing_sources counts
         eligible sources pending or processing; failed_sources counts eligible
-        sources whose latest indexing attempt failed. NOT_READY with all counts
+        sources whose latest revision failed or is unsupported. Counts use only
+        the latest revision per content in the active embedding space and course.
+        NOT_READY with all counts
         zero means no eligible sources. NOT_READY with failed_sources > 0 means
         eligible sources exist but none is queryable. INDEXING has no queryable
         source and indexing_sources > 0. READY means all eligible sources are

@@ -1,6 +1,6 @@
 # M7 AI Tutor service
 
-Python/FastAPI is a private service called by the Spring Boot backend. It verifies short-lived internal student assertions, owns versioned relational migrations and serves private conversation/history routes. Spring has authorized public proxy routes. Status, send-turn, indexing and retrieval handlers are still pending; track them in [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
+Python/FastAPI is a private service called by the Spring Boot backend. It verifies short-lived internal student assertions, owns versioned relational migrations and serves private status and conversation/history routes. Spring has authorized public proxy routes. Send-turn, indexing and retrieval handlers are still pending; track them in [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 
 M7 owns its PostgreSQL tables and migrations in the `ai_tutor` schema. The historical `public.ai_*` tables from the Java baseline are unused; see [ADR 0015](adr/0015-ai-relational-ownership.md). The migration is implemented, but application database writes are not yet connected.
 
@@ -13,6 +13,8 @@ uv run --locked python -m oep_ai_tutor.migrate
 ```
 
 The runner applies numbered SQL files transactionally under an advisory lock, records SHA-256 checksums in `ai_tutor.schema_migrations`, and rejects edits to an already applied migration. Re-running it with no pending migration is safe. The initial migration creates relational metadata and constraints; pgvector storage and the vector adapters are later work. It does not alter Java Flyway history or the historical `public.ai_*` tables. Set `AI_TUTOR_DATABASE_URL` and run migrations before using the private conversation routes. Without the URL, those routes return 503.
+
+Set `AI_TUTOR_EMBEDDING_SPACE_KEY` to the active provider/model/dimension space before using the status route. Status counts only the latest revision of each content in that space and the asserted course. Missing database or space configuration returns 503. The key must match the one later used by indexing and retrieval; switching embedding spaces requires re-indexing.
 
 ## Local setup
 

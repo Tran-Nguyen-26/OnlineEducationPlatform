@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
-from typing import Iterator
 from uuid import UUID, uuid4
 
 import psycopg
-from psycopg.rows import dict_row
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from oep_ai_tutor.db import database
 from oep_ai_tutor.errors import AiTutorError
 from oep_ai_tutor.security import StudentAssertion, require_student_assertion
 
@@ -28,18 +26,6 @@ class CreateConversation(BaseModel):
         if not value.strip():
             raise ValueError("title cannot be blank")
         return value
-
-
-@contextmanager
-def database(request: Request) -> Iterator[psycopg.Connection]:
-    dsn = request.app.state.database_url
-    if not dsn:
-        raise AiTutorError("AI_TUTOR_UNAVAILABLE", 503, "AI Tutor is unavailable")
-    try:
-        with psycopg.connect(dsn, row_factory=dict_row) as connection:
-            yield connection
-    except psycopg.Error as exc:
-        raise AiTutorError("AI_TUTOR_UNAVAILABLE", 503, "AI Tutor is unavailable") from exc
 
 
 def own_conversation(connection: psycopg.Connection, conversation_id: UUID,
