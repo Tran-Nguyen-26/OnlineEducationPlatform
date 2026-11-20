@@ -1,6 +1,6 @@
 # M7 AI Tutor service
 
-Python/FastAPI is a private service called by the Spring Boot backend. The service verifies short-lived internal student assertions and owns the first versioned relational migration. Spring now has authorized public proxy routes; private chat, indexing and retrieval handlers are still pending. Track them in [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
+Python/FastAPI is a private service called by the Spring Boot backend. It verifies short-lived internal student assertions, owns versioned relational migrations and serves private conversation/history routes. Spring has authorized public proxy routes. Status, send-turn, indexing and retrieval handlers are still pending; track them in [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 
 M7 owns its PostgreSQL tables and migrations in the `ai_tutor` schema. The historical `public.ai_*` tables from the Java baseline are unused; see [ADR 0015](adr/0015-ai-relational-ownership.md). The migration is implemented, but application database writes are not yet connected.
 
@@ -12,7 +12,7 @@ Provision a dedicated PostgreSQL database role for M7 with permission to create/
 uv run --locked python -m oep_ai_tutor.migrate
 ```
 
-The runner applies numbered SQL files transactionally under an advisory lock, records SHA-256 checksums in `ai_tutor.schema_migrations`, and rejects edits to an already applied migration. Re-running it with no pending migration is safe. The initial migration creates relational metadata and constraints; pgvector storage and the vector adapters are later work. It does not alter Java Flyway history or the historical `public.ai_*` tables. Run migrations before starting M7 once database-backed handlers are added.
+The runner applies numbered SQL files transactionally under an advisory lock, records SHA-256 checksums in `ai_tutor.schema_migrations`, and rejects edits to an already applied migration. Re-running it with no pending migration is safe. The initial migration creates relational metadata and constraints; pgvector storage and the vector adapters are later work. It does not alter Java Flyway history or the historical `public.ai_*` tables. Set `AI_TUTOR_DATABASE_URL` and run migrations before using the private conversation routes. Without the URL, those routes return 503.
 
 ## Local setup
 
@@ -32,6 +32,6 @@ uv run --locked uvicorn oep_ai_tutor.app:create_app --factory --host 127.0.0.1 -
 uv run --locked pytest -q
 ```
 
-See [the Java/Python contract](docs/java-python-api.md) for assertion claims and private paths. The test suite exercises the actual FastAPI authentication dependency through an isolated test route; no unimplemented chat route is exposed in the service.
+See [the Java/Python contract](docs/java-python-api.md) for assertion claims and private paths. The test suite exercises the FastAPI authentication dependency, conversation ownership and SQL constraints. No unimplemented status or send-turn route is exposed in the service.
 
 The PostgreSQL migration integration test runs when `AI_TUTOR_TEST_DATABASE_URL` points to an **isolated, disposable** PostgreSQL database. It verifies fresh/repeat migration, checksum drift and the database constraints. Without that variable it is skipped by the normal `pytest` command.

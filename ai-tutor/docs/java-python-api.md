@@ -1,6 +1,6 @@
 # M7 private Java Spring Boot → Python FastAPI contract (in progress)
 
-**Status:** Functional scope and public path agreed. The student service-assertion verifier in Python, issuer and authorized public proxy in core LMS are implemented and tested. Private chat/index handlers and end-to-end RAG remain to implement. Public requests go to Spring Boot at `/api/courses/{courseId}/ai/...`, matching the live gateway's `/api/courses/**` pattern; the browser never calls these private paths. Public success schemas are in [`m7-ai-tutor.yaml`](../openapi/m7-ai-tutor.yaml). Its draft error envelope still needs reconciliation with Spring's live `application/problem+json` format. The first release returns a completed JSON chat response, with SSE retained as a later functional enhancement.
+**Status:** Functional scope and public path agreed. The student service-assertion verifier in Python, issuer and authorized public proxy in core LMS, and private conversation/history handlers are implemented and tested. Private status/send/index handlers and end-to-end RAG remain to implement. Public requests go to Spring Boot at `/api/courses/{courseId}/ai/...`, matching the live gateway's `/api/courses/**` pattern; the browser never calls these private paths. Public success schemas are in [`m7-ai-tutor.yaml`](../openapi/m7-ai-tutor.yaml). Its draft error envelope still needs reconciliation with Spring's live `application/problem+json` format. The first release returns a completed JSON chat response, with SSE retained as a later functional enhancement.
 
 ## Responsibilities
 
@@ -31,6 +31,8 @@ The private send-message body extends the public `SendMessageRequest` with requi
 | `DELETE /courses/{courseId}/ai/conversations/{conversationId}` | `DELETE /internal/v1/ai/courses/{courseId}/conversations/{conversationId}` | `deleteMyAiConversation` |
 | `GET /courses/{courseId}/ai/conversations/{conversationId}/messages` | `GET /internal/v1/ai/courses/{courseId}/conversations/{conversationId}/messages` | `listMyAiMessages` |
 | `POST /courses/{courseId}/ai/conversations/{conversationId}/messages` | `POST /internal/v1/ai/courses/{courseId}/conversations/{conversationId}/messages` | `sendAiTutorMessage` |
+
+The five private conversation/history operations (create, list, read, soft delete, list messages) are implemented. They bind rows to the signed assertion's `sub` and `course_id` and return `AI_CONVERSATION_NOT_FOUND` (404) for a foreign, deleted or wrong-course conversation. Message reads return saved citation snapshots. Private status and send-message operations remain pending; the Java proxy currently maps their missing handlers to a public 503.
 
 The existing private indexing operations in the OpenAPI remain `POST /internal/v1/ai/index-jobs`, `GET /internal/v1/ai/index-jobs/{jobId}`, and `POST /internal/v1/ai/sources/{contentId}/deactivate`. These use an M2 service identity with the minimum scope required; they are separate from a Student chat assertion. Invalidation is synchronous: M2 makes the source unavailable, M7 excludes it from answers and acknowledges, then M2 may finalize deletion/replacement.
 

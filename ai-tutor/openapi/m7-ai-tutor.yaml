@@ -5,7 +5,8 @@ info:
   description: |
     REVIEW DRAFT (updated 2026-11-20). The external Spring Boot proxy routes,
     internal assertion verifier and issuer are implemented; private Python
-    chat/index handlers and vector storage are pending. The initial M7 relational
+    status/send/index handlers and vector storage are pending; private
+    conversation/history handlers are implemented. The initial M7 relational
     migration is implemented. Public error examples
     below still need alignment with Spring's live ProblemDetail envelope.
 
