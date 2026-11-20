@@ -323,4 +323,4 @@ Do not assume M5 is the notification owner: the supplied M2 notes themselves fla
 
 **Later non-functional decisions:** retention and backup purge, production Jina account/model terms, deployment region, cost limits, load targets and SSE details. None of these is claimed implemented or measured here.
 
-**Design status:** The functional scope is agreed. Python service bootstrap, student-assertion verification and the core LMS issuer are implemented and independently tested; authorized Java proxy routes, private handlers, migrations and end-to-end verification remain to be completed.
+**Design status:** The functional scope is agreed. Python service bootstrap, student-assertion verification, core LMS issuer, course/quiz guard and shared readable-lesson calculation are implemented and tested. Authorized Java proxy routes, transmission/enforcement of lesson scope in Python, private handlers, migrations and end-to-end verification remain to be completed.

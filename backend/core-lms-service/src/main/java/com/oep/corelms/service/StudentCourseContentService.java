@@ -48,6 +48,7 @@ public class StudentCourseContentService {
     private final LessonRepository lessons;
     private final LessonContentRepository lessonContents;
     private final LessonProgressRepository lessonProgress;
+    private final LessonAccessService lessonAccess;
     private final EnrollmentRepository enrollments;
     private final EnrollmentAccessService enrollmentAccess;
     private final CourseInstructorRepository courseInstructors;
@@ -73,9 +74,7 @@ public class StudentCourseContentService {
         Map<UUID, LessonProgress> progressByLesson = lessonProgress.findByEnrollmentId(enrollment.getId()).stream()
                 .collect(Collectors.toMap(p -> p.getLesson().getId(), p -> p));
 
-        boolean sequential = course.getLearningMode() == com.oep.coremodel.enums.LearningMode.SEQUENTIAL
-                && enrollment.getStatus() == com.oep.coremodel.enums.EnrollmentStatus.ACTIVE;
-        boolean[] blocked = {false}; // flips once an earlier required lesson is unfinished
+        java.util.Set<UUID> readableLessonIds = new java.util.HashSet<>(lessonAccess.readableLessonIds(enrollment));
         List<OutlineModule> moduleDtos = modules.findByCourse_IdOrderByPositionAsc(courseId).stream()
                 .map(module -> new OutlineModule(
                         module.getId(),
@@ -84,11 +83,7 @@ public class StudentCourseContentService {
                         module.getPosition(),
                         lessons.findByModule_IdOrderByPositionAsc(module.getId()).stream()
                                 .map(lesson -> {
-                                    boolean locked = sequential && blocked[0];
-                                    LessonProgress lp = progressByLesson.get(lesson.getId());
-                                    if (lesson.isRequired() && (lp == null || lp.getStatus() != LessonProgressStatus.COMPLETED)) {
-                                        blocked[0] = true;
-                                    }
+                                    boolean locked = !readableLessonIds.contains(lesson.getId());
                                     return toOutlineLesson(lesson, progressByLesson, locked);
                                 })
                                 .toList()))
@@ -271,23 +266,6 @@ public class StudentCourseContentService {
 
     /** SEQUENTIAL courses: a lesson opens only after every earlier required lesson is COMPLETED (ACTIVE students only). */
     private void requireUnlocked(Lesson lesson, Enrollment enrollment) {
-        Course course = lesson.getModule().getCourse();
-        if (course.getLearningMode() != com.oep.coremodel.enums.LearningMode.SEQUENTIAL
-                || enrollment.getStatus() != com.oep.coremodel.enums.EnrollmentStatus.ACTIVE) {
-            return;
-        }
-        java.util.Set<UUID> done = lessonProgress.findByEnrollmentId(enrollment.getId()).stream()
-                .filter(p -> p.getStatus() == LessonProgressStatus.COMPLETED).map(p -> p.getLesson().getId()).collect(Collectors.toSet());
-        for (com.oep.coremodel.entity.course.CourseModule m : modules.findByCourse_IdOrderByPositionAsc(course.getId())) {
-            for (Lesson l : lessons.findByModule_IdOrderByPositionAsc(m.getId())) {
-                if (l.getId().equals(lesson.getId())) {
-                    return;
-                }
-                if (l.isRequired() && !done.contains(l.getId())) {
-                    throw new BusinessException(ErrorCode.COMPLETION_RULE_NOT_MET,
-                            "Khóa học học tuần tự: hãy hoàn thành \"" + l.getTitle() + "\" trước");
-                }
-            }
-        }
+        lessonAccess.requireUnlocked(lesson, enrollment);
     }
 }

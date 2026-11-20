@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
+import java.util.List;
 
 /** Authoritative student/course/quiz guard for every future public M7 request. */
 @Service
@@ -25,6 +26,18 @@ public class AiTutorAccessPolicy {
     private final CourseRepository courses;
     private final EnrollmentAccessService enrollmentAccess;
     private final QuizAttemptRepository quizAttempts;
+    private final LessonAccessService lessonAccess;
+
+    public record AuthorizedLessonScope(UUID userId, UUID courseId, List<UUID> lessonIds) {
+    }
+
+    /** Resolve the student-readable lesson set in the same primary-routed authorization transaction. */
+    @Transactional
+    public AuthorizedLessonScope requireAuthorizedLessonScope(UUID userId, String role, UUID courseId) {
+        Enrollment enrollment = requireCourseAccess(userId, role, courseId);
+        return new AuthorizedLessonScope(userId, courseId,
+                List.copyOf(lessonAccess.readableLessonIds(enrollment)));
+    }
 
     /**
      * Uses a primary-routed transaction: a replica can lag a newly started quiz or revoked enrollment.

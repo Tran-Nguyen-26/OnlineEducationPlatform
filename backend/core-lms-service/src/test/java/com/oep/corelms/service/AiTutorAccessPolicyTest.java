@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -34,6 +35,7 @@ class AiTutorAccessPolicyTest {
     private CourseRepository courses;
     private EnrollmentRepository enrollments;
     private QuizAttemptRepository attempts;
+    private LessonAccessService lessonAccess;
     private AiTutorAccessPolicy policy;
     private Course course;
     private Enrollment enrollment;
@@ -43,7 +45,8 @@ class AiTutorAccessPolicyTest {
         courses = mock(CourseRepository.class);
         enrollments = mock(EnrollmentRepository.class);
         attempts = mock(QuizAttemptRepository.class);
-        policy = new AiTutorAccessPolicy(courses, new EnrollmentAccessService(enrollments), attempts);
+        lessonAccess = mock(LessonAccessService.class);
+        policy = new AiTutorAccessPolicy(courses, new EnrollmentAccessService(enrollments), attempts, lessonAccess);
         course = new Course();
         course.setId(courseId);
         course.setLifecycleStatus(CourseLifecycleStatus.PUBLISHED);
@@ -110,6 +113,22 @@ class AiTutorAccessPolicyTest {
     void permitsActiveStudentWithoutAnActiveQuiz() {
         when(enrollments.findByCourseIdAndStudentId(courseId, studentId)).thenReturn(Optional.of(enrollment));
         assertSame(enrollment, policy.requireCourseAccess(studentId, "STUDENT", courseId));
+        verify(attempts).existsByEnrollment_IdAndQuiz_Course_IdAndStatus(
+                enrollmentId, courseId, QuizAttemptStatus.IN_PROGRESS);
+    }
+
+    @Test
+    void resolvesOnlyReadableLessonsAfterCurrentAccessChecks() {
+        UUID readableLesson = UUID.randomUUID();
+        when(enrollments.findByCourseIdAndStudentId(courseId, studentId)).thenReturn(Optional.of(enrollment));
+        when(lessonAccess.readableLessonIds(enrollment)).thenReturn(List.of(readableLesson));
+
+        AiTutorAccessPolicy.AuthorizedLessonScope scope =
+                policy.requireAuthorizedLessonScope(studentId, "STUDENT", courseId);
+
+        assertEquals(studentId, scope.userId());
+        assertEquals(courseId, scope.courseId());
+        assertEquals(List.of(readableLesson), scope.lessonIds());
         verify(attempts).existsByEnrollment_IdAndQuiz_Course_IdAndStatus(
                 enrollmentId, courseId, QuizAttemptStatus.IN_PROGRESS);
     }
