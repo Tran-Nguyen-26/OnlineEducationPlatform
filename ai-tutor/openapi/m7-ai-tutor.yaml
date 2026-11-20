@@ -3,8 +3,10 @@ info:
   title: Online Education Platform — M7 AI Tutor API
   version: 0.1.0
   description: |
-    REVIEW DRAFT (updated 2026-11-19). Intended external Spring Boot and internal Python/FastAPI
-    contracts; no claim that handlers or migrations have been implemented.
+    REVIEW DRAFT (updated 2026-11-20). The external Spring Boot proxy routes,
+    internal assertion verifier and issuer are implemented; private Python
+    chat/index handlers and M7 migrations are pending. Public error examples
+    below still need alignment with Spring's live ProblemDetail envelope.
 
     Functional phase: course-grounded RAG, own conversation history, citation,
     abstention and course-based authorization. Frontend calls Spring Boot;

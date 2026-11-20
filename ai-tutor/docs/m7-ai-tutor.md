@@ -317,10 +317,10 @@ Do not assume M5 is the notification owner: the supplied M2 notes themselves fla
 **Engineering contracts to finish against the live backend:**
 
 1. Define the M2 content event/outbox payload and authoritative source/version read interface; retain the separate synchronous deactivation API.
-2. Connect the implemented Java issuer and Python verifier through authorized proxy routes; define the indexing-service scope, exact Java → Python request/response mapping and cross-service contract tests in `java-python-api.md` and OpenAPI. Document deployment secret rotation.
-3. Reconcile AI table/migration ownership with the existing Java entities and baseline migration. Locate the authoritative same-course quiz checker in the live backend.
+2. Implement the private Python handlers behind the new Java proxy; define the indexing-service scope, complete the Java → Python success/error contract tests and align the public OpenAPI error envelope with Spring ProblemDetail. Document deployment secret rotation.
+3. Create and test M7-owned migrations in the `ai_tutor` schema per ADR 0015; preserve the historical Java baseline tables pending a data audit.
 4. Validate M2 `FILE` MIME/extension/size rules and whether `AVAILABLE` content in a `PUBLISHED` course has any additional visibility gate. Keep arbitrary user/account JSON outside M7 ingestion.
 
 **Later non-functional decisions:** retention and backup purge, production Jina account/model terms, deployment region, cost limits, load targets and SSE details. None of these is claimed implemented or measured here.
 
-**Design status:** The functional scope is agreed. Python service bootstrap, student-assertion verification, core LMS issuer, course/quiz guard, shared readable-lesson calculation and signed lesson-scope digest verification are implemented and tested. Authorized Java proxy routes, actual transmission and vector-search enforcement of lesson scope, private handlers, migrations and end-to-end verification remain to be completed.
+**Design status:** The functional scope is agreed. Python service bootstrap and assertion verification, core LMS issuer, course/quiz guard, shared readable-lesson calculation, signed lesson-scope binding and authorized Java proxy routes are implemented and tested. Private Python handlers, vector-search enforcement, M7 migrations and end-to-end chat remain to be completed.

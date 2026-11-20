@@ -43,6 +43,7 @@ oep:
   ai-tutor:
     enabled: ${AI_TUTOR_ENABLED:false}
     service-jwt-secret: ${AI_TUTOR_SERVICE_JWT_SECRET:}
+    base-url: ${AI_TUTOR_BASE_URL:}
   datasource:
     routing-enabled: true
     primary:
