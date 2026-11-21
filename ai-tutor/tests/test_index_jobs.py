@@ -10,6 +10,7 @@ import jwt
 import psycopg
 from psycopg import sql
 from psycopg.conninfo import make_conninfo
+from psycopg.rows import dict_row
 import pytest
 from fastapi.testclient import TestClient
 
@@ -17,7 +18,9 @@ from oep_ai_tutor.app import create_app
 from oep_ai_tutor.errors import AiTutorError
 from oep_ai_tutor.index_jobs import IndexEvent, enqueue_index_event, get_index_job, superseded_event
 from oep_ai_tutor.migrate import migrate
+from oep_ai_tutor.pgvector_store import PgvectorStore
 from oep_ai_tutor.security import AUDIENCE, ISSUER
+from oep_ai_tutor.vector_store import VectorRecord
 
 
 SECRET = "index-test-secret-with-at-least-32-bytes"
@@ -129,3 +132,70 @@ def test_private_index_routes_enforce_service_scope_and_event_replay(
     assert conflict.status_code == 409
     assert conflict.json()["error"]["code"] == "INDEX_EVENT_CONFLICT"
     assert client.post(path, json={**body, "unexpected": "value"}, headers=headers).status_code == 422
+
+
+@pytest.mark.integration
+def test_deactivation_tombstone_hides_vectors_and_fences_late_upsert(
+    job_dsn: str, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AI_TUTOR_SERVICE_JWT_SECRET", SECRET)
+    monkeypatch.setenv("AI_TUTOR_DATABASE_URL", job_dsn)
+    client = TestClient(create_app())
+    request_id = uuid4()
+    headers = {"X-Request-Id": str(request_id),
+               "Authorization": "Bearer " + _token(request_id)}
+    course, lesson, content, revision, chunk = (uuid4() for _ in range(5))
+    with psycopg.connect(job_dsn) as connection:
+        connection.execute(
+            "INSERT INTO ai_tutor.ai_source_revisions "
+            "(id, content_id, version_number, course_id, lesson_id, content_type, "
+            "source_title, state, embedding_space_key) "
+            "VALUES (%s, %s, 1, %s, %s, 'TEXT', 'Lesson', 'READY', 'space')",
+            (revision, content, course, lesson),
+        )
+        connection.execute(
+            "INSERT INTO ai_tutor.ai_source_chunks "
+            "(id, source_revision_id, course_id, lesson_id, chunk_index, chunk_text, "
+            "token_count, embedding_space_key, embedding_dimension) "
+            "VALUES (%s, %s, %s, %s, 0, 'Grounding', 2, 'space', 3)",
+            (chunk, revision, course, lesson),
+        )
+    store = PgvectorStore(job_dsn)
+    store.upsert(VectorRecord(chunk, revision, course, lesson, "space", [1, 0, 0]))
+    assert [hit.chunk_id for hit in store.query(
+        course_id=course, lesson_ids=(lesson,), space_key="space",
+        vector=[1, 0, 0], limit=5)] == [chunk]
+    path = f"/internal/v1/ai/sources/{content}/deactivate"
+    body = {"course_id": str(course), "lesson_id": str(lesson), "version_number": 1}
+    assert client.post(path, json=body, headers=headers).status_code == 204
+    assert client.post(path, json=body, headers=headers).status_code == 204
+    assert store.query(course_id=course, lesson_ids=(lesson,), space_key="space",
+                       vector=[1, 0, 0], limit=5) == []
+    with psycopg.connect(job_dsn, row_factory=dict_row) as connection:
+        state = connection.execute(
+            "SELECT state FROM ai_tutor.ai_source_revisions WHERE id = %s", (revision,)
+        ).fetchone()["state"]
+        assert state == "INACTIVE"
+        delayed = IndexEvent(uuid4(), content, course, lesson, 1, "UPSERT")
+        enqueue_index_event(connection, delayed)
+        assert superseded_event(connection, delayed) is True
+    assert client.post(path, json={**body, "lesson_id": str(uuid4())},
+                       headers=headers).status_code == 409
+
+
+@pytest.mark.integration
+def test_deactivation_before_upsert_is_durable(job_dsn: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AI_TUTOR_SERVICE_JWT_SECRET", SECRET)
+    monkeypatch.setenv("AI_TUTOR_DATABASE_URL", job_dsn)
+    client = TestClient(create_app())
+    request_id = uuid4()
+    headers = {"X-Request-Id": str(request_id),
+               "Authorization": "Bearer " + _token(request_id)}
+    course, lesson, content = uuid4(), uuid4(), uuid4()
+    path = f"/internal/v1/ai/sources/{content}/deactivate"
+    body = {"course_id": str(course), "lesson_id": str(lesson), "version_number": 3}
+    assert client.post(path, json=body, headers=headers).status_code == 204
+    with psycopg.connect(job_dsn) as connection:
+        late = IndexEvent(uuid4(), content, course, lesson, 3, "UPSERT")
+        enqueue_index_event(connection, late)
+        assert superseded_event(connection, late) is True

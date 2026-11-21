@@ -10,8 +10,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from oep_ai_tutor.db import database
 from oep_ai_tutor.errors import AiTutorError
-from oep_ai_tutor.index_jobs import IndexEvent, enqueue_index_event, get_index_job
+from oep_ai_tutor.index_jobs import IndexEvent, deactivate_source, enqueue_index_event, get_index_job
 from oep_ai_tutor.security import require_index_assertion
+from oep_ai_tutor.vector_store import vector_store_from_env
 
 
 router = APIRouter(prefix="/internal/v1/ai", include_in_schema=False,
@@ -27,6 +28,14 @@ class IndexJobBody(BaseModel):
     lesson_id: UUID
     version_number: int = Field(ge=1)
     action: Literal["UPSERT", "DEACTIVATE"]
+
+
+class DeactivateBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    course_id: UUID
+    lesson_id: UUID
+    version_number: int = Field(ge=1)
 
 
 def _public_job(row: dict) -> dict:
@@ -56,3 +65,19 @@ def index_job(jobId: UUID, request: Request) -> dict:
     if row is None:
         raise AiTutorError("AI_INDEX_JOB_NOT_FOUND", 404, "Index job not found")
     return _public_job(row)
+
+
+@router.post("/sources/{contentId}/deactivate", status_code=204)
+def deactivate(contentId: UUID, body: DeactivateBody, request: Request) -> Response:
+    with database(request) as connection:
+        revision_ids = deactivate_source(
+            connection, content_id=contentId, course_id=body.course_id,
+            lesson_id=body.lesson_id, version_number=body.version_number)
+    if revision_ids:
+        try:
+            store = vector_store_from_env()
+            for revision_id in revision_ids:
+                store.deactivate_revision(revision_id)
+        except Exception as exc:
+            raise AiTutorError("AI_TUTOR_UNAVAILABLE", 503, "Source cleanup is unavailable") from exc
+    return Response(status_code=204)

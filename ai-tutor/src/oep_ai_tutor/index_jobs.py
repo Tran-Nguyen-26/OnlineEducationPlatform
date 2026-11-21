@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from uuid import UUID, uuid4
+from uuid import UUID, uuid4, uuid5
 
 import psycopg
 from psycopg.rows import dict_row
@@ -90,3 +90,42 @@ def superseded_event(connection: psycopg.Connection, event: IndexEvent) -> bool:
             (event.content_id, event.version_number, event.version_number, event.action),
         ).fetchone()
     return bool(row["superseded"])
+
+
+DEACTIVATION_NAMESPACE = UUID("dc40a121-57d7-42d7-bb38-7a4cc23c7195")
+
+
+def deactivate_source(connection: psycopg.Connection, *, content_id: UUID,
+                      course_id: UUID, lesson_id: UUID, version_number: int) -> list[UUID]:
+    """Commit a durable tombstone and hide every embedding space before acknowledgement.
+
+    The caller may retry remote vector deletion using the returned revision IDs.
+    Retrieval checks PostgreSQL state, so a failed remote cleanup cannot expose text.
+    """
+    event_id = uuid5(DEACTIVATION_NAMESPACE, f"{content_id}:{version_number}")
+    event = IndexEvent(event_id, content_id, course_id, lesson_id,
+                       version_number, "DEACTIVATE")
+    with connection.transaction():
+        job, _ = enqueue_index_event(connection, event)
+        with connection.cursor(row_factory=dict_row) as cursor:
+            revisions = cursor.execute(
+                "SELECT id FROM ai_tutor.ai_source_revisions "
+                "WHERE content_id = %s AND version_number = %s FOR UPDATE",
+                (content_id, version_number),
+            ).fetchall()
+            ids = [row["id"] for row in revisions]
+            cursor.execute(
+                "UPDATE ai_tutor.ai_source_revisions SET state = 'INACTIVE', "
+                "deactivated_at = coalesce(deactivated_at, now()), updated_at = now() "
+                "WHERE content_id = %s AND version_number = %s",
+                (content_id, version_number),
+            )
+            cursor.execute(
+                "UPDATE ai_tutor.ai_source_chunks SET embedding = NULL "
+                "WHERE source_revision_id = ANY(%s)", (ids,),
+            )
+            cursor.execute(
+                "UPDATE ai_tutor.ai_index_jobs SET status = 'SUCCEEDED', updated_at = now() "
+                "WHERE id = %s AND status <> 'SUCCEEDED'", (job["id"],),
+            )
+        return ids

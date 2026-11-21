@@ -469,8 +469,10 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [version_number]
+              required: [course_id, lesson_id, version_number]
               properties:
+                course_id: { $ref: '#/components/schemas/Uuid' }
+                lesson_id: { $ref: '#/components/schemas/Uuid' }
                 version_number: { type: integer, minimum: 1 }
       responses:
         '204':
