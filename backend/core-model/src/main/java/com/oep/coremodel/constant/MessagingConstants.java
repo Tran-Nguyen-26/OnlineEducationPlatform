@@ -14,6 +14,9 @@ public final class MessagingConstants {
     public static final String QUEUE_VIDEO_DLQ = "oep.worker.video.dlq";
     public static final String DLQ_VIDEO_KEY = "video.dead";
     public static final String QUEUE_SCORE_SYNC = "oep.worker.score-sync";
+    public static final String QUEUE_AI_INDEX = "oep.ai-tutor.index";
+    public static final String QUEUE_AI_INDEX_DLQ = "oep.ai-tutor.index.dlq";
+    public static final String DLQ_AI_INDEX_KEY = "ai.index.dead";
 
     public static final String RK_QUIZ_PUBLISHED = "quiz.published";
     public static final String RK_NOTIFICATION = "notification.requested";

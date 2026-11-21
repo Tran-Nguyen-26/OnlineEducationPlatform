@@ -58,6 +58,28 @@ public class MessagingConfig {
         return BindingBuilder.bind(videoDeadLetterQueue).to(deadLetterExchange).with(MessagingConstants.DLQ_VIDEO_KEY);
     }
 
+    @Bean
+    Queue aiIndexQueue() {
+        return QueueBuilder.durable(MessagingConstants.QUEUE_AI_INDEX)
+                .deadLetterExchange(MessagingConstants.DLX)
+                .deadLetterRoutingKey(MessagingConstants.DLQ_AI_INDEX_KEY).build();
+    }
+
+    @Bean
+    Queue aiIndexDeadLetterQueue() {
+        return QueueBuilder.durable(MessagingConstants.QUEUE_AI_INDEX_DLQ).build();
+    }
+
+    @Bean
+    Binding aiIndexBinding(Queue aiIndexQueue, TopicExchange oepExchange) {
+        return BindingBuilder.bind(aiIndexQueue).to(oepExchange).with(MessagingConstants.RK_AI_INDEX);
+    }
+
+    @Bean
+    Binding aiIndexDeadLetterBinding(Queue aiIndexDeadLetterQueue, DirectExchange deadLetterExchange) {
+        return BindingBuilder.bind(aiIndexDeadLetterQueue).to(deadLetterExchange).with(MessagingConstants.DLQ_AI_INDEX_KEY);
+    }
+
     /** prefetch 1 + one consumer: a transcoding worker never holds more than one video. */
     @Bean
     org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory videoListenerFactory(
