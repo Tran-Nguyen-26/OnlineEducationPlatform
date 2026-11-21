@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from oep_ai_tutor.app import create_app
 from oep_ai_tutor.migrate import migrate
+from oep_ai_tutor.index_jobs import IndexEvent, enqueue_index_event
 
 
 SECRET = "test-only-service-secret-with-at-least-32-bytes"
@@ -39,6 +40,40 @@ def add_revision(connection: psycopg.Connection, course_id: UUID, content_id: UU
         (revision_id, content_id, version, course_id, uuid4(), state, space),
     )
     return revision_id
+
+
+@pytest.mark.integration
+def test_status_tracks_queued_and_superseding_jobs(monkeypatch: pytest.MonkeyPatch) -> None:
+    dsn = os.environ.get("AI_TUTOR_TEST_DATABASE_URL")
+    if not dsn:
+        pytest.skip("Set AI_TUTOR_TEST_DATABASE_URL to an isolated PostgreSQL database")
+    migrate(dsn)
+    monkeypatch.setenv("AI_TUTOR_SERVICE_JWT_SECRET", SECRET)
+    monkeypatch.setenv("AI_TUTOR_DATABASE_URL", dsn)
+    monkeypatch.setenv("AI_TUTOR_EMBEDDING_SPACE_KEY", SPACE)
+    course, lesson, content, user = uuid4(), uuid4(), uuid4(), uuid4()
+    path = f"/internal/v1/ai/courses/{course}/status"
+    with TestClient(create_app()) as client:
+        auth = headers(user, course, uuid4())
+        assert client.get(path, headers=auth).json()["status"] == "NOT_READY"
+        with psycopg.connect(dsn, autocommit=True) as connection:
+            enqueue_index_event(connection, IndexEvent(uuid4(), content, course, lesson, 1, "UPSERT"))
+        queued = client.get(path, headers=auth).json()
+        assert (queued["status"], queued["indexing_sources"]) == ("INDEXING", 1)
+        with psycopg.connect(dsn) as connection:
+            connection.execute(
+                "INSERT INTO ai_tutor.ai_source_revisions "
+                "(id, content_id, version_number, course_id, lesson_id, content_type, "
+                "source_title, state, embedding_space_key) "
+                "VALUES (%s, %s, 1, %s, %s, 'TEXT', 'Lesson', 'READY', %s)",
+                (uuid4(), content, course, lesson, SPACE),
+            )
+        assert client.get(path, headers=auth).json()["status"] == "READY"
+        with psycopg.connect(dsn, autocommit=True) as connection:
+            enqueue_index_event(connection, IndexEvent(uuid4(), content, course, lesson, 2, "UPSERT"))
+        superseded = client.get(path, headers=auth).json()
+        assert (superseded["status"], superseded["ready_sources"],
+                superseded["indexing_sources"]) == ("INDEXING", 0, 1)
 
 
 @pytest.mark.integration

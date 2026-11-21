@@ -8,7 +8,7 @@ Updated: 2026-11-21 (Asia/Saigon). Branch: `dev-2`. Commits are local only; **do
 - `17c84af` authorized Java proxy routes; `41209d2` M7-owned V1 relational schema and migration runner; `ce4133a` private conversation/history routes; `a996e34` private course readiness; `c3e3d29` deterministic TEXT/PDF/Markdown/JSON parsers.
 - `e276b72` clean frontend dependency install/build fix; `61665bd` M2/Admin upload validation (PDF 20 MiB, Markdown/JSON 5 MiB, stored object size/MIME verification).
 - `8f7b3e7` Jina/OpenAI/Gemini embedding adapters; `b0b0c2c` Groq/OpenAI/Gemini generation adapters; `3b68757` durable chat claim/retry/replay and atomic citation-free abstentions.
-- `1af8de3` M7 V2 native pgvector migration; `61c3bf3` exact scoped `PgvectorStore` adapter; `1315966` Pinecone adapter and shared vector-store tests; `484b4e1` durable versioned index-event receipt; `987861a` authenticated private job routes and indexing-service assertion; `78c5f09` synchronous M7 source deactivation; `79443e7` M2 unavailable-content hiding; `ef72895` M2 deletion handshake; `cf5c956` initial M2 index outbox emission; `40d6593` RabbitMQ delivery to the M7 job ledger; `ebba42e` eligible TEXT/metadata update handshake. The latest commit adds the file replacement handshake.
+- `1af8de3` M7 V2 native pgvector migration; `61c3bf3` exact scoped `PgvectorStore` adapter; `1315966` Pinecone adapter and shared vector-store tests; `484b4e1` durable versioned index-event receipt; `987861a` authenticated private job routes and indexing-service assertion; `78c5f09` synchronous M7 source deactivation; `79443e7` M2 unavailable-content hiding; `ef72895` M2 deletion handshake; `cf5c956` initial M2 index outbox emission; `40d6593` RabbitMQ delivery to the M7 job ledger; `ebba42e` eligible TEXT/metadata update handshake; `7b7d31d` file replacement handshake; `2dea732` M2 source snapshot contract; `232e9d6` asynchronous four-format indexing worker.
 
 ## Verification and environment
 
@@ -21,12 +21,13 @@ Updated: 2026-11-21 (Asia/Saigon). Branch: `dev-2`. Commits are local only; **do
 - File replacement verification: focused Java tests cover acknowledgement order, failure/retry, first upload version consistency, direct-completion rejection and unsupported inline upload routes. The full core LMS suite passed 64/64 with Testcontainers/Flyway after this change.
 - Source-read contract verification: the full core LMS suite passed 73/73, including signed private route, scope/version/availability and file-grant tests. The M7 suite passed 82 tests with one existing RabbitMQ integration skip when no broker URL was supplied; the new source client tests passed 4/4. The new OpenAPI YAML parsed and its operation ID/200 response were checked. No live Java-to-Python process test has run yet.
 - Index worker verification: four-format parse/embed/index and provenance, bounded file download, unsupported/unavailable source handling, final retry and stale-lease fencing passed 9 focused tests on disposable pgvector PostgreSQL. The full M7 suite passed 91 tests with one RabbitMQ integration skip and one upstream Starlette warning on a fresh disposable database. Source/storage/embedding HTTP was faked; live provider and Java-to-Python process tests remain open.
+- Grounded chat implementation: private send route, signed lesson scope and source revalidation, scoped retrieval, citation-checked atomic answers, replay/refusal, latest-job-aware status and React panel passed focused Python tests and a production frontend build. The full M7 suite passed 94 tests, one RabbitMQ skip and one upstream Starlette warning on a fresh disposable database. Live provider credentials are absent; Java-to-Python and browser process demos remain open.
 
 ## Resume from here
 
 1. Check `git status --short` and the latest commit. The only expected untracked path after the pgvector adapter commit is `frontend/test-results/`.
-2. Implement scoped retrieval, grounded citations, provider integration and the private send-turn route using the existing claim ledger. The ledger currently commits only citation-free `ABSTAINED` turns; add server-validated citation snapshots before allowing `ANSWERED` persistence. Audit old in-flight file uploads when deploying the replacement handshake.
-3. Connect public React chat/history/status UI and verify end to end.
+2. Finish Java-to-Python process verification, four-format question demos and browser review; configure live Jina/Groq credentials through local environment when available. Audit old in-flight file uploads when deploying the replacement handshake.
+3. Add course-unpublish deactivation/resynchronization and Admin indexing-status visibility. Verify end to end, update docs and keep local commits only.
 4. Complete functional tests and demo targets in the checklist; non-functional work follows afterward. Update docs and commit each finished, tested slice. Never push.
 
 ## User action

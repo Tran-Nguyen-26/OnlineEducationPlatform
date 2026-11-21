@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
-  ArrowLeft, Award, Bell, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, ClipboardList, Circle, FileQuestion, Menu, MessageCircle, Lock, Search, X,
+  ArrowLeft, Award, Bell, Bot, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, ClipboardList, Circle, FileQuestion, Menu, MessageCircle, Lock, Search, X,
 } from 'lucide-react'
 import { apiClient, getApiErrorMessage } from '../../lib/apiClient'
 import { extractHeadings } from '../../lib/markdown'
@@ -14,12 +14,14 @@ import { SessionsPanel } from '../../components/SessionsPanel'
 import { AnnouncementsPanel } from '../../components/AnnouncementsPanel'
 import { QuizzesTab } from './course-viewer/QuizzesTab'
 import { AssignmentsTab } from './course-viewer/AssignmentsTab'
+import { AiTutorPanel } from './course-viewer/AiTutorPanel'
 import { LessonView } from './learn/LessonView'
 import { CompletionPanel } from './learn/CompletionPanel'
 import { Toc } from './learn/Toc'
 import type { FlatLesson } from './learn/types'
 
 const VIEWS = [
+  { key: 'ai', label: 'AI Tutor', icon: Bot },
   { key: 'completion', label: 'Hoàn thành khóa học', icon: Award },
   { key: 'quizzes', label: 'Bài kiểm tra', icon: FileQuestion },
   { key: 'assignments', label: 'Bài tập', icon: ClipboardList },
@@ -185,6 +187,10 @@ export function CourseViewerPage() {
         </button>
         <div className="mx-2 hidden h-5 w-px bg-slate-200 sm:block" />
         <h1 className="flex-1 truncate text-base font-bold text-slate-900">{outline.title}</h1>
+        {!outline.readOnly && <button type="button" onClick={() => setParams({ view: 'ai' })}
+          className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100">
+          <Bot size={16} /> AI Tutor
+        </button>}
         <div className="flex items-center gap-3">
           <ProgressRing value={percent} size={42} stroke={5} />
           <span className="hidden text-sm font-medium text-slate-600 sm:inline">{done}/{flat.length} bài hoàn thành</span>
@@ -220,6 +226,16 @@ export function CourseViewerPage() {
               {!current && view === 'sessions' && <ViewShell title="Lịch học & điểm danh"><SessionsPanel courseId={courseId} staff={false} /></ViewShell>}
               {!current && view === 'announcements' && <ViewShell title="Thông báo của khóa"><AnnouncementsPanel courseId={courseId} canPost={false} /></ViewShell>}
               {!current && view === 'qa' && <ViewShell title="Hỏi đáp chung"><CourseQaTab courseId={courseId} /></ViewShell>}
+              {!current && view === 'ai' && <AiTutorPanel courseId={courseId} onOpenCitation={(citation) => {
+                const content = flat.find((lesson) => lesson.id === citation.lesson_id)?.contents.find((item) => item.id === citation.content_id)
+                if (content && content.contentType !== 'TEXT') {
+                  const opened = window.open('', '_blank')
+                  void apiClient.get<{ viewUrl: string }>(`/api/lesson-contents/${citation.content_id}/view-url`)
+                    .then(({ data }) => { if (opened) opened.location.href = data.viewUrl })
+                    .catch(() => { opened?.close() })
+                }
+                setParams({ lesson: citation.lesson_id })
+              }} />}
               {!current && !view && flat.length === 0 && <p className="text-slate-400">Khóa học chưa có bài học nào.</p>}
             </div>
             {current && headings.length > 1 && <aside className="hidden w-56 shrink-0 xl:block"><Toc headings={headings} scrollEl={scrollEl} /></aside>}

@@ -19,6 +19,7 @@ from oep_ai_tutor.index_jobs import IndexEvent, enqueue_index_event
 from oep_ai_tutor.index_worker import IndexWorker, download_source
 from oep_ai_tutor.migrate import migrate
 from oep_ai_tutor.pgvector_store import PgvectorStore
+from oep_ai_tutor.retrieval import retrieve
 from oep_ai_tutor.source_client import SourceFetchError, SourceSnapshot
 
 
@@ -30,6 +31,9 @@ class FakeEmbedding:
 
     def embed_passages(self, passages: list[str]) -> list[list[float]]:
         return [[1.0, 0.0, 0.0] for _ in passages]
+
+    def embed_query(self, query: str) -> list[float]:
+        return [1.0, 0.0, 0.0]
 
 
 def pdf_bytes() -> bytes:
@@ -232,6 +236,31 @@ def test_later_unavailable_snapshot_hides_previously_ready_evidence(worker_dsn: 
         assert worker.store.query(course_id=first.course_id, lesson_ids=(first.lesson_id,),
                                   space_key="test-space", vector=[1.0, 0.0, 0.0],
                                   limit=5) == []
+    finally:
+        worker.client.close()
+
+
+@pytest.mark.integration
+def test_retrieval_revalidates_course_lesson_and_newer_job(worker_dsn: str) -> None:
+    event = IndexEvent(uuid4(), uuid4(), uuid4(), uuid4(), 1, "UPSERT")
+    with psycopg.connect(worker_dsn, autocommit=True) as connection:
+        enqueue_index_event(connection, event)
+    worker = _worker(worker_dsn, event, kind="TEXT", payload="private course evidence")
+    try:
+        assert worker.run_once()
+        def search(course_id, lesson_ids):
+            with psycopg.connect(worker_dsn, row_factory=dict_row) as connection:
+                return retrieve(connection, store=worker.store, embedding=FakeEmbedding(),
+                                course_id=course_id, lesson_ids=lesson_ids,
+                                space_key="test-space", query="evidence")
+        assert len(search(event.course_id, (event.lesson_id,))) == 1
+        assert search(uuid4(), (event.lesson_id,)) == []
+        assert search(event.course_id, (uuid4(),)) == []
+        newer = IndexEvent(uuid4(), event.content_id, event.course_id,
+                           event.lesson_id, 2, "UPSERT")
+        with psycopg.connect(worker_dsn, autocommit=True) as connection:
+            enqueue_index_event(connection, newer)
+        assert search(event.course_id, (event.lesson_id,)) == []
     finally:
         worker.client.close()
 

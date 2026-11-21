@@ -23,13 +23,28 @@ def course_status(request: Request, courseId: UUID,
         raise AiTutorError("AI_TUTOR_UNAVAILABLE", 503, "AI Tutor is unavailable")
     with database(request) as connection:
         rows = connection.execute(
-            "SELECT state, count(*) AS source_count FROM ("
-            "  SELECT DISTINCT ON (content_id) content_id, state "
-            "  FROM ai_tutor.ai_source_revisions "
-            "  WHERE course_id = %s AND embedding_space_key = %s "
-            "  ORDER BY content_id, version_number DESC, created_at DESC, id DESC"
-            ") latest GROUP BY state",
-            (identity.course_id, space_key),
+            "WITH latest_revision AS ("
+            " SELECT DISTINCT ON (content_id) content_id, version_number, state "
+            " FROM ai_tutor.ai_source_revisions "
+            " WHERE course_id = %s AND embedding_space_key = %s "
+            " ORDER BY content_id, version_number DESC, created_at DESC, id DESC"
+            "), latest_job AS ("
+            " SELECT DISTINCT ON (content_id) content_id, version_number, action, status "
+            " FROM ai_tutor.ai_index_jobs WHERE course_id = %s "
+            " ORDER BY content_id, version_number DESC, action ASC, created_at DESC, id DESC"
+            "), effective AS ("
+            " SELECT CASE "
+            " WHEN job.action = 'DEACTIVATE' AND job.version_number >= "
+            " coalesce(revision.version_number, 0) THEN 'INACTIVE' "
+            " WHEN job.version_number > coalesce(revision.version_number, 0) THEN "
+            " CASE WHEN job.status IN ('QUEUED', 'PROCESSING') THEN 'PROCESSING' "
+            " WHEN job.status = 'FAILED' THEN 'FAILED' ELSE 'INACTIVE' END "
+            " ELSE revision.state END AS state "
+            " FROM latest_revision AS revision FULL OUTER JOIN latest_job AS job "
+            " USING (content_id)"
+            ") SELECT state, count(*) AS source_count FROM effective "
+            "WHERE state IS NOT NULL GROUP BY state",
+            (identity.course_id, space_key, identity.course_id),
         ).fetchall()
     counts = {row["state"]: row["source_count"] for row in rows}
     ready = counts.get("READY", 0)

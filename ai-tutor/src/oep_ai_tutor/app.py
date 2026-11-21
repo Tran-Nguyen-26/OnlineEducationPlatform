@@ -7,6 +7,7 @@ import os
 from fastapi import FastAPI
 
 from oep_ai_tutor.conversations import router as conversations_router
+from oep_ai_tutor.chat_routes import router as chat_router
 from oep_ai_tutor.errors import AiTutorError, handle_ai_tutor_error
 from oep_ai_tutor.index_routes import router as index_router
 from oep_ai_tutor.security import AssertionVerifier
@@ -21,6 +22,7 @@ def create_app() -> FastAPI:
     app.state.embedding_space_key = os.environ.get("AI_TUTOR_EMBEDDING_SPACE_KEY", "")
     app.add_exception_handler(AiTutorError, handle_ai_tutor_error)
     app.include_router(conversations_router)
+    app.include_router(chat_router)
     app.include_router(status_router)
     app.include_router(index_router)
 
