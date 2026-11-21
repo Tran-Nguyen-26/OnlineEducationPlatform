@@ -5,6 +5,7 @@ import com.oep.corelms.dto.admin.CreateCourseRequest;
 import com.oep.corelms.dto.admin.UpdateCourseRequest;
 import com.oep.corelms.dto.admin.UpdateCourseStatusRequest;
 import com.oep.corelms.service.AdminCourseService;
+import com.oep.corelms.service.AiTutorCourseLifecycleService;
 import com.oep.corelms.service.AuditLogService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,9 @@ public class AdminCourseController {
 
     private final AdminCourseService courseService;
     private final AuditLogService auditLogService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private AiTutorCourseLifecycleService aiTutorLifecycle;
 
     @PostMapping
     public CourseResponse create(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CreateCourseRequest request) {
@@ -61,7 +65,9 @@ public class AdminCourseController {
     public CourseResponse updateStatus(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
                                         @Valid @RequestBody UpdateCourseStatusRequest request) {
         UUID adminId = UUID.fromString(jwt.getSubject());
-        CourseResponse response = courseService.updateStatus(id, request.status());
+        CourseResponse response = aiTutorLifecycle == null
+                ? courseService.updateStatus(id, request.status())
+                : aiTutorLifecycle.updateStatus(id, request.status());
         auditLogService.record(adminId, "UPDATE_COURSE_STATUS", "COURSE", id, Map.of("status", request.status().name()));
         return response;
     }

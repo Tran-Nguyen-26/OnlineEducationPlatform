@@ -45,7 +45,7 @@ def job_dsn():
         admin.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(database_name)))
     try:
         isolated_dsn = make_conninfo(base_dsn, dbname=database_name)
-        assert migrate(isolated_dsn) == [1, 2]
+        assert migrate(isolated_dsn) == [1, 2, 3]
         yield isolated_dsn
     finally:
         with psycopg.connect(base_dsn, autocommit=True) as admin:
@@ -99,6 +99,69 @@ def test_invalid_index_event_is_rejected() -> None:
         IndexEvent(uuid4(), uuid4(), uuid4(), uuid4(), 0, "UPSERT")
     with pytest.raises(ValueError, match="Invalid versioned"):
         IndexEvent(uuid4(), uuid4(), uuid4(), uuid4(), 1, "UNKNOWN")
+
+
+@pytest.mark.integration
+def test_versioned_course_access_hides_vectors_and_rejects_old_student_assertions(
+    job_dsn: str, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AI_TUTOR_SERVICE_JWT_SECRET", SECRET)
+    monkeypatch.setenv("AI_TUTOR_DATABASE_URL", job_dsn)
+    monkeypatch.setenv("AI_TUTOR_EMBEDDING_SPACE_KEY", "course-access-space")
+    course, lesson, content, revision, chunk, user = (uuid4() for _ in range(6))
+    with psycopg.connect(job_dsn) as connection:
+        connection.execute(
+            "INSERT INTO ai_tutor.ai_source_revisions "
+            "(id, content_id, version_number, course_id, lesson_id, content_type, "
+            "source_title, state, embedding_space_key) "
+            "VALUES (%s, %s, 1, %s, %s, 'TEXT', 'Lesson', 'READY', 'course-access-space')",
+            (revision, content, course, lesson),
+        )
+        connection.execute(
+            "INSERT INTO ai_tutor.ai_source_chunks "
+            "(id, source_revision_id, course_id, lesson_id, chunk_index, chunk_text, "
+            "token_count, embedding_space_key, embedding_dimension) "
+            "VALUES (%s, %s, %s, %s, 0, 'Evidence', 1, 'course-access-space', 3)",
+            (chunk, revision, course, lesson),
+        )
+    store = PgvectorStore(job_dsn)
+    store.upsert(VectorRecord(chunk, revision, course, lesson,
+                              "course-access-space", [1.0, 0.0, 0.0]))
+    def matches():
+        return store.query(course_id=course, lesson_ids=(lesson,),
+                           space_key="course-access-space", vector=[1.0, 0.0, 0.0], limit=5)
+    assert len(matches()) == 1
+    request_id = uuid4()
+    index_headers = {"X-Request-Id": str(request_id),
+                     "Authorization": "Bearer " + _token(request_id)}
+    path = f"/internal/v1/ai/courses/{course}/access"
+    now = int(datetime.now(timezone.utc).timestamp())
+    student_token = jwt.encode({
+        "iss": ISSUER, "aud": AUDIENCE, "sub": str(user), "scope": "ai:student",
+        "course_id": str(course), "request_id": str(request_id), "jti": str(uuid4()),
+        "iat": now, "nbf": now, "exp": now + 45,
+    }, SECRET, algorithm="HS256")
+    student_headers = {"X-Request-Id": str(request_id),
+                       "Authorization": "Bearer " + student_token}
+    with TestClient(create_app()) as client:
+        assert client.put(path, json={"course_version": 5, "active": False}).status_code == 401
+        assert client.put(path, headers=student_headers,
+                          json={"course_version": 5, "active": False}).status_code == 401
+        assert client.put(path, headers=index_headers,
+                          json={"course_version": 5, "active": False}).status_code == 204
+        assert matches() == []
+        assert client.get(f"/internal/v1/ai/courses/{course}/status",
+                          headers=student_headers).status_code == 403
+        assert client.put(path, headers=index_headers,
+                          json={"course_version": 4, "active": True}).status_code == 204
+        assert matches() == []
+        assert client.put(path, headers=index_headers,
+                          json={"course_version": 5, "active": True}).status_code == 409
+        assert client.put(path, headers=index_headers,
+                          json={"course_version": 6, "active": True}).status_code == 204
+        assert len(matches()) == 1
+        assert client.get(f"/internal/v1/ai/courses/{course}/status",
+                          headers=student_headers).status_code == 200
 
 
 @pytest.mark.integration

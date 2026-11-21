@@ -84,10 +84,17 @@ class PineconeStore:
                 "WHERE revision.course_id = %s AND revision.lesson_id = ANY(%s) "
                 "AND revision.embedding_space_key = %s AND revision.state = 'READY' "
                 "AND revision.deactivated_at IS NULL "
+                "AND NOT EXISTS (SELECT 1 FROM ai_tutor.ai_course_access AS access "
+                "WHERE access.course_id = revision.course_id AND access.active = false) "
                 "AND NOT EXISTS (SELECT 1 FROM ai_tutor.ai_source_revisions AS newer "
                 "WHERE newer.content_id = revision.content_id "
                 "AND newer.embedding_space_key = revision.embedding_space_key "
-                "AND newer.version_number > revision.version_number)",
+                "AND newer.version_number > revision.version_number) "
+                "AND NOT EXISTS (SELECT 1 FROM ai_tutor.ai_index_jobs AS newer_job "
+                "WHERE newer_job.content_id = revision.content_id "
+                "AND (newer_job.version_number > revision.version_number "
+                "OR (newer_job.version_number = revision.version_number "
+                "AND newer_job.action = 'DEACTIVATE')))",
                 (course_id, list(lesson_ids), space_key),
             ).fetchall()
         if not rows:
@@ -135,10 +142,17 @@ class PineconeStore:
                 "AND revision.deactivated_at IS NULL "
                 "AND revision.course_id = %s AND revision.lesson_id = chunk.lesson_id "
                 "AND revision.embedding_space_key = %s "
+                "AND NOT EXISTS (SELECT 1 FROM ai_tutor.ai_course_access AS access "
+                "WHERE access.course_id = revision.course_id AND access.active = false) "
                 "AND NOT EXISTS (SELECT 1 FROM ai_tutor.ai_source_revisions AS newer "
                 "WHERE newer.content_id = revision.content_id "
                 "AND newer.embedding_space_key = revision.embedding_space_key "
-                "AND newer.version_number > revision.version_number)",
+                "AND newer.version_number > revision.version_number) "
+                "AND NOT EXISTS (SELECT 1 FROM ai_tutor.ai_index_jobs AS newer_job "
+                "WHERE newer_job.content_id = revision.content_id "
+                "AND (newer_job.version_number > revision.version_number "
+                "OR (newer_job.version_number = revision.version_number "
+                "AND newer_job.action = 'DEACTIVATE')))",
                 (list(candidates), course_id, list(lesson_ids), space_key,
                  self.dimension, course_id, space_key),
             ).fetchall()

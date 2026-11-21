@@ -438,6 +438,44 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
 
+  /internal/v1/ai/courses/{courseId}/access:
+    put:
+      tags: [AI Tutor Internal Indexing]
+      operationId: setAiCourseAccess
+      summary: Apply M2's versioned publication access state
+      description: |
+        M2 commits the course lifecycle status before calling this private route.
+        active=false excludes every source in the course from chat and prevents
+        previously issued student assertions from accessing M7 routes. A higher
+        course_version may reopen access after M2 republishes; equal-version
+        retries must agree and older deliveries cannot override newer state.
+      servers:
+        - url: http://ai-tutor:8000
+          description: Example private container DNS; replace in deployment
+      security:
+        - serviceAuth: []
+      x-internal-only: true
+      parameters:
+        - $ref: '#/components/parameters/CourseId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [course_version, active]
+              properties:
+                course_version: { type: integer, minimum: 0, format: int64 }
+                active: { type: boolean }
+      responses:
+        '204':
+          description: Versioned access state accepted or older state ignored
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
   /internal/v1/ai/sources/{contentId}/deactivate:
     post:
       tags: [AI Tutor Internal Indexing]

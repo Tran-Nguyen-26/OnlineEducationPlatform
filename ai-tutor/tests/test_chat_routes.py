@@ -57,7 +57,7 @@ def chat_dsn():
         admin.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
     try:
         dsn = make_conninfo(base, dbname=name)
-        assert migrate(dsn) == [1, 2]
+        assert migrate(dsn) == [1, 2, 3]
         yield dsn
     finally:
         with psycopg.connect(base, autocommit=True) as admin:

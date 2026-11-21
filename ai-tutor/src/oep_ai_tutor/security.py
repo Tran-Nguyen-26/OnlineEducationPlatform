@@ -10,7 +10,10 @@ import re
 from uuid import UUID
 
 import jwt
+import psycopg
 from fastapi import HTTPException, Request, status
+
+from oep_ai_tutor.errors import AiTutorError
 
 
 ISSUER = "oep-core-lms"
@@ -138,7 +141,7 @@ def require_student_assertion(request: Request, courseId: UUID) -> StudentAssert
         request_id = UUID(request.headers.get("x-request-id", ""))
         if scheme.lower() != "bearer" or not token or token.strip() != token:
             raise InvalidServiceAssertion("Missing bearer assertion")
-        return request.app.state.assertion_verifier.verify_student(
+        identity = request.app.state.assertion_verifier.verify_student(
             token, course_id=courseId, request_id=request_id
         )
     except (InvalidServiceAssertion, ValueError) as exc:
@@ -147,6 +150,19 @@ def require_student_assertion(request: Request, courseId: UUID) -> StudentAssert
             detail="Invalid internal service assertion",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
+    dsn = request.app.state.database_url
+    if dsn:
+        try:
+            with psycopg.connect(dsn) as connection:
+                row = connection.execute(
+                    "SELECT active FROM ai_tutor.ai_course_access WHERE course_id = %s",
+                    (courseId,),
+                ).fetchone()
+        except psycopg.Error as exc:
+            raise AiTutorError("AI_TUTOR_UNAVAILABLE", 503, "AI Tutor is unavailable") from exc
+        if row is not None and not row[0]:
+            raise HTTPException(status_code=403, detail="Course AI access is inactive")
+    return identity
 
 
 def require_index_assertion(request: Request) -> UUID:

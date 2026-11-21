@@ -107,7 +107,7 @@ def test_rabbit_delivery_persists_once_and_dead_letters_invalid_event(monkeypatc
         admin.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(database_name)))
     try:
         dsn = make_conninfo(base_dsn, dbname=database_name)
-        assert migrate(dsn) == [1, 2]
+        assert migrate(dsn) == [1, 2, 3]
         with pika.BlockingConnection(pika.URLParameters(rabbit_url)) as broker:
             channel = broker.channel()
             index_consumer.declare_topology(channel)

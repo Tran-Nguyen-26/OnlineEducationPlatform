@@ -10,7 +10,7 @@ from oep_ai_tutor.migrate import MigrationDriftError, migrate, migration_files
 
 
 def test_migration_versions_are_consecutive_and_database_url_is_required() -> None:
-    assert [version for version, _, _ in migration_files()] == [1, 2]
+    assert [version for version, _, _ in migration_files()] == [1, 2, 3]
     with pytest.raises(ValueError, match="AI_TUTOR_DATABASE_URL"):
         migrate("")
 
@@ -23,22 +23,22 @@ def test_postgres_schema_migrates_idempotently_and_enforces_ownership_constraint
     if not dsn:
         pytest.skip("Set AI_TUTOR_TEST_DATABASE_URL to an isolated PostgreSQL database")
 
-    assert migrate(dsn) == [1, 2]
+    assert migrate(dsn) == [1, 2, 3]
     assert migrate(dsn) == []
 
     with psycopg.connect(dsn) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
-                "SELECT count(*) FROM ai_tutor.schema_migrations WHERE version IN (1, 2)"
+                "SELECT count(*) FROM ai_tutor.schema_migrations WHERE version IN (1, 2, 3)"
             )
-            assert cursor.fetchone() == (2,)
+            assert cursor.fetchone() == (3,)
             cursor.execute("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
             assert cursor.fetchone() is not None
             cursor.execute(
                 "SELECT count(*) FROM information_schema.tables "
                 "WHERE table_schema = 'ai_tutor' AND table_name LIKE 'ai_%'"
             )
-            assert cursor.fetchone() == (7,)
+            assert cursor.fetchone() == (8,)
             cursor.execute(
                 "SELECT count(*) FROM information_schema.tables "
                 "WHERE table_schema = 'public' AND table_name LIKE 'ai_%'"

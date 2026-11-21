@@ -38,6 +38,13 @@ class DeactivateBody(BaseModel):
     version_number: int = Field(ge=1)
 
 
+class CourseAccessBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    course_version: int = Field(ge=0)
+    active: bool
+
+
 def _public_job(row: dict) -> dict:
     return {
         "id": row["id"], "event_id": row["event_id"],
@@ -80,4 +87,27 @@ def deactivate(contentId: UUID, body: DeactivateBody, request: Request) -> Respo
                 store.deactivate_revision(revision_id)
         except Exception as exc:
             raise AiTutorError("AI_TUTOR_UNAVAILABLE", 503, "Source cleanup is unavailable") from exc
+    return Response(status_code=204)
+
+
+@router.put("/courses/{courseId}/access", status_code=204)
+def set_course_access(courseId: UUID, body: CourseAccessBody, request: Request) -> Response:
+    """Apply M2's versioned publication signal; old requests cannot reopen a course."""
+    with database(request) as connection:
+        applied = connection.execute(
+            "INSERT INTO ai_tutor.ai_course_access (course_id, course_version, active) "
+            "VALUES (%s, %s, %s) ON CONFLICT (course_id) DO UPDATE SET "
+            "course_version = EXCLUDED.course_version, active = EXCLUDED.active, "
+            "updated_at = now() WHERE ai_tutor.ai_course_access.course_version "
+            "< EXCLUDED.course_version RETURNING course_version",
+            (courseId, body.course_version, body.active),
+        ).fetchone()
+        if applied is None:
+            row = connection.execute(
+                "SELECT course_version, active FROM ai_tutor.ai_course_access "
+                "WHERE course_id = %s", (courseId,),
+            ).fetchone()
+            if row["course_version"] == body.course_version and row["active"] != body.active:
+                raise AiTutorError("INDEX_EVENT_CONFLICT", 409,
+                                   "Course version has a conflicting access state")
     return Response(status_code=204)

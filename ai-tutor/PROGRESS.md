@@ -22,12 +22,13 @@ Updated: 2026-11-21 (Asia/Saigon). Branch: `dev-2`. Commits are local only; **do
 - Source-read contract verification: the full core LMS suite passed 73/73, including signed private route, scope/version/availability and file-grant tests. The M7 suite passed 82 tests with one existing RabbitMQ integration skip when no broker URL was supplied; the new source client tests passed 4/4. The new OpenAPI YAML parsed and its operation ID/200 response were checked. No live Java-to-Python process test has run yet.
 - Index worker verification: four-format parse/embed/index and provenance, bounded file download, unsupported/unavailable source handling, final retry and stale-lease fencing passed 9 focused tests on disposable pgvector PostgreSQL. The full M7 suite passed 91 tests with one RabbitMQ integration skip and one upstream Starlette warning on a fresh disposable database. Source/storage/embedding HTTP was faked; live provider and Java-to-Python process tests remain open.
 - Grounded chat implementation: private send route, signed lesson scope and source revalidation, scoped retrieval, citation-checked atomic answers, replay/refusal, latest-job-aware status and React panel passed focused Python tests and a production frontend build. The full M7 suite passed 94 tests, one RabbitMQ skip and one upstream Starlette warning on a fresh disposable database. Live provider credentials are absent; Java-to-Python and browser process demos remain open.
+- Course-lifecycle synchronization verification: M7 V3 stores a version-fenced private publication signal; inactive courses reject student assertions and vector search, and workers wait/resume around republishing. The full M7 suite passed 97 tests with one RabbitMQ skip and one upstream Starlette warning on a fresh disposable database. Focused Java lifecycle tests passed 2/2; the full core LMS suite passed 75/75 including Docker-backed Flyway migration checks. The new OpenAPI route parsed and was checked for its operation ID and 204 response.
 
 ## Resume from here
 
 1. Check `git status --short` and the latest commit. The only expected untracked path after the pgvector adapter commit is `frontend/test-results/`.
 2. Finish Java-to-Python process verification, four-format question demos and browser review; configure live Jina/Groq credentials through local environment when available. Audit old in-flight file uploads when deploying the replacement handshake.
-3. Add course-unpublish deactivation/resynchronization and Admin indexing-status visibility. Verify end to end, update docs and keep local commits only.
+3. Add Admin indexing-status visibility and a full resynchronization audit for any missed events. Verify end to end, update docs and keep local commits only.
 4. Complete functional tests and demo targets in the checklist; non-functional work follows afterward. Update docs and commit each finished, tested slice. Never push.
 
 ## User action

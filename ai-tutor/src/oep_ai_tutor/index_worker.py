@@ -44,6 +44,8 @@ def claim_next_job(connection: psycopg.Connection) -> dict | None:
             "OR (status = 'FAILED' AND error_code = 'RETRYABLE' "
             "AND attempt_count < %s AND updated_at < now() - interval '30 seconds') "
             "OR (status = 'PROCESSING' AND updated_at < now() - interval '15 minutes')) "
+            "AND NOT EXISTS (SELECT 1 FROM ai_tutor.ai_course_access AS access "
+            "WHERE access.course_id = ai_index_jobs.course_id AND access.active = false) "
             "ORDER BY created_at, id FOR UPDATE SKIP LOCKED LIMIT 1",
             (MAX_ATTEMPTS,),
         ).fetchone()
@@ -202,12 +204,12 @@ class IndexWorker:
                     raise ValueError("Existing revision has a different source scope")
                 if row["state"] == "READY":
                     return None
-                if row["state"] in ("INACTIVE", "SUPERSEDED"):
+                if row["state"] == "SUPERSEDED":
                     raise SourceUnavailable("Revision was deactivated")
                 revision_id = row["id"]
                 connection.execute(
                     "UPDATE ai_tutor.ai_source_revisions SET state = 'PROCESSING', "
-                    "source_title = %s, updated_at = now() WHERE id = %s",
+                    "source_title = %s, deactivated_at = NULL, updated_at = now() WHERE id = %s",
                     (source.source_title, revision_id),
                 )
                 return revision_id
@@ -245,6 +247,13 @@ class IndexWorker:
                 (revision_id,),
             ).fetchone()
             if current is None or current["status"] != "PROCESSING" or current["attempt_count"] != job["attempt_count"]:
+                return
+            inactive = connection.execute(
+                "SELECT 1 FROM ai_tutor.ai_course_access WHERE course_id = %s AND active = false",
+                (event.course_id,),
+            ).fetchone()
+            if inactive is not None:
+                self._set_job(connection, job, "QUEUED", None)
                 return
             if revision is None or revision["state"] != "PROCESSING" or superseded_event(connection, event):
                 if revision is not None and revision["state"] == "PROCESSING":

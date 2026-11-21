@@ -89,7 +89,7 @@ def vector_dsn():
         admin.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(database_name)))
     try:
         isolated_dsn = make_conninfo(base_dsn, dbname=database_name)
-        assert migrate(isolated_dsn) == [1, 2]
+        assert migrate(isolated_dsn) == [1, 2, 3]
         yield isolated_dsn
     finally:
         with psycopg.connect(base_dsn, autocommit=True) as admin:

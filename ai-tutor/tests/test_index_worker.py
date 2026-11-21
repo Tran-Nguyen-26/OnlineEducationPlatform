@@ -62,7 +62,7 @@ def worker_dsn():
         admin.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(database_name)))
     try:
         dsn = make_conninfo(base_dsn, dbname=database_name)
-        assert migrate(dsn) == [1, 2]
+        assert migrate(dsn) == [1, 2, 3]
         yield dsn
     finally:
         with psycopg.connect(base_dsn, autocommit=True) as admin:
@@ -261,6 +261,74 @@ def test_retrieval_revalidates_course_lesson_and_newer_job(worker_dsn: str) -> N
         with psycopg.connect(worker_dsn, autocommit=True) as connection:
             enqueue_index_event(connection, newer)
         assert search(event.course_id, (event.lesson_id,)) == []
+        with psycopg.connect(worker_dsn, autocommit=True) as connection:
+            connection.execute(
+                "UPDATE ai_tutor.ai_index_jobs SET status = 'SUCCEEDED' WHERE event_id = %s",
+                (newer.event_id,),
+            )
+    finally:
+        worker.client.close()
+
+
+@pytest.mark.integration
+def test_worker_waits_for_course_republication(worker_dsn: str) -> None:
+    event = IndexEvent(uuid4(), uuid4(), uuid4(), uuid4(), 1, "UPSERT")
+    with psycopg.connect(worker_dsn, autocommit=True) as connection:
+        enqueue_index_event(connection, event)
+        connection.execute(
+            "INSERT INTO ai_tutor.ai_course_access (course_id, course_version, active) "
+            "VALUES (%s, 2, false)", (event.course_id,),
+        )
+    worker = _worker(worker_dsn, event, kind="TEXT", payload="republished evidence")
+    try:
+        assert not worker.run_once()
+        with psycopg.connect(worker_dsn, autocommit=True) as connection:
+            connection.execute(
+                "UPDATE ai_tutor.ai_course_access SET active = true, course_version = 3 "
+                "WHERE course_id = %s", (event.course_id,),
+            )
+        assert worker.run_once()
+        assert len(worker.store.query(course_id=event.course_id,
+                                      lesson_ids=(event.lesson_id,), space_key="test-space",
+                                      vector=[1.0, 0.0, 0.0], limit=5)) == 1
+    finally:
+        worker.client.close()
+
+
+@pytest.mark.integration
+def test_inflight_course_deactivation_requeues_before_activation(worker_dsn: str) -> None:
+    event = IndexEvent(uuid4(), uuid4(), uuid4(), uuid4(), 1, "UPSERT")
+    with psycopg.connect(worker_dsn, autocommit=True) as connection:
+        enqueue_index_event(connection, event)
+    worker = _worker(worker_dsn, event, kind="TEXT", payload="evidence")
+
+    class ArchivingEmbedding(FakeEmbedding):
+        def embed_passages(self, passages: list[str]) -> list[list[float]]:
+            with psycopg.connect(worker_dsn) as connection:
+                connection.execute(
+                    "INSERT INTO ai_tutor.ai_course_access "
+                    "(course_id, course_version, active) VALUES (%s, 2, false)",
+                    (event.course_id,),
+                )
+            return super().embed_passages(passages)
+
+    worker.embedding = ArchivingEmbedding()
+    try:
+        assert worker.run_once()
+        with psycopg.connect(worker_dsn, row_factory=dict_row) as connection:
+            job = connection.execute("SELECT status FROM ai_tutor.ai_index_jobs "
+                                     "WHERE event_id = %s", (event.event_id,)).fetchone()
+        assert job["status"] == "QUEUED"
+        assert worker.store.query(course_id=event.course_id, lesson_ids=(event.lesson_id,),
+                                  space_key="test-space", vector=[1.0, 0.0, 0.0], limit=5) == []
+        with psycopg.connect(worker_dsn) as connection:
+            connection.execute("UPDATE ai_tutor.ai_course_access SET active = true, "
+                               "course_version = 3 WHERE course_id = %s", (event.course_id,))
+        worker.embedding = FakeEmbedding()
+        assert worker.run_once()
+        assert len(worker.store.query(course_id=event.course_id,
+                                      lesson_ids=(event.lesson_id,), space_key="test-space",
+                                      vector=[1.0, 0.0, 0.0], limit=5)) == 1
     finally:
         worker.client.close()
 
