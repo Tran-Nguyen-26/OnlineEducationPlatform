@@ -7,6 +7,7 @@ import com.oep.corelms.dto.admin.RequestUploadUrlRequest;
 import com.oep.corelms.dto.admin.UpdateLessonContentRequest;
 import com.oep.corelms.dto.admin.UploadUrlResponse;
 import com.oep.corelms.service.AdminLessonContentService;
+import com.oep.corelms.service.AiTutorContentDeletionService;
 import com.oep.corelms.service.AuditLogService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,9 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 public class AdminLessonContentController {
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private AiTutorContentDeletionService aiTutorDeletion;
 
     private final AdminLessonContentService contentService;
     private final AuditLogService auditLogService;
@@ -61,7 +65,8 @@ public class AdminLessonContentController {
 
     @DeleteMapping("/api/admin/lesson-contents/{contentId}")
     public ResponseEntity<Void> delete(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID contentId) {
-        contentService.delete(contentId);
+        if (aiTutorDeletion == null) contentService.delete(contentId);
+        else aiTutorDeletion.delete(contentId);
         auditLogService.record(UUID.fromString(jwt.getSubject()), "DELETE_LESSON_CONTENT", "LESSON_CONTENT", contentId, null);
         return ResponseEntity.noContent().build();
     }

@@ -82,6 +82,7 @@ public class AdminLessonContentService {
     @Transactional
     public LessonContentResponse update(UUID contentId, UpdateLessonContentRequest request) {
         LessonContent content = findOrThrow(contentId);
+        requireNotDeleting(content);
         content.setTitle(request.title());
         content.setPosition(request.position());
         if (content.getContentType() == ContentType.TEXT) {
@@ -102,6 +103,7 @@ public class AdminLessonContentService {
     @Transactional
     public UploadUrlResponse requestUploadUrl(UUID contentId, RequestUploadUrlRequest request) {
         LessonContent content = findOrThrow(contentId);
+        requireNotDeleting(content);
         if (!FILE_BASED_TYPES.contains(content.getContentType())) {
             throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "This content type does not take a file upload");
         }
@@ -122,6 +124,7 @@ public class AdminLessonContentService {
     @Transactional
     public LessonContentResponse completeUpload(UUID contentId, CompleteUploadRequest request) {
         LessonContent content = findOrThrow(contentId);
+        requireNotDeleting(content);
         if (content.getObjectKey() == null) {
             throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "No upload was requested for this content");
         }
@@ -151,6 +154,7 @@ public class AdminLessonContentService {
     @Transactional
     public LessonContentResponse retranscode(UUID contentId) {
         LessonContent content = findOrThrow(contentId);
+        requireNotDeleting(content);
         if (!transcodeRequester.request(content)) {
             throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "Only uploaded videos can be transcoded");
         }
@@ -160,5 +164,12 @@ public class AdminLessonContentService {
     private LessonContent findOrThrow(UUID contentId) {
         return contents.findById(contentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Lesson content not found"));
+    }
+
+    private static void requireNotDeleting(LessonContent content) {
+        if (content.getUploadStatus() == UploadStatus.DELETING) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
+                    "Content is pending AI Tutor invalidation");
+        }
     }
 }
