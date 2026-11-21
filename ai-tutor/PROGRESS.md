@@ -20,12 +20,13 @@ Updated: 2026-11-21 (Asia/Saigon). Branch: `dev-2`. Commits are local only; **do
 - M2 update-handshake verification: focused Java tests cover success, failure/retry, invalid TEXT, unrelated LINK and archived PDF metadata. The full core LMS suite passed 59/59 with Maven's `-Duser.timezone=UTC` and Docker-backed Flyway migration checks.
 - File replacement verification: focused Java tests cover acknowledgement order, failure/retry, first upload version consistency, direct-completion rejection and unsupported inline upload routes. The full core LMS suite passed 64/64 with Testcontainers/Flyway after this change.
 - Source-read contract verification: the full core LMS suite passed 73/73, including signed private route, scope/version/availability and file-grant tests. The M7 suite passed 82 tests with one existing RabbitMQ integration skip when no broker URL was supplied; the new source client tests passed 4/4. The new OpenAPI YAML parsed and its operation ID/200 response were checked. No live Java-to-Python process test has run yet.
+- Index worker verification: four-format parse/embed/index and provenance, bounded file download, unsupported/unavailable source handling, final retry and stale-lease fencing passed 9 focused tests on disposable pgvector PostgreSQL. The full M7 suite passed 91 tests with one RabbitMQ integration skip and one upstream Starlette warning on a fresh disposable database. Source/storage/embedding HTTP was faked; live provider and Java-to-Python process tests remain open.
 
 ## Resume from here
 
 1. Check `git status --short` and the latest commit. The only expected untracked path after the pgvector adapter commit is `frontend/test-results/`.
-2. Connect the authoritative private M2 source/version client to an asynchronous parse/embed/index worker for four supported formats, including bounded file download and a source-state recheck before activating a revision. The RabbitMQ queue and M7 durable job receipt are connected; job execution is still pending. Audit old in-flight file uploads when deploying the replacement handshake.
-3. Implement scoped retrieval, grounded citations, provider integration and the private send-turn route using the existing claim ledger. The ledger currently commits only citation-free `ABSTAINED` turns; add server-validated citation snapshots before allowing `ANSWERED` persistence. Connect public React chat/history/status UI and verify end to end.
+2. Implement scoped retrieval, grounded citations, provider integration and the private send-turn route using the existing claim ledger. The ledger currently commits only citation-free `ABSTAINED` turns; add server-validated citation snapshots before allowing `ANSWERED` persistence. Audit old in-flight file uploads when deploying the replacement handshake.
+3. Connect public React chat/history/status UI and verify end to end.
 4. Complete functional tests and demo targets in the checklist; non-functional work follows afterward. Update docs and commit each finished, tested slice. Never push.
 
 ## User action
