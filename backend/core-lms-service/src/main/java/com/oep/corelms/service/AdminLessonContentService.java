@@ -40,6 +40,9 @@ public class AdminLessonContentService {
     private final StorageService storageService;
     private final com.oep.corelms.repository.ContentChangeLogRepository changeLogs;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private AiTutorIndexOutbox aiIndexOutbox;
+
     @Value("${oep.storage.upload-url-ttl-seconds:900}")
     private long uploadUrlTtlSeconds;
 
@@ -71,7 +74,9 @@ public class AdminLessonContentService {
             content.setUploadStatus(UploadStatus.AVAILABLE);
         }
 
-        return LessonContentResponse.from(contents.saveAndFlush(content));
+        content = contents.saveAndFlush(content);
+        if (aiIndexOutbox != null) aiIndexOutbox.publishIfEligible(content);
+        return LessonContentResponse.from(content);
     }
 
     @Transactional(readOnly = true)
@@ -125,6 +130,7 @@ public class AdminLessonContentService {
     public LessonContentResponse completeUpload(UUID contentId, CompleteUploadRequest request) {
         LessonContent content = findOrThrow(contentId);
         requireNotDeleting(content);
+        boolean initialUpload = content.getFileSize() == null;
         if (content.getObjectKey() == null) {
             throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "No upload was requested for this content");
         }
@@ -147,7 +153,9 @@ public class AdminLessonContentService {
         content.setDurationSeconds(request.durationSeconds());
         content.setUploadStatus(UploadStatus.AVAILABLE);
         transcodeRequester.request(content);   // VIDEO only: adaptive HLS version is prepared in the background
-        return LessonContentResponse.from(contents.saveAndFlush(content));
+        content = contents.saveAndFlush(content);
+        if (initialUpload && aiIndexOutbox != null) aiIndexOutbox.publishIfEligible(content);
+        return LessonContentResponse.from(content);
     }
 
     /** Re-runs HLS preparation (e.g. after a FAILED transcode). */

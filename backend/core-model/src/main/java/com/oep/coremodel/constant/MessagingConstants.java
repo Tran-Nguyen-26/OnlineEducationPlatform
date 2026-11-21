@@ -18,5 +18,6 @@ public final class MessagingConstants {
     public static final String RK_QUIZ_PUBLISHED = "quiz.published";
     public static final String RK_NOTIFICATION = "notification.requested";
     public static final String RK_VIDEO_TRANSCODE = "video.transcode";
+    public static final String RK_AI_INDEX = "ai.index.requested";
     public static final String RK_SCORE_SYNC = "exam.score.sync";
 }

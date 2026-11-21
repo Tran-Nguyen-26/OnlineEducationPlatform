@@ -12,4 +12,6 @@ public interface LessonContentRepository extends JpaRepository<LessonContent, UU
     long countByLesson_Id(UUID lessonId);
 
     java.util.Optional<LessonContent> findByIdAndLesson_Id(UUID id, UUID lessonId);
+
+    List<LessonContent> findByLesson_Module_Course_Id(UUID courseId);
 }

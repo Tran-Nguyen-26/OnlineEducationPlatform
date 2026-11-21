@@ -4,6 +4,7 @@ import com.oep.corelms.dto.admin.CourseResponse;
 import com.oep.corelms.dto.admin.CreateCourseRequest;
 import com.oep.corelms.dto.admin.UpdateCourseRequest;
 import com.oep.corelms.repository.CourseRepository;
+import com.oep.corelms.repository.LessonContentRepository;
 import com.oep.corelms.repository.SubjectRepository;
 import com.oep.corelms.repository.UserRepository;
 import com.oep.coremodel.entity.course.Course;
@@ -27,6 +28,11 @@ public class AdminCourseService {
     private final CourseRepository courses;
     private final SubjectRepository subjects;
     private final UserRepository users;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private AiTutorIndexOutbox aiIndexOutbox;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private LessonContentRepository lessonContents;
 
     @Transactional
     public CourseResponse create(UUID adminId, CreateCourseRequest request) {
@@ -96,8 +102,14 @@ public class AdminCourseService {
         if (target == CourseLifecycleStatus.DRAFT) {
             throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "Cannot move a course back to DRAFT");
         }
+        CourseLifecycleStatus previous = course.getLifecycleStatus();
         course.setLifecycleStatus(target);
-        return CourseResponse.from(courses.saveAndFlush(course));
+        CourseResponse response = CourseResponse.from(courses.saveAndFlush(course));
+        if (target == CourseLifecycleStatus.PUBLISHED && previous != CourseLifecycleStatus.PUBLISHED
+                && aiIndexOutbox != null) {
+            lessonContents.findByLesson_Module_Course_Id(id).forEach(aiIndexOutbox::publishIfEligible);
+        }
+        return response;
     }
 
     private Course findOrThrow(UUID id) {
