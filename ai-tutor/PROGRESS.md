@@ -8,19 +8,19 @@ Updated: 2026-11-21 (Asia/Saigon). Branch: `dev-2`. Commits are local only; **do
 - `17c84af` authorized Java proxy routes; `41209d2` M7-owned V1 relational schema and migration runner; `ce4133a` private conversation/history routes; `a996e34` private course readiness; `c3e3d29` deterministic TEXT/PDF/Markdown/JSON parsers.
 - `e276b72` clean frontend dependency install/build fix; `61665bd` M2/Admin upload validation (PDF 20 MiB, Markdown/JSON 5 MiB, stored object size/MIME verification).
 - `8f7b3e7` Jina/OpenAI/Gemini embedding adapters; `b0b0c2c` Groq/OpenAI/Gemini generation adapters; `3b68757` durable chat claim/retry/replay and atomic citation-free abstentions.
-- `1af8de3` M7 V2 native pgvector migration; `61c3bf3` exact scoped `PgvectorStore` adapter. This checkpoint accompanies the Pinecone adapter and shared vector-store tests.
+- `1af8de3` M7 V2 native pgvector migration; `61c3bf3` exact scoped `PgvectorStore` adapter; `1315966` Pinecone adapter and shared vector-store tests. This checkpoint accompanies the durable versioned index-event receipt.
 
 ## Verification and environment
 
 - Docker Desktop worked. Java full Maven suite passed with `-Duser.timezone=UTC` (the host timezone string is rejected by PostgreSQL), using the Maven cache on `E:\Caches\OnlineEducationPlatform\maven`: 54 tests, 0 failures/errors, 1 existing skip, including Testcontainers/Flyway.
 - Frontend clean `npm ci` and `npm run build` passed with npm/Vite caches on E. `@types/node` and the lockfile were fixed in `e276b72` because the old lockfile could not be installed cleanly.
-- Python uses `UV_CACHE_DIR=E:\Caches\OnlineEducationPlatform\uv` and `UV_PROJECT_ENVIRONMENT=E:\Caches\OnlineEducationPlatform\ai-tutor-venv`. The full suite passed 64/64 on a disposable `pgvector/pgvector:0.8.7-pg17` Docker container after the Pinecone adapter; the focused shared vector-store tests passed 5/5. The suite emits one upstream Starlette deprecation warning.
+- Python uses `UV_CACHE_DIR=E:\Caches\OnlineEducationPlatform\uv` and `UV_PROJECT_ENVIRONMENT=E:\Caches\OnlineEducationPlatform\ai-tutor-venv`. The full suite passed 67/67 on a disposable `pgvector/pgvector:0.8.7-pg17` Docker container after index-event receipt; the focused event tests passed 3/3. The suite emits one upstream Starlette deprecation warning.
 - AI provider tests use mocked HTTP; there are no live Jina/Groq/OpenAI/Gemini credentials in the workspace. Do not claim live-provider validation.
 
 ## Resume from here
 
 1. Check `git status --short` and the latest commit. The only expected untracked path after the pgvector adapter commit is `frontend/test-results/`.
-2. Wire M2 versioned UPSERT/deactivation events and publication enqueue into M7; preserve synchronous deactivation acknowledgement before content deletion/replacement. Then add the asynchronous parse/embed/index worker for four supported formats.
+2. Choose and implement the authenticated M2/event-bridge transport for the new M7 job receipt, then wire M2 versioned UPSERT/deactivation events and publication enqueue. Preserve synchronous deactivation acknowledgement before content deletion/replacement. Add the asynchronous parse/embed/index worker for four supported formats and recheck event ordering at source-state commit.
 3. Implement scoped retrieval, grounded citations, provider integration and the private send-turn route using the existing claim ledger. The ledger currently commits only citation-free `ABSTAINED` turns; add server-validated citation snapshots before allowing `ANSWERED` persistence. Connect public React chat/history/status UI and verify end to end.
 4. Complete functional tests and demo targets in the checklist; non-functional work follows afterward. Update docs and commit each finished, tested slice. Never push.
 
