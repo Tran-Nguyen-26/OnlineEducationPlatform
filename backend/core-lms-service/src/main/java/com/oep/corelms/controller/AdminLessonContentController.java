@@ -9,6 +9,7 @@ import com.oep.corelms.dto.admin.UploadUrlResponse;
 import com.oep.corelms.service.AdminLessonContentService;
 import com.oep.corelms.service.AiTutorContentDeletionService;
 import com.oep.corelms.service.AiTutorContentUpdateService;
+import com.oep.corelms.service.AiTutorFileReplacementService;
 import com.oep.corelms.service.AuditLogService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,9 @@ public class AdminLessonContentController {
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private AiTutorContentUpdateService aiTutorUpdate;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private AiTutorFileReplacementService aiTutorFiles;
 
     private final AdminLessonContentService contentService;
     private final AuditLogService auditLogService;
@@ -83,11 +87,16 @@ public class AdminLessonContentController {
 
     @PostMapping("/api/admin/lesson-contents/{contentId}/upload-url")
     public UploadUrlResponse requestUploadUrl(@PathVariable UUID contentId, @Valid @RequestBody RequestUploadUrlRequest request) {
-        return contentService.requestUploadUrl(contentId, request);
+        return aiTutorFiles == null
+                ? contentService.requestUploadUrl(contentId, request)
+                : aiTutorFiles.requestUploadUrl(contentId, request);
     }
 
     @PostMapping("/api/admin/lesson-contents/{contentId}/complete-upload")
     public LessonContentResponse completeUpload(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID contentId, @Valid @RequestBody CompleteUploadRequest request) {
+        if (aiTutorFiles != null) {
+            return aiTutorFiles.completeUpload(contentId, request, UUID.fromString(jwt.getSubject()));
+        }
         LessonContentResponse response = contentService.completeUpload(contentId, request);
         changeLog.record(contentId, UUID.fromString(jwt.getSubject()), "FILE_REPLACED");
         return response;

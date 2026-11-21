@@ -34,6 +34,18 @@ public class ContentChangeLogService {
             content.setVersionNumber(content.getVersionNumber() + 1);
             contents.save(content);
         }
+        saveEntry(content, adminId, action);
+    }
+
+    /** First file completion records an upload without changing the version already enqueued for M7. */
+    @Transactional
+    public void recordCurrentVersion(UUID contentId, UUID adminId, String action) {
+        LessonContent content = contents.findById(contentId).orElse(null);
+        if (content == null) return;
+        saveEntry(content, adminId, action);
+    }
+
+    private void saveEntry(LessonContent content, UUID adminId, String action) {
         ContentChangeLog log = new ContentChangeLog();
         log.setContent(content);
         log.setChangedBy(users.getReferenceById(adminId));

@@ -33,6 +33,10 @@ public class AdminLessonContentService {
     private static final Set<ContentType> FILE_BASED_TYPES =
             EnumSet.of(ContentType.VIDEO, ContentType.PDF, ContentType.SLIDE, ContentType.DOCUMENT, ContentType.FILE);
 
+    static boolean isFileBasedType(ContentType type) {
+        return FILE_BASED_TYPES.contains(type);
+    }
+
     private final TranscodeRequester transcodeRequester;
     private final LessonRepository lessons;
     private final LessonContentRepository contents;
