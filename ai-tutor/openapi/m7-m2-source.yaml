@@ -1,0 +1,89 @@
+openapi: 3.1.0
+info:
+  title: M7 to M2 source read contract
+  version: 1.0.0
+  description: Private, version-bound source read for AI Tutor indexing. Never route through the public gateway.
+paths:
+  /internal/v1/ai/sources/{contentId}:
+    get:
+      operationId: readAiTutorSourceRevision
+      summary: Read the current eligible M2 source revision
+      description: >-
+        M7 signs a fresh ai:source:read assertion and sends the exact course, lesson and
+        version from its durable UPSERT job. M2 checks the primary database, including
+        course publication, content availability, type and ancestry. A stale, foreign,
+        deleted or unavailable source returns 404. For files the response contains a
+        short-lived private storage read grant, never a raw object key.
+      security:
+        - sourceAssertion: []
+      parameters:
+        - name: contentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: course_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: lesson_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: version_number
+          in: query
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - name: X-Request-Id
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Current eligible source; all nullable fields are present.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SourceSnapshot' }
+        '401':
+          description: Missing, expired, invalid or mismatched M7 source-read assertion.
+        '404':
+          description: Source identity, version or current eligibility does not match.
+        '503':
+          description: M2 or private storage signing is unavailable.
+components:
+  securitySchemes:
+    sourceAssertion:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        HS256 with the dedicated AI_TUTOR_SERVICE_JWT_SECRET; iss=m7-ai-tutor,
+        aud=oep-core-lms, sub=m7-ai-tutor, scope=ai:source:read, UUID request_id
+        equal to X-Request-Id, UUID jti, integer iat/nbf/exp and at most 60 seconds.
+  schemas:
+    SourceSnapshot:
+      type: object
+      additionalProperties: false
+      required:
+        - content_id
+        - course_id
+        - lesson_id
+        - version_number
+        - content_type
+        - source_title
+        - text_content
+        - file_name
+        - mime_type
+        - file_size
+        - download_url
+      properties:
+        content_id: { type: string, format: uuid }
+        course_id: { type: string, format: uuid }
+        lesson_id: { type: string, format: uuid }
+        version_number: { type: integer, minimum: 1 }
+        content_type: { type: string, enum: [TEXT, PDF, FILE] }
+        source_title: { type: string, minLength: 1, maxLength: 255 }
+        text_content: { type: [string, 'null'] }
+        file_name: { type: [string, 'null'] }
+        mime_type: { type: [string, 'null'] }
+        file_size: { type: [integer, 'null'], minimum: 1 }
+        download_url: { type: [string, 'null'], format: uri }

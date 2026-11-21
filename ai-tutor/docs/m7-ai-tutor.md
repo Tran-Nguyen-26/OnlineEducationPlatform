@@ -260,12 +260,12 @@ Private operational routes (not internet-exposed) are `POST /internal/v1/ai/inde
 
 | Owner / dependency | Proposed interface or event | Status / decision needed |
 | --- | --- | --- |
-| **M7 → M2** | Query authoritative `course.lifecycle_status`, `lesson_contents` ancestry, `content_type`, `upload_status=AVAILABLE`, and `version_number` | Confirm internal read interface / DB-view ownership and when files are ready |
+| **M7 → M2** | Private `GET /internal/v1/ai/sources/{contentId}` with signed `ai:source:read`, exact course/lesson/version and short-lived file grant | Contract and focused tests implemented; worker wiring and live cross-service verification remain open |
 | **M7 → M3** | Spring Boot `EnrollmentChecker` before every Student chat/read; `ACTIVE` only in the first release | Confirm authoritative checker contract; revise completed-student policy only with M2/M3 alignment |
-| **M2 → M7 indexing** | Proposed `content.available`, `content.updated`, `content.deactivated`, with stable `event_id`, content ID and version; or private index-job enqueue | **OPEN:** event names, outbox deployment, retries and who publishes |
+| **M2 → M7 indexing** | M2 outbox `ai.index.requested` via RabbitMQ to M7's durable, idempotent index-job ledger | Transport implemented; job execution and resynchronization remain open |
 | **M7 ↔ M2 delete** | M2 makes source unavailable, synchronously asks M7 to deactivate its revision, and finalizes only after acknowledgement; otherwise leave operation pending and retry | **AGREED FOR IMPLEMENTATION** |
 | **Gateway → M7** | Private HTTP proxy + signed user/course assertion, request/correlation ID | Public `/api` prefix agreed; internal token issuance, network policy and failure mapping remain open |
-| **M7 → Object Storage** | Least-privilege server-side read of eligible source objects | **OPEN:** cloud provider, bucket/prefix permissions and key lookup |
+| **M7 → Object Storage** | M2 returns a short-lived read grant only for the verified source revision | Grant contract implemented; bounded worker download and deployment origin policy remain open |
 | **React ↔ M7/M2** | Chat list/history, citations; open citation via M2 protected access URL | **OPEN:** UI error/not-ready and pagination conventions |
 | **Common API** | Public M7 uses `/api`, M2-style `page`/`page_size` and error envelope; gateway translates internal dependency errors | Agreed for first release |
 

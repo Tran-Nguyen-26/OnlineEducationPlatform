@@ -13,6 +13,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.core.annotation.Order;
 
 import java.security.interfaces.RSAPublicKey;
 import java.util.List;
@@ -48,6 +49,7 @@ public class SecurityConfig {
     }
 
     @Bean
+    @Order(2)
     public SecurityFilterChain filterChain(HttpSecurity http, JwtDecoder jwtDecoder,
                                             JwtAuthenticationConverter jwtAuthenticationConverter) throws Exception {
         http
