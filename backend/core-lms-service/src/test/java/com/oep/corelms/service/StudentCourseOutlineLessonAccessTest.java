@@ -86,6 +86,11 @@ class StudentCourseOutlineLessonAccessTest {
         firstContent.setContentType(ContentType.TEXT);
         firstContent.setTitle("Visible content");
         firstContent.setUploadStatus(UploadStatus.AVAILABLE);
+        LessonContent deletingContent = new LessonContent();
+        deletingContent.setId(UUID.randomUUID());
+        deletingContent.setContentType(ContentType.TEXT);
+        deletingContent.setTitle("Hidden while deleting");
+        deletingContent.setUploadStatus(UploadStatus.DELETING);
 
         when(enrollmentAccess.requireReadableEnrollment(courseId, studentId)).thenReturn(enrollment);
         when(courses.findById(courseId)).thenReturn(Optional.of(course));
@@ -93,7 +98,8 @@ class StudentCourseOutlineLessonAccessTest {
         when(lessonAccess.readableLessonIds(enrollment)).thenReturn(List.of(first.getId()));
         when(modules.findByCourse_IdOrderByPositionAsc(courseId)).thenReturn(List.of(module));
         when(lessons.findByModule_IdOrderByPositionAsc(module.getId())).thenReturn(List.of(first, locked));
-        when(lessonContents.findByLesson_IdOrderByPositionAsc(first.getId())).thenReturn(List.of(firstContent));
+        when(lessonContents.findByLesson_IdOrderByPositionAsc(first.getId()))
+                .thenReturn(List.of(firstContent, deletingContent));
 
         CourseOutlineResponse result = contentService.getOutline(courseId, studentId);
 
@@ -102,6 +108,7 @@ class StudentCourseOutlineLessonAccessTest {
         CourseOutlineResponse.OutlineLesson lockedResult = result.modules().getFirst().lessons().get(1);
         assertFalse(firstResult.locked());
         assertEquals(firstContent.getId(), firstResult.contents().getFirst().id());
+        assertEquals(1, firstResult.contents().size());
         assertTrue(lockedResult.locked());
         assertTrue(lockedResult.contents().isEmpty());
         verify(lessonContents, never()).findByLesson_IdOrderByPositionAsc(locked.getId());
@@ -129,6 +136,28 @@ class StudentCourseOutlineLessonAccessTest {
         BusinessException denied = assertThrows(BusinessException.class,
                 () -> contentService.authorizeContent(content.getId(), studentId, "STUDENT"));
         assertEquals(ErrorCode.COMPLETION_RULE_NOT_MET, denied.getCode());
+    }
+
+    @Test
+    void protectedContentDeniesUnavailableMaterialToStudent() {
+        UUID studentId = UUID.randomUUID();
+        Course course = new Course();
+        course.setId(UUID.randomUUID());
+        CourseModule module = new CourseModule();
+        module.setCourse(course);
+        Lesson lesson = lesson(module, "Visible lesson");
+        LessonContent content = new LessonContent();
+        content.setId(UUID.randomUUID());
+        content.setLesson(lesson);
+        content.setUploadStatus(UploadStatus.DELETING);
+        Enrollment enrollment = new Enrollment();
+        enrollment.setCourse(course);
+        when(lessonContents.findById(content.getId())).thenReturn(Optional.of(content));
+        when(enrollmentAccess.requireReadableEnrollment(course.getId(), studentId)).thenReturn(enrollment);
+
+        BusinessException denied = assertThrows(BusinessException.class,
+                () -> contentService.authorizeContent(content.getId(), studentId, "STUDENT"));
+        assertEquals(ErrorCode.NOT_FOUND, denied.getCode());
     }
 
     private static Lesson lesson(CourseModule module, String title) {

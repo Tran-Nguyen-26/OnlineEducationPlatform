@@ -25,6 +25,7 @@ import com.oep.coremodel.entity.course.LessonContent;
 import com.oep.coremodel.entity.enrollment.Enrollment;
 import com.oep.coremodel.entity.enrollment.LessonProgress;
 import com.oep.coremodel.enums.LessonProgressStatus;
+import com.oep.coremodel.enums.UploadStatus;
 import com.oep.coremodel.exception.BusinessException;
 import com.oep.coremodel.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -96,6 +97,7 @@ public class StudentCourseContentService {
 
     private OutlineLesson toOutlineLesson(Lesson lesson, Map<UUID, LessonProgress> progressByLesson, boolean locked) {
         List<OutlineContent> contentDtos = locked ? List.of() : lessonContents.findByLesson_IdOrderByPositionAsc(lesson.getId()).stream()
+                .filter(c -> c.getUploadStatus() == UploadStatus.AVAILABLE)
                 .map(c -> new OutlineContent(c.getId(), c.getContentType(), c.getTitle(), c.getTextContent(), c.getExternalUrl(),
                         c.getFileName(), c.getMimeType(), c.getDurationSeconds(), c.getUploadStatus(), c.getTranscodeStatus()))
                 .toList();
@@ -137,6 +139,9 @@ public class StudentCourseContentService {
             }
         } else if (!"ADMIN".equals(role)) {
             requireUnlocked(content.getLesson(), enrollmentAccess.requireReadableEnrollment(courseId, userId));
+            if (content.getUploadStatus() != UploadStatus.AVAILABLE) {
+                throw new BusinessException(ErrorCode.NOT_FOUND, "Content is unavailable");
+            }
         }
         return content;
     }
@@ -232,6 +237,7 @@ public class StudentCourseContentService {
     }
 
     private boolean isVideo(LessonContent c) {
+        if (c.getUploadStatus() != UploadStatus.AVAILABLE) return false;
         if (c.getContentType() == com.oep.coremodel.enums.ContentType.VIDEO) return true;
         String url = c.getExternalUrl();
         return c.getContentType() == com.oep.coremodel.enums.ContentType.LINK && url != null

@@ -4,5 +4,6 @@ public enum UploadStatus {
     PENDING,
     UPLOADED,
     AVAILABLE,
-    FAILED
+    FAILED,
+    DELETING
 }

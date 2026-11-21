@@ -8,7 +8,7 @@ Updated: 2026-11-21 (Asia/Saigon). Branch: `dev-2`. Commits are local only; **do
 - `17c84af` authorized Java proxy routes; `41209d2` M7-owned V1 relational schema and migration runner; `ce4133a` private conversation/history routes; `a996e34` private course readiness; `c3e3d29` deterministic TEXT/PDF/Markdown/JSON parsers.
 - `e276b72` clean frontend dependency install/build fix; `61665bd` M2/Admin upload validation (PDF 20 MiB, Markdown/JSON 5 MiB, stored object size/MIME verification).
 - `8f7b3e7` Jina/OpenAI/Gemini embedding adapters; `b0b0c2c` Groq/OpenAI/Gemini generation adapters; `3b68757` durable chat claim/retry/replay and atomic citation-free abstentions.
-- `1af8de3` M7 V2 native pgvector migration; `61c3bf3` exact scoped `PgvectorStore` adapter; `1315966` Pinecone adapter and shared vector-store tests; `484b4e1` durable versioned index-event receipt; `987861a` authenticated private job routes and indexing-service assertion. This checkpoint accompanies the synchronous M7 source deactivation route.
+- `1af8de3` M7 V2 native pgvector migration; `61c3bf3` exact scoped `PgvectorStore` adapter; `1315966` Pinecone adapter and shared vector-store tests; `484b4e1` durable versioned index-event receipt; `987861a` authenticated private job routes and indexing-service assertion; `78c5f09` synchronous M7 source deactivation. This checkpoint accompanies M2 unavailable-content hiding.
 
 ## Verification and environment
 
