@@ -46,6 +46,26 @@ public class AiTutorAssertionIssuer {
         return issueStudentAt(userId, courseId, requestId, AiTutorLessonScope.sha256(lessonIds), Instant.now());
     }
 
+    /** For the private indexing API only; no end-user identity or course access is implied. */
+    public String issueIndexer(UUID requestId) {
+        return issueIndexerAt(requestId, Instant.now());
+    }
+
+    String issueIndexerAt(UUID requestId, Instant now) {
+        JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                .issuer("oep-core-lms")
+                .audience("m7-ai-tutor")
+                .subject("oep-core-lms")
+                .claim("request_id", requestId.toString())
+                .claim("scope", "ai:index")
+                .jwtID(UUID.randomUUID().toString())
+                .issueTime(Date.from(now))
+                .notBeforeTime(Date.from(now))
+                .expirationTime(Date.from(now.plusSeconds(TTL_SECONDS)))
+                .build();
+        return sign(claims);
+    }
+
     private String issueStudentAt(UUID userId, UUID courseId, UUID requestId, String lessonScopeSha256,
                                   Instant now) {
         JWTClaimsSet.Builder claimsBuilder = new JWTClaimsSet.Builder()
@@ -63,6 +83,10 @@ public class AiTutorAssertionIssuer {
             claimsBuilder.claim("lesson_scope_sha256", lessonScopeSha256);
         }
         JWTClaimsSet claims = claimsBuilder.build();
+        return sign(claims);
+    }
+
+    private String sign(JWTClaimsSet claims) {
         SignedJWT token = new SignedJWT(
                 new JWSHeader.Builder(JWSAlgorithm.HS256).type(JOSEObjectType.JWT).build(),
                 claims

@@ -73,6 +73,20 @@ class AiTutorAssertionIssuerTest {
     }
 
     @Test
+    void issuesSeparateShortLivedIndexerScope() throws Exception {
+        UUID requestId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-11-21T00:00:00Z");
+        AiTutorAssertionIssuer issuer = new AiTutorAssertionIssuer(SECRET);
+        SignedJWT token = SignedJWT.parse(issuer.issueIndexerAt(requestId, now));
+        assertTrue(token.verify(new MACVerifier(SECRET.getBytes(StandardCharsets.UTF_8))));
+        assertEquals("oep-core-lms", token.getJWTClaimsSet().getSubject());
+        assertEquals("ai:index", token.getJWTClaimsSet().getStringClaim("scope"));
+        assertEquals(requestId.toString(), token.getJWTClaimsSet().getStringClaim("request_id"));
+        assertEquals(now.plusSeconds(60), token.getJWTClaimsSet().getExpirationTime().toInstant());
+        assertTrue(token.getJWTClaimsSet().getClaim("course_id") == null);
+    }
+
+    @Test
     void remainsDisabledByDefaultAndRequiresASecretWhenEnabled() {
         ApplicationContextRunner runner = new ApplicationContextRunner()
                 .withUserConfiguration(IssuerConfiguration.class);

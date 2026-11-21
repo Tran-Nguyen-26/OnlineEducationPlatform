@@ -3,16 +3,33 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
 from uuid import uuid4
 
+import jwt
 import psycopg
 from psycopg import sql
 from psycopg.conninfo import make_conninfo
 import pytest
+from fastapi.testclient import TestClient
 
+from oep_ai_tutor.app import create_app
 from oep_ai_tutor.errors import AiTutorError
 from oep_ai_tutor.index_jobs import IndexEvent, enqueue_index_event, get_index_job, superseded_event
 from oep_ai_tutor.migrate import migrate
+from oep_ai_tutor.security import AUDIENCE, ISSUER
+
+
+SECRET = "index-test-secret-with-at-least-32-bytes"
+
+
+def _token(request_id, *, scope="ai:index", subject="oep-core-lms", **overrides):
+    now = int(datetime.now(timezone.utc).timestamp())
+    claims = {"iss": ISSUER, "aud": AUDIENCE, "sub": subject, "scope": scope,
+              "request_id": str(request_id), "jti": str(uuid4()),
+              "iat": now, "nbf": now, "exp": now + 45}
+    claims.update(overrides)
+    return jwt.encode(claims, SECRET, algorithm="HS256")
 
 
 @pytest.fixture(scope="module")
@@ -79,3 +96,36 @@ def test_invalid_index_event_is_rejected() -> None:
         IndexEvent(uuid4(), uuid4(), uuid4(), uuid4(), 0, "UPSERT")
     with pytest.raises(ValueError, match="Invalid versioned"):
         IndexEvent(uuid4(), uuid4(), uuid4(), uuid4(), 1, "UNKNOWN")
+
+
+@pytest.mark.integration
+def test_private_index_routes_enforce_service_scope_and_event_replay(
+    job_dsn: str, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AI_TUTOR_SERVICE_JWT_SECRET", SECRET)
+    monkeypatch.setenv("AI_TUTOR_DATABASE_URL", job_dsn)
+    client = TestClient(create_app())
+    request_id = uuid4()
+    headers = {"X-Request-Id": str(request_id),
+               "Authorization": "Bearer " + _token(request_id)}
+    body = {"event_id": str(uuid4()), "content_id": str(uuid4()),
+            "course_id": str(uuid4()), "lesson_id": str(uuid4()),
+            "version_number": 1, "action": "UPSERT"}
+    path = "/internal/v1/ai/index-jobs"
+    for denied in (
+        {}, {**headers, "Authorization": "Bearer " + _token(request_id, scope="ai:student")},
+        {**headers, "Authorization": "Bearer " + _token(uuid4())},
+        {**headers, "Authorization": "Bearer " + _token(request_id, subject="student")},
+    ):
+        assert client.post(path, json=body, headers=denied).status_code == 401
+    created = client.post(path, json=body, headers=headers)
+    assert created.status_code == 202
+    job = created.json()
+    assert job["event_id"] == body["event_id"] and job["status"] == "QUEUED"
+    assert client.post(path, json=body, headers=headers).status_code == 200
+    assert client.get(path + "/" + job["id"], headers=headers).json() == job
+    assert client.get(path + "/" + str(uuid4()), headers=headers).status_code == 404
+    conflict = client.post(path, json={**body, "version_number": 2}, headers=headers)
+    assert conflict.status_code == 409
+    assert conflict.json()["error"]["code"] == "INDEX_EVENT_CONFLICT"
+    assert client.post(path, json={**body, "unexpected": "value"}, headers=headers).status_code == 422

@@ -16,6 +16,7 @@ from fastapi import HTTPException, Request, status
 ISSUER = "oep-core-lms"
 AUDIENCE = "m7-ai-tutor"
 STUDENT_SCOPE = "ai:student"
+INDEX_SCOPE = "ai:index"
 MAX_TTL_SECONDS = 60
 CLOCK_LEEWAY_SECONDS = 3
 
@@ -102,6 +103,32 @@ class AssertionVerifier:
         except (jwt.PyJWTError, ValueError, TypeError, KeyError) as exc:
             raise InvalidServiceAssertion("Invalid internal service assertion") from exc
 
+    def verify_indexer(self, token: str, *, request_id: UUID) -> UUID:
+        """Indexing uses a service scope, never a student/course assertion."""
+        try:
+            claims = jwt.decode(
+                token, self._secret, algorithms=["HS256"], issuer=ISSUER,
+                audience=AUDIENCE, leeway=CLOCK_LEEWAY_SECONDS,
+                options={"require": ["iss", "aud", "sub", "iat", "nbf", "exp",
+                                     "jti", "request_id", "scope"]},
+            )
+            now = datetime.now(timezone.utc).timestamp()
+            issued_at, not_before, expires_at = (claims[key] for key in ("iat", "nbf", "exp"))
+            if not all(type(value) is int for value in (issued_at, not_before, expires_at)):
+                raise ValueError("Invalid assertion timestamps")
+            if not (0 < expires_at - issued_at <= MAX_TTL_SECONDS):
+                raise ValueError("Invalid assertion lifetime")
+            if issued_at > now + CLOCK_LEEWAY_SECONDS or not_before < issued_at:
+                raise ValueError("Invalid assertion time window")
+            if claims["scope"] != INDEX_SCOPE or claims["sub"] != "oep-core-lms":
+                raise ValueError("Invalid index service identity")
+            if UUID(claims["request_id"]) != request_id:
+                raise ValueError("Assertion request mismatch")
+            UUID(claims["jti"])
+            return request_id
+        except (jwt.PyJWTError, ValueError, TypeError, KeyError) as exc:
+            raise InvalidServiceAssertion("Invalid internal index assertion") from exc
+
 
 def require_student_assertion(request: Request, courseId: UUID) -> StudentAssertion:
     """FastAPI dependency for private course-scoped student routes."""
@@ -114,6 +141,23 @@ def require_student_assertion(request: Request, courseId: UUID) -> StudentAssert
         return request.app.state.assertion_verifier.verify_student(
             token, course_id=courseId, request_id=request_id
         )
+    except (InvalidServiceAssertion, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid internal service assertion",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+
+
+def require_index_assertion(request: Request) -> UUID:
+    authorization = request.headers.get("authorization", "")
+    scheme, _, token = authorization.partition(" ")
+    try:
+        request_id = UUID(request.headers.get("x-request-id", ""))
+        if scheme.lower() != "bearer" or not token or token.strip() != token:
+            raise InvalidServiceAssertion("Missing bearer assertion")
+        return request.app.state.assertion_verifier.verify_indexer(
+            token, request_id=request_id)
     except (InvalidServiceAssertion, ValueError) as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
