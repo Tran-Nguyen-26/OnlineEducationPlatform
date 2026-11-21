@@ -55,7 +55,7 @@ class AiTutorContentDeletionServiceTest {
         content.setLesson(lesson);
         content.setUploadStatus(UploadStatus.AVAILABLE);
         content.setVersionNumber(3);
-        when(contents.findById(content.getId())).thenReturn(Optional.of(content));
+        when(contents.findByIdForUpdate(content.getId())).thenReturn(Optional.of(content));
         server = MockRestServiceServer.bindTo(builder).build();
         service = new AiTutorContentDeletionService(contents, logs, issuer, txManager,
                 builder.baseUrl("http://ai-tutor.test").build());
@@ -87,5 +87,15 @@ class AiTutorContentDeletionServiceTest {
         assertEquals(UploadStatus.DELETING, content.getUploadStatus());
         verify(contents, never()).delete(content);
         server.verify();
+    }
+
+    @Test
+    void doesNotDeleteContentWhileAnUpdateIsPending() {
+        content.setUploadStatus(UploadStatus.INVALIDATING);
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.delete(content.getId()));
+        assertEquals(ErrorCode.INVALID_STATE_TRANSITION, error.getCode());
+        verify(contents, never()).delete(content);
+        verify(issuer, never()).issueIndexer(any());
     }
 }

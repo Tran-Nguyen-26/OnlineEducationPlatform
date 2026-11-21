@@ -49,7 +49,7 @@ class AiTutorLearningUploadTest {
         content.setMimeType("text/markdown");
         content.setObjectKey("lesson-contents/test/notes.md");
         content.setUploadStatus(UploadStatus.PENDING);
-        when(contents.findById(content.getId())).thenReturn(Optional.of(content));
+        when(contents.findByIdForUpdate(content.getId())).thenReturn(Optional.of(content));
     }
 
     @Test

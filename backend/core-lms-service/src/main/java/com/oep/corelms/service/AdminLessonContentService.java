@@ -170,12 +170,13 @@ public class AdminLessonContentService {
     }
 
     private LessonContent findOrThrow(UUID contentId) {
-        return contents.findById(contentId)
+        return contents.findByIdForUpdate(contentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Lesson content not found"));
     }
 
     private static void requireNotDeleting(LessonContent content) {
-        if (content.getUploadStatus() == UploadStatus.DELETING) {
+        if (content.getUploadStatus() == UploadStatus.DELETING
+                || content.getUploadStatus() == UploadStatus.INVALIDATING) {
             throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
                     "Content is pending AI Tutor invalidation");
         }

@@ -38,7 +38,7 @@ public class AiTutorIndexOutbox {
         em.persist(OutboxEvents.aiIndex(event, mapper));
     }
 
-    private boolean eligibleType(LessonContent content) {
+    static boolean eligibleType(LessonContent content) {
         if (content.getContentType() == ContentType.TEXT) return true;
         if (content.getContentType() != ContentType.PDF && content.getContentType() != ContentType.FILE) return false;
         try {

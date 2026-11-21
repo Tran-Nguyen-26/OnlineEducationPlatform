@@ -8,6 +8,7 @@ import com.oep.corelms.dto.admin.UpdateLessonContentRequest;
 import com.oep.corelms.dto.admin.UploadUrlResponse;
 import com.oep.corelms.service.AdminLessonContentService;
 import com.oep.corelms.service.AiTutorContentDeletionService;
+import com.oep.corelms.service.AiTutorContentUpdateService;
 import com.oep.corelms.service.AuditLogService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,9 @@ public class AdminLessonContentController {
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private AiTutorContentDeletionService aiTutorDeletion;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private AiTutorContentUpdateService aiTutorUpdate;
 
     private final AdminLessonContentService contentService;
     private final AuditLogService auditLogService;
@@ -50,8 +54,14 @@ public class AdminLessonContentController {
     @PatchMapping("/api/admin/lesson-contents/{contentId}")
     public LessonContentResponse update(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID contentId,
                                          @Valid @RequestBody UpdateLessonContentRequest request) {
-        LessonContentResponse response = contentService.update(contentId, request);
-        changeLog.record(contentId, UUID.fromString(jwt.getSubject()), "UPDATED");
+        UUID adminId = UUID.fromString(jwt.getSubject());
+        LessonContentResponse response;
+        if (aiTutorUpdate == null) {
+            response = contentService.update(contentId, request);
+            changeLog.record(contentId, adminId, "UPDATED");
+        } else {
+            response = aiTutorUpdate.update(contentId, request, adminId);
+        }
         auditLogService.record(UUID.fromString(jwt.getSubject()), "UPDATE_LESSON_CONTENT", "LESSON_CONTENT", contentId, null);
         return response;
     }

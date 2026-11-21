@@ -69,8 +69,12 @@ public class AiTutorContentDeletionService {
 
     public void delete(UUID contentId) {
         Scope scope = tx.execute(status -> {
-            LessonContent content = contents.findById(contentId)
+            LessonContent content = contents.findByIdForUpdate(contentId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Lesson content not found"));
+            if (content.getUploadStatus() == UploadStatus.INVALIDATING) {
+                throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
+                        "Content update is pending AI Tutor invalidation");
+            }
             if (content.getUploadStatus() != UploadStatus.DELETING) {
                 content.setUploadStatus(UploadStatus.DELETING);
                 contents.saveAndFlush(content);
@@ -96,7 +100,7 @@ public class AiTutorContentDeletionService {
                     "AI Tutor could not acknowledge content invalidation");
         }
         tx.executeWithoutResult(status -> {
-            LessonContent content = contents.findById(contentId)
+            LessonContent content = contents.findByIdForUpdate(contentId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Lesson content not found"));
             if (content.getUploadStatus() != UploadStatus.DELETING
                     || content.getVersionNumber() != scope.version()) {
