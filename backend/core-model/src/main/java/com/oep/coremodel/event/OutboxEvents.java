@@ -38,7 +38,6 @@ public final class OutboxEvents {
 
     public static OutboxEvent aiIndex(AiIndexRequestedEvent event, ObjectMapper mapper) {
         OutboxEvent o = new OutboxEvent();
-        o.setId(event.eventId());
         o.setAggregateType("LESSON_CONTENT");
         o.setAggregateId(event.contentId());
         o.setEventType(com.oep.coremodel.constant.MessagingConstants.RK_AI_INDEX);

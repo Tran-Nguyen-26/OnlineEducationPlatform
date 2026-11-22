@@ -1,5 +1,7 @@
 package com.oep.worker.outbox;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.oep.coremodel.constant.MessagingConstants;
 import com.oep.coremodel.entity.system.OutboxEvent;
 import com.oep.coremodel.enums.OutboxStatus;
@@ -18,6 +20,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Publishes pending outbox rows to RabbitMQ. Each row is sent on a confirm-enabled channel and only marked PROCESSED
@@ -36,6 +39,7 @@ public class OutboxRelay {
     private final OutboxEventRepository outbox;
     private final RabbitTemplate rabbit;
     private final io.micrometer.core.instrument.MeterRegistry meters;
+    private final ObjectMapper mapper;
 
     @jakarta.annotation.PostConstruct
     void registerGauges() {
@@ -54,7 +58,7 @@ public class OutboxRelay {
                 Message m = MessageBuilder.withBody(e.getPayload().getBytes(StandardCharsets.UTF_8))
                         .setContentType("application/json")
                         .setDeliveryMode(MessageDeliveryMode.PERSISTENT)
-                        .setMessageId(e.getId().toString())
+                        .setMessageId(messageIdFor(e))
                         .build();
                 Boolean confirmed = rabbit.invoke(ops -> {
                     ops.send(MessagingConstants.EXCHANGE, e.getEventType(), m);
@@ -82,5 +86,19 @@ public class OutboxRelay {
         }
         outbox.saveAll(due);
         if (sent > 0) log.debug("Outbox relay published {} event(s)", sent);
+    }
+
+    String messageIdFor(OutboxEvent event) {
+        if (!MessagingConstants.RK_AI_INDEX.equals(event.getEventType())) {
+            return event.getId().toString();
+        }
+        try {
+            String raw = mapper.readTree(event.getPayload()).path("event_id").asText();
+            UUID id = UUID.fromString(raw);
+            if (!id.toString().equals(raw)) throw new IllegalArgumentException("Invalid AI event ID");
+            return raw;
+        } catch (JsonProcessingException | IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Invalid AI index event payload", exception);
+        }
     }
 }

@@ -40,6 +40,7 @@ class AiTutorIndexOutboxTest {
         var capture = org.mockito.ArgumentCaptor.forClass(OutboxEvent.class);
         verify(em).persist(capture.capture());
         OutboxEvent event = capture.getValue();
+        assertEquals(null, event.getId()); // Hibernate generates the outbox row ID.
         assertEquals(MessagingConstants.RK_AI_INDEX, event.getEventType());
         assertEquals(content.getId(), event.getAggregateId());
         JsonNode payload = mapper.readTree(event.getPayload());
