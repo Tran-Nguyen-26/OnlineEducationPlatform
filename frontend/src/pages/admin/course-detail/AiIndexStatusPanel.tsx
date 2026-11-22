@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bot, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react'
 import { apiClient, getApiErrorMessage } from '../../../lib/apiClient'
 
@@ -26,12 +26,19 @@ const labels: Record<string, string> = {
 
 export function AiIndexStatusPanel({ courseId }: { courseId: string }) {
   const [open, setOpen] = useState(false)
+  const queryClient = useQueryClient()
+  const queryKey = ['admin', 'courses', courseId, 'ai-index-status']
   const query = useQuery({
-    queryKey: ['admin', 'courses', courseId, 'ai-index-status'],
+    queryKey,
     enabled: open,
     queryFn: () => apiClient.get<IndexStatus>(`/api/admin/courses/${courseId}/ai/index-status`).then((response) => response.data),
     refetchInterval: open ? 10000 : false,
     retry: false,
+  })
+  const reconcile = useMutation({
+    mutationFn: () => apiClient.post<{ enqueued: number }>(`/api/admin/courses/${courseId}/ai/reconcile`)
+      .then((response) => response.data),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey }),
   })
   return <section className="mb-5 rounded-xl border border-indigo-100 bg-indigo-50/40 p-4">
     <button type="button" onClick={() => setOpen((value) => !value)}
@@ -46,6 +53,18 @@ export function AiIndexStatusPanel({ courseId }: { courseId: string }) {
           className="inline-flex items-center gap-1 text-xs font-medium text-indigo-700 hover:text-indigo-900 disabled:opacity-50">
           <RefreshCw size={13} className={query.isFetching ? 'animate-spin' : ''} /> Làm mới
         </button>
+      </div>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <button type="button" onClick={() => reconcile.mutate()} disabled={reconcile.isPending}
+          className="rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50">
+          {reconcile.isPending ? 'Đang đối chiếu...' : 'Đồng bộ lại tài liệu'}
+        </button>
+        {reconcile.isSuccess && <span className="text-xs text-slate-600">
+          Đã gửi lại {reconcile.data.enqueued} tài liệu còn thiếu; trạng thái sẽ cập nhật sau khi xử lý.
+        </span>}
+        {reconcile.isError && <span className="text-xs text-rose-700">
+          Không đồng bộ được: {getApiErrorMessage(reconcile.error)}
+        </span>}
       </div>
       {query.isLoading && <p className="text-sm text-slate-500">Đang tải trạng thái...</p>}
       {query.isError && <p className="text-sm text-rose-700">Không tải được tiến độ AI Tutor: {getApiErrorMessage(query.error)}</p>}

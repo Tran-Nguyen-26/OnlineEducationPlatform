@@ -72,6 +72,34 @@ class AiTutorIndexOutboxTest {
         verify(em, never()).persist(any());
     }
 
+    @Test
+    void recoveryUsesStableEventIdentityForSameContentVersion() throws Exception {
+        EntityManager em = mock(EntityManager.class);
+        ObjectMapper mapper = new ObjectMapper();
+        AiTutorIndexOutbox outbox = new AiTutorIndexOutbox(mapper);
+        ReflectionTestUtils.setField(outbox, "em", em);
+        LessonContent content = source(ContentType.TEXT, UploadStatus.AVAILABLE);
+
+        assertEquals(true, outbox.publishRecoveryIfEligible(content));
+        assertEquals(true, outbox.publishRecoveryIfEligible(content));
+        var captured = org.mockito.ArgumentCaptor.forClass(OutboxEvent.class);
+        verify(em, times(2)).persist(captured.capture());
+        String firstId = mapper.readTree(captured.getAllValues().get(0).getPayload())
+                .path("event_id").asText();
+        String repeatedId = mapper.readTree(captured.getAllValues().get(1).getPayload())
+                .path("event_id").asText();
+        assertEquals(firstId, repeatedId);
+
+        clearInvocations(em);
+        content.setVersionNumber(2);
+        assertEquals(true, outbox.publishRecoveryIfEligible(content));
+        var next = org.mockito.ArgumentCaptor.forClass(OutboxEvent.class);
+        verify(em).persist(next.capture());
+        String nextVersionId = mapper.readTree(next.getValue().getPayload())
+                .path("event_id").asText();
+        org.junit.jupiter.api.Assertions.assertNotEquals(firstId, nextVersionId);
+    }
+
     private static LessonContent source(ContentType type, UploadStatus status) {
         Course course = new Course();
         course.setId(UUID.randomUUID());
