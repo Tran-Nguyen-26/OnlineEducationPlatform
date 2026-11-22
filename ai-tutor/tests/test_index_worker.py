@@ -3,19 +3,27 @@
 from __future__ import annotations
 
 from io import BytesIO
+from datetime import datetime, timezone
+from hashlib import sha256
 import os
+import re
 from uuid import uuid4
 
 import httpx
+import jwt
 import psycopg
 from psycopg import sql
 from psycopg.conninfo import make_conninfo
 from psycopg.rows import dict_row
 import pytest
+from fastapi.testclient import TestClient
 from pypdf import PdfWriter
 from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 from oep_ai_tutor.index_jobs import IndexEvent, enqueue_index_event
+from oep_ai_tutor import chat_routes
+from oep_ai_tutor.app import create_app
+from oep_ai_tutor.generation import GenerationResult
 from oep_ai_tutor.index_worker import IndexWorker, download_source
 from oep_ai_tutor.migrate import migrate
 from oep_ai_tutor.pgvector_store import PgvectorStore
@@ -331,6 +339,95 @@ def test_inflight_course_deactivation_requeues_before_activation(worker_dsn: str
                                       vector=[1.0, 0.0, 0.0], limit=5)) == 1
     finally:
         worker.client.close()
+
+
+@pytest.mark.integration
+def test_student_can_answer_from_each_indexed_format_with_citation(
+    worker_dsn: str, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    course, user, conversation = uuid4(), uuid4(), uuid4()
+    sources = [
+        ("TEXT", "Text evidence", None, None, "Text evidence", None, None, None),
+        ("PDF", pdf_bytes(), "unit.pdf", "application/pdf", "PDF evidence", 1, None, None),
+        ("FILE", b"# Heading\nMarkdown evidence", "unit.md", "text/markdown",
+         "Markdown evidence", None, "Heading", None),
+        ("FILE", b'{"topic":"JSON evidence"}', "unit.json", "application/json",
+         "JSON evidence", None, None, "$/topic"),
+    ]
+    events = []
+    for kind, payload, name, mime, *_ in sources:
+        event = IndexEvent(uuid4(), uuid4(), course, uuid4(), 1, "UPSERT")
+        with psycopg.connect(worker_dsn, autocommit=True) as connection:
+            enqueue_index_event(connection, event)
+        worker = _worker(worker_dsn, event, kind=kind, payload=payload,
+                         name=name, mime=mime)
+        try:
+            assert worker.run_once()
+        finally:
+            worker.client.close()
+        events.append(event)
+    with psycopg.connect(worker_dsn) as connection:
+        connection.execute(
+            "INSERT INTO ai_tutor.ai_conversations "
+            "(id, user_id, course_id, title) VALUES (%s, %s, %s, 'Four formats')",
+            (conversation, user, course),
+        )
+
+    class CitingGeneration:
+        model = "fake"
+        keyword = ""
+
+        def generate(self, instructions, messages):
+            prompt = messages[-1].content
+            assert "untrusted" in instructions.lower()
+            for match in re.finditer(
+                r"\[(\d+)\][^\n]*\n(.*?)(?=\n\n\[\d+\]|\Z)", prompt, re.DOTALL,
+            ):
+                if self.keyword in match.group(2):
+                    return GenerationResult(f"{self.keyword} [{match.group(1)}]", 1, 1, self.model)
+            raise AssertionError(f"Expected {self.keyword!r} in prompt: {prompt!r}")
+
+    model = CitingGeneration()
+    monkeypatch.setenv("AI_TUTOR_DATABASE_URL", worker_dsn)
+    monkeypatch.setenv("AI_TUTOR_SERVICE_JWT_SECRET", SECRET)
+    monkeypatch.setenv("AI_TUTOR_EMBEDDING_SPACE_KEY", "test-space")
+    monkeypatch.setenv("AI_TUTOR_M2_BASE_URL", "http://m2.internal")
+    monkeypatch.setattr(chat_routes, "embedding_provider_from_env", lambda _: FakeEmbedding())
+    monkeypatch.setattr(chat_routes, "generation_provider_from_env", lambda _: model)
+    monkeypatch.setattr(chat_routes, "vector_store_from_env", lambda **_: PgvectorStore(worker_dsn))
+    monkeypatch.setattr(chat_routes, "fetch_source", lambda event, **_: SourceSnapshot(
+        event.content_id, event.course_id, event.lesson_id, event.version_number,
+        "TEXT", "Lesson source", "eligible", None, None, None, None))
+    lesson_ids = tuple(event.lesson_id for event in events)
+    digest = sha256("\n".join(sorted(str(value) for value in lesson_ids)).encode()).hexdigest()
+    request_id = uuid4()
+    now = int(datetime.now(timezone.utc).timestamp())
+    token = jwt.encode({
+        "iss": "oep-core-lms", "aud": "m7-ai-tutor", "scope": "ai:student",
+        "sub": str(user), "course_id": str(course), "request_id": str(request_id),
+        "jti": str(uuid4()), "iat": now, "nbf": now, "exp": now + 45,
+        "lesson_scope_sha256": digest,
+    }, SECRET, algorithm="HS256")
+    path = f"/internal/v1/ai/courses/{course}/conversations/{conversation}/messages"
+    with TestClient(create_app()) as client:
+        for event, (_, _, _, _, keyword, page, heading, json_path) in zip(events, sources):
+            model.keyword = keyword
+            response = client.post(
+                path,
+                headers={"Authorization": "Bearer " + token,
+                         "X-Request-Id": str(request_id),
+                         "Idempotency-Key": str(uuid4())},
+                json={"message": f"Explain {keyword}",
+                      "readable_lesson_ids": [str(value) for value in lesson_ids]},
+            )
+            assert response.status_code == 201, response.text
+            answer = response.json()["assistant_message"]
+            assert answer["answer_status"] == "ANSWERED"
+            assert len(answer["citations"]) == 1
+            citation = answer["citations"][0]
+            assert citation["content_id"] == str(event.content_id)
+            assert (citation["page_number"], citation["heading"],
+                    citation["json_path"]) == (page, heading, json_path)
 
 
 def test_download_rejects_wrong_origin_redirect_and_size() -> None:

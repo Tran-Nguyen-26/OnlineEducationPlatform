@@ -84,6 +84,7 @@ The M7 design and OpenAPI describe intended behavior, not implemented endpoints.
 ### F6. Functional review/demo
 
 - [ ] Demonstrate an authorized student asking from all four supported formats, correct citations, insufficient-evidence refusal, unavailable-index state, foreign-course/foreign-user denial and content deletion with no stale answer.
+  - [x] Exercise the complete M7 worker-to-chat path for TEXT, PDF, Markdown and JSON on disposable pgvector PostgreSQL with fake source, embedding and generation providers; verify each answer cites the correct source and page/heading/JSON path. The live Java/Python, browser and provider demo remains open.
 - [ ] Update the M7 design, OpenAPI and backend integration docs with the implemented behavior and mark functional checklist items only after verification.
 
 ### F7. Later functional enhancement
