@@ -89,7 +89,8 @@ The M7 design and OpenAPI describe intended behavior, not implemented endpoints.
 
 - [ ] Demonstrate an authorized student asking from all four supported formats, correct citations, insufficient-evidence refusal, unavailable-index state, foreign-course/foreign-user denial and content deletion with no stale answer.
   - [x] Exercise the complete M7 worker-to-chat path for TEXT, PDF, Markdown and JSON on disposable pgvector PostgreSQL with fake source, embedding and generation providers; verify each answer cites the correct source and page/heading/JSON path. The live Java/Python, browser and provider demo remains open.
-  - [x] Exercise real gateway, M2, outbox relay, RabbitMQ, M7 consumer/worker and student chat for seeded TEXT using fake embedding/generation providers. Four sources reached `READY`; a student answer saved a current M2 citation and could be read from history. Live model, file formats, deletion and browser review remain open.
+  - [x] Exercise real gateway, M2, outbox relay, RabbitMQ, M7 consumer/worker and student chat for seeded TEXT using fake embedding/generation providers. Four sources reached `READY`; a student answer saved a current M2 citation and could be read from history. Live model, file formats and browser review remain open.
+  - [x] Exercise real M2/M7 lifecycle, deletion and owner isolation: archiving denies public Student access and an older private assertion, republishing restores access, deleting a cited TEXT source makes the next answer omit it, and a second Student cannot read the first Student's conversation. Verified on the disposable local stack with fake model providers. Live provider, four-format process demo, insufficient-evidence review and browser review remain open.
 - [ ] Update the M7 design, OpenAPI and backend integration docs with the implemented behavior and mark functional checklist items only after verification.
 
 ### F7. Later functional enhancement
