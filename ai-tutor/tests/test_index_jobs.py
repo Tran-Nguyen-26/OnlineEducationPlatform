@@ -206,6 +206,52 @@ def test_private_admin_index_status_lists_queue_ready_and_failures_without_sourc
 
 
 @pytest.mark.integration
+def test_admin_status_shows_queued_retry_of_failed_current_version(
+    job_dsn: str, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AI_TUTOR_SERVICE_JWT_SECRET", SECRET)
+    monkeypatch.setenv("AI_TUTOR_DATABASE_URL", job_dsn)
+    monkeypatch.setenv("AI_TUTOR_EMBEDDING_SPACE_KEY", "retry-space")
+    course, lesson, content = uuid4(), uuid4(), uuid4()
+    with psycopg.connect(job_dsn, autocommit=True) as connection:
+        failed, _ = enqueue_index_event(connection, IndexEvent(
+            uuid4(), content, course, lesson, 1, "UPSERT"))
+        connection.execute(
+            "UPDATE ai_tutor.ai_index_jobs SET status = 'FAILED', "
+            "error_code = 'INDEX_FAILED' WHERE id = %s", (failed["id"],),
+        )
+        connection.execute(
+            "INSERT INTO ai_tutor.ai_source_revisions "
+            "(id, content_id, version_number, course_id, lesson_id, content_type, "
+            "source_title, state, embedding_space_key) "
+            "VALUES (%s, %s, 1, %s, %s, 'TEXT', 'Retry lesson', 'FAILED', 'retry-space')",
+            (uuid4(), content, course, lesson),
+        )
+        enqueue_index_event(connection, IndexEvent(
+            uuid4(), content, course, lesson, 1, "UPSERT"))
+    request_id = uuid4()
+    auth = {"Authorization": "Bearer " + _token(request_id),
+            "X-Request-Id": str(request_id)}
+    with TestClient(create_app()) as client:
+        response = client.get(f"/internal/v1/ai/courses/{course}/index-status",
+                              headers=auth)
+        student_auth = {
+            "Authorization": "Bearer " + _token(
+                request_id, scope="ai:student", subject=str(uuid4()),
+                course_id=str(course)),
+            "X-Request-Id": str(request_id),
+        }
+        readiness = client.get(f"/internal/v1/ai/courses/{course}/status",
+                               headers=student_auth)
+    assert response.status_code == 200
+    assert response.json()["items"][0]["state"] == "QUEUED"
+    assert response.json()["items"][0]["error_code"] is None
+    assert readiness.status_code == 200
+    assert (readiness.json()["status"], readiness.json()["indexing_sources"]) == (
+        "INDEXING", 1)
+
+
+@pytest.mark.integration
 def test_private_index_routes_enforce_service_scope_and_event_replay(
     job_dsn: str, monkeypatch: pytest.MonkeyPatch,
 ) -> None:

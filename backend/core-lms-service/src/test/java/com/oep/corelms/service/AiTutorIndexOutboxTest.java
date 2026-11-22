@@ -100,6 +100,27 @@ class AiTutorIndexOutboxTest {
         org.junit.jupiter.api.Assertions.assertNotEquals(firstId, nextVersionId);
     }
 
+    @Test
+    void retryIdentityChangesOnlyAfterNewFailedAttempt() throws Exception {
+        EntityManager em = mock(EntityManager.class);
+        ObjectMapper mapper = new ObjectMapper();
+        AiTutorIndexOutbox outbox = new AiTutorIndexOutbox(mapper);
+        ReflectionTestUtils.setField(outbox, "em", em);
+        LessonContent content = source(ContentType.TEXT, UploadStatus.AVAILABLE);
+
+        outbox.publishRetryIfEligible(content, "2026-11-22T00:00:00Z");
+        outbox.publishRetryIfEligible(content, "2026-11-22T00:00:00Z");
+        outbox.publishRetryIfEligible(content, "2026-11-22T00:01:00Z");
+        var captured = org.mockito.ArgumentCaptor.forClass(OutboxEvent.class);
+        verify(em, times(3)).persist(captured.capture());
+        var events = captured.getAllValues();
+        String first = mapper.readTree(events.get(0).getPayload()).path("event_id").asText();
+        String repeated = mapper.readTree(events.get(1).getPayload()).path("event_id").asText();
+        String later = mapper.readTree(events.get(2).getPayload()).path("event_id").asText();
+        assertEquals(first, repeated);
+        org.junit.jupiter.api.Assertions.assertNotEquals(first, later);
+    }
+
     private static LessonContent source(ContentType type, UploadStatus status) {
         Course course = new Course();
         course.setId(UUID.randomUUID());

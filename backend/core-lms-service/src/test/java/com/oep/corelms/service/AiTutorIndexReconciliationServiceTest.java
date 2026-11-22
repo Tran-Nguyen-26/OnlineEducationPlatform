@@ -38,20 +38,27 @@ class AiTutorIndexReconciliationServiceTest {
         LessonContent older = source(course, ContentType.PDF, UploadStatus.AVAILABLE, 3);
         LessonContent current = source(course, ContentType.TEXT, UploadStatus.AVAILABLE, 2);
         LessonContent pending = source(course, ContentType.FILE, UploadStatus.PENDING, 1);
+        LessonContent failed = source(course, ContentType.TEXT, UploadStatus.AVAILABLE, 1);
+        LessonContent unsupported = source(course, ContentType.PDF, UploadStatus.AVAILABLE, 1);
         when(index.status(courseId)).thenReturn(mapper.readTree("{\"items\":["
-                + item(older, 2) + "," + item(current, 2) + "]}"));
+                + item(older, 2) + "," + item(current, 2) + ","
+                + item(failed, 1).replace("READY", "FAILED") + ","
+                + item(unsupported, 1).replace("READY", "UNSUPPORTED") + "]}"));
         when(courses.findById(courseId)).thenReturn(Optional.of(course));
         when(contents.findByLesson_Module_Course_Id(courseId))
-                .thenReturn(List.of(absent, older, current, pending));
+                .thenReturn(List.of(absent, older, current, pending, failed, unsupported));
         when(outbox.publishRecoveryIfEligible(absent)).thenReturn(true);
         when(outbox.publishRecoveryIfEligible(older)).thenReturn(true);
         when(outbox.publishRecoveryIfEligible(pending)).thenReturn(false);
+        when(outbox.publishRetryIfEligible(failed, "2026-11-22T00:00:00Z")).thenReturn(true);
 
-        assertEquals(2, service.reconcile(courseId));
+        assertEquals(3, service.reconcile(courseId));
         verify(outbox).publishRecoveryIfEligible(absent);
         verify(outbox).publishRecoveryIfEligible(older);
         verify(outbox).publishRecoveryIfEligible(pending);
+        verify(outbox).publishRetryIfEligible(failed, "2026-11-22T00:00:00Z");
         verify(outbox, never()).publishRecoveryIfEligible(current);
+        verify(outbox, never()).publishRetryIfEligible(eq(unsupported), any());
     }
 
     @Test
@@ -95,6 +102,6 @@ class AiTutorIndexReconciliationServiceTest {
 
     private static String item(LessonContent content, int version) {
         return "{\"content_id\":\"" + content.getId() + "\",\"version_number\":"
-                + version + "}";
+                + version + ",\"state\":\"READY\",\"updated_at\":\"2026-11-22T00:00:00Z\"}";
     }
 }

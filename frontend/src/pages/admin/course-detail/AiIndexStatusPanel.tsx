@@ -60,7 +60,7 @@ export function AiIndexStatusPanel({ courseId }: { courseId: string }) {
           {reconcile.isPending ? 'Đang đối chiếu...' : 'Đồng bộ lại tài liệu'}
         </button>
         {reconcile.isSuccess && <span className="text-xs text-slate-600">
-          Đã gửi lại {reconcile.data.enqueued} tài liệu còn thiếu; trạng thái sẽ cập nhật sau khi xử lý.
+          Đã gửi lại {reconcile.data.enqueued} tài liệu cần đồng bộ hoặc thử lại; trạng thái sẽ cập nhật sau khi xử lý.
         </span>}
         {reconcile.isError && <span className="text-xs text-rose-700">
           Không đồng bộ được: {getApiErrorMessage(reconcile.error)}

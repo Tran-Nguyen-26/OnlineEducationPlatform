@@ -462,12 +462,13 @@ paths:
     post:
       tags: [AI Tutor Admin Operations]
       operationId: reconcileAiCourseIndex
-      summary: Enqueue eligible M2 sources missing from M7's index state
+      summary: Recover missing, older or failed eligible M2 sources
       description: |
         Admin-only M2 operation. Compare current eligible PUBLISHED course
         content versions with M7-known jobs and revisions. Write stable-ID
-        recovery events to the M2 outbox for missing or older versions.
-        This does not force retry of failed or unsupported current versions.
+        recovery events to the M2 outbox for missing or older versions and
+        retry events for FAILED current versions. Repeated retries for the
+        same failed job deduplicate. UNSUPPORTED sources are not retried.
       parameters:
         - $ref: '#/components/parameters/CourseId'
       responses:

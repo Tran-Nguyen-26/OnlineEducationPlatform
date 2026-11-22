@@ -20,6 +20,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "oep.ai-tutor", name = "enabled", havingValue = "true")
 public class AiTutorIndexReconciliationService {
+    private record IndexedSource(int version, String state, String updatedAt) {}
+
     private final AiTutorAdminIndexService index;
     private final CourseRepository courses;
     private final LessonContentRepository contents;
@@ -28,12 +30,16 @@ public class AiTutorIndexReconciliationService {
     @Transactional
     public int reconcile(UUID courseId) {
         JsonNode status = index.status(courseId);
-        Map<UUID, Integer> indexed = new HashMap<>();
+        Map<UUID, IndexedSource> indexed = new HashMap<>();
         for (JsonNode item : status.path("items")) {
             try {
                 UUID contentId = UUID.fromString(item.path("content_id").asText());
                 int version = item.path("version_number").intValue();
-                if (version < 1 || indexed.putIfAbsent(contentId, version) != null) {
+                String state = item.path("state").asText();
+                String updatedAt = item.path("updated_at").asText();
+                if (version < 1 || state.isBlank() || ("FAILED".equals(state) && updatedAt.isBlank())
+                        || indexed.putIfAbsent(contentId,
+                                new IndexedSource(version, state, updatedAt)) != null) {
                     throw new IllegalArgumentException("Invalid or repeated source version");
                 }
             } catch (IllegalArgumentException exception) {
@@ -47,8 +53,12 @@ public class AiTutorIndexReconciliationService {
 
         int enqueued = 0;
         for (var content : contents.findByLesson_Module_Course_Id(courseId)) {
-            if (indexed.getOrDefault(content.getId(), 0) < content.getVersionNumber()
-                    && outbox.publishRecoveryIfEligible(content)) {
+            IndexedSource remote = indexed.get(content.getId());
+            if (remote == null || remote.version() < content.getVersionNumber()) {
+                if (outbox.publishRecoveryIfEligible(content)) enqueued++;
+            } else if (remote.version() == content.getVersionNumber()
+                    && "FAILED".equals(remote.state())
+                    && outbox.publishRetryIfEligible(content, remote.updatedAt())) {
                 enqueued++;
             }
         }

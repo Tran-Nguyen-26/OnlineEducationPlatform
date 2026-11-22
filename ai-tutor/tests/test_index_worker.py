@@ -21,6 +21,7 @@ from pypdf import PdfWriter
 from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 from oep_ai_tutor.index_jobs import IndexEvent, enqueue_index_event
+from oep_ai_tutor.embeddings import EmbeddingProviderError
 from oep_ai_tutor import chat_routes
 from oep_ai_tutor.app import create_app
 from oep_ai_tutor.generation import GenerationResult
@@ -190,6 +191,50 @@ def test_last_retry_fails_permanently_and_releases_processing_revision(worker_ds
         assert not worker.run_once()
     finally:
         worker.client.close()
+
+
+@pytest.mark.integration
+def test_new_event_retries_failed_revision_after_provider_recovers(worker_dsn: str) -> None:
+    first = IndexEvent(uuid4(), uuid4(), uuid4(), uuid4(), 1, "UPSERT")
+    with psycopg.connect(worker_dsn, autocommit=True) as connection:
+        job, _ = enqueue_index_event(connection, first)
+        connection.execute("UPDATE ai_tutor.ai_index_jobs SET attempt_count = 2 WHERE id = %s",
+                           (job["id"],))
+    worker = _worker(worker_dsn, first, kind="TEXT", payload="recovered evidence")
+
+    class FailingEmbedding(FakeEmbedding):
+        def embed_passages(self, passages: list[str]) -> list[list[float]]:
+            raise EmbeddingProviderError("provider unavailable")
+
+    worker.embedding = FailingEmbedding()
+    try:
+        assert worker.run_once()
+    finally:
+        worker.client.close()
+    with psycopg.connect(worker_dsn, row_factory=dict_row) as connection:
+        revision = connection.execute(
+            "SELECT state FROM ai_tutor.ai_source_revisions WHERE content_id = %s",
+            (first.content_id,),
+        ).fetchone()
+    assert revision["state"] == "FAILED"
+
+    retry = IndexEvent(uuid4(), first.content_id, first.course_id, first.lesson_id, 1, "UPSERT")
+    with psycopg.connect(worker_dsn, autocommit=True) as connection:
+        enqueue_index_event(connection, retry)
+    worker = _worker(worker_dsn, retry, kind="TEXT", payload="recovered evidence")
+    try:
+        assert worker.run_once()
+        assert len(worker.store.query(course_id=first.course_id,
+                                      lesson_ids=(first.lesson_id,), space_key="test-space",
+                                      vector=[1.0, 0.0, 0.0], limit=5)) == 1
+    finally:
+        worker.client.close()
+    with psycopg.connect(worker_dsn, row_factory=dict_row) as connection:
+        revision = connection.execute(
+            "SELECT state FROM ai_tutor.ai_source_revisions WHERE content_id = %s",
+            (first.content_id,),
+        ).fetchone()
+    assert revision["state"] == "READY"
 
 
 @pytest.mark.integration

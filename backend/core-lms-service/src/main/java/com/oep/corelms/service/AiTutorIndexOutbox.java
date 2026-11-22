@@ -40,6 +40,18 @@ public class AiTutorIndexOutbox {
         return publishIfEligible(content, eventId);
     }
 
+    /** A new failure timestamp permits a retry; repeated clicks for that failure deduplicate. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public boolean publishRetryIfEligible(LessonContent content, String failedAt) {
+        if (failedAt == null || failedAt.isBlank()) {
+            throw new IllegalArgumentException("A failed job timestamp is required");
+        }
+        UUID eventId = UUID.nameUUIDFromBytes(("ai-tutor-retry:" + content.getId()
+                + ":" + content.getVersionNumber() + ":" + failedAt)
+                .getBytes(StandardCharsets.UTF_8));
+        return publishIfEligible(content, eventId);
+    }
+
     private boolean publishIfEligible(LessonContent content, UUID eventId) {
         if (content.getUploadStatus() != UploadStatus.AVAILABLE
                 || content.getLesson().getModule().getCourse().getLifecycleStatus() != CourseLifecycleStatus.PUBLISHED
