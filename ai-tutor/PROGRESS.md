@@ -26,12 +26,13 @@ Updated: 2026-11-22 (Asia/Saigon). Branch: `dev-2`. Commits are local only; **do
 - Admin processing visibility verification: M7's signed metadata-only course index-status route, M2's Admin management proxy and course-content panel passed focused Python/Java tests, the full M7 suite (98 passed, one RabbitMQ skip), the full core LMS suite (77/77 including Docker-backed Flyway), production frontend build and OpenAPI parse. The local PowerShell environment loader was checked with a disposable file on E.
 - Four-format worker-to-chat verification: TEXT, PDF, Markdown and JSON were indexed and cited through the private student send route on disposable pgvector PostgreSQL, with fake source, embedding and generation providers. The full M7 suite passed 99 tests, one RabbitMQ skip and one upstream Starlette warning on a fresh disposable database. Live Java/Python, browser and provider verification remain open.
 - Admin on-demand recovery: M2 compares eligible content versions with M7-known states and writes stable-ID recovery events to its transactional outbox for missing/older versions. The content tab has a recovery button. Focused Java tests passed; full core LMS suite passed 80/80 including Docker-backed Flyway, frontend production build passed and OpenAPI YAML parsed. Unattended reconciliation, live Java/Python process checks and live providers remain open.
+- Scheduled recovery: M2 now runs the same published-course audit daily at 04:00 under ShedLock and continues after an individual course fails. Focused scheduler test and the full core LMS suite (81/81 including Docker-backed Flyway) passed.
 
 ## Resume from here
 
 1. Check `git status --short` and the latest commit. The only expected untracked path after the pgvector adapter commit is `frontend/test-results/`.
 2. Finish Java-to-Python process verification, four-format question demos and browser review; configure live Jina/Groq credentials through local environment when available. Audit old in-flight file uploads when deploying the replacement handshake.
-3. Extend on-demand per-course recovery to unattended resynchronization of missed events. Verify end to end, update docs and keep local commits only.
+3. Verify the Java-to-Python processes together and audit missed course-access acknowledgements; update docs and keep local commits only.
 4. Complete functional tests and demo targets in the checklist; non-functional work follows afterward. Update docs and commit each finished, tested slice. Never push.
 
 ## User action
