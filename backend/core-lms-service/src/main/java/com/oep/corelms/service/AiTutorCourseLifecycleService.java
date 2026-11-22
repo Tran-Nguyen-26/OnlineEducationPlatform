@@ -58,6 +58,16 @@ public class AiTutorCourseLifecycleService {
 
     public CourseResponse updateStatus(UUID courseId, CourseLifecycleStatus target) {
         CourseResponse response = tx.execute(status -> courses.updateStatus(courseId, target));
+        synchronize(response);
+        return response;
+    }
+
+    /** Repair a missed acknowledgement without mutating the authoritative M2 course. */
+    public void synchronize(UUID courseId) {
+        synchronize(courses.get(courseId));
+    }
+
+    private void synchronize(CourseResponse response) {
         if (response == null || response.version() == null) {
             throw new BusinessException(ErrorCode.AI_TUTOR_UNAVAILABLE,
                     "Course version is unavailable for AI Tutor synchronization");
@@ -65,7 +75,7 @@ public class AiTutorCourseLifecycleService {
         UUID requestId = UUID.randomUUID();
         try {
             var acknowledgement = client.put()
-                    .uri("/internal/v1/ai/courses/{courseId}/access", courseId)
+                    .uri("/internal/v1/ai/courses/{courseId}/access", response.id())
                     .contentType(MediaType.APPLICATION_JSON)
                     .header("Authorization", "Bearer " + issuer.issueIndexer(requestId))
                     .header("X-Request-Id", requestId.toString())
@@ -80,6 +90,5 @@ public class AiTutorCourseLifecycleService {
             throw new BusinessException(ErrorCode.AI_TUTOR_UNAVAILABLE,
                     "AI Tutor could not acknowledge course access state");
         }
-        return response;
     }
 }

@@ -45,6 +45,7 @@ class AiTutorCourseLifecycleServiceTest {
         CourseResponse response = mock(CourseResponse.class);
         when(response.lifecycleStatus()).thenReturn(lifecycle);
         when(response.version()).thenReturn(version);
+        when(response.id()).thenReturn(courseId);
         when(courses.updateStatus(courseId, lifecycle)).thenReturn(response);
         return response;
     }
@@ -82,6 +83,22 @@ class AiTutorCourseLifecycleServiceTest {
                 .andRespond(withStatus(HttpStatus.NO_CONTENT));
         service.updateStatus(courseId, CourseLifecycleStatus.ARCHIVED);
         verify(courses, times(2)).updateStatus(courseId, CourseLifecycleStatus.ARCHIVED);
+        server.verify();
+    }
+
+    @Test
+    void resendsCurrentAccessWithoutUpdatingTheCourse() {
+        CourseResponse current = response(CourseLifecycleStatus.ARCHIVED, 11);
+        when(courses.get(courseId)).thenReturn(current);
+        server.expect(requestTo("http://ai-tutor.test/internal/v1/ai/courses/" + courseId + "/access"))
+                .andExpect(content().json("{\"course_version\":11,\"active\":false}"))
+                .andRespond(withStatus(HttpStatus.NO_CONTENT));
+
+        service.synchronize(courseId);
+
+        verify(courses).get(courseId);
+        verify(courses, never()).updateStatus(any(), any());
+        verify(txManager, never()).commit(any());
         server.verify();
     }
 }

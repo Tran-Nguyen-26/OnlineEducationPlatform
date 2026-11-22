@@ -1,6 +1,7 @@
 package com.oep.corelms.scheduler;
 
 import com.oep.corelms.repository.CourseRepository;
+import com.oep.corelms.service.AiTutorCourseLifecycleService;
 import com.oep.corelms.service.AiTutorIndexReconciliationService;
 import com.oep.coremodel.entity.course.Course;
 import com.oep.coremodel.enums.CourseLifecycleStatus;
@@ -15,22 +16,32 @@ class AiTutorIndexReconciliationSchedulerTest {
     @Test
     void continuesAfterOneCourseFails() {
         CourseRepository courses = mock(CourseRepository.class);
+        AiTutorCourseLifecycleService lifecycle = mock(AiTutorCourseLifecycleService.class);
         AiTutorIndexReconciliationService reconciliation =
                 mock(AiTutorIndexReconciliationService.class);
         Course first = new Course();
         first.setId(UUID.randomUUID());
+        first.setLifecycleStatus(CourseLifecycleStatus.PUBLISHED);
         Course second = new Course();
         second.setId(UUID.randomUUID());
-        when(courses.findByLifecycleStatusOrderByCreatedAtDesc(CourseLifecycleStatus.PUBLISHED))
-                .thenReturn(List.of(first, second));
-        when(reconciliation.reconcile(first.getId()))
-                .thenThrow(new IllegalStateException("M7 unavailable"));
+        second.setLifecycleStatus(CourseLifecycleStatus.PUBLISHED);
+        Course archived = new Course();
+        archived.setId(UUID.randomUUID());
+        archived.setLifecycleStatus(CourseLifecycleStatus.ARCHIVED);
+        when(courses.findAllByOrderByCreatedAtDesc())
+                .thenReturn(List.of(first, second, archived));
+        doThrow(new IllegalStateException("M7 unavailable"))
+                .when(lifecycle).synchronize(first.getId());
         when(reconciliation.reconcile(second.getId())).thenReturn(2);
 
-        new AiTutorIndexReconciliationScheduler(courses, reconciliation)
-                .reconcilePublishedCourses();
+        new AiTutorIndexReconciliationScheduler(courses, lifecycle, reconciliation)
+                .reconcileCourseState();
 
-        verify(reconciliation).reconcile(first.getId());
+        verify(lifecycle).synchronize(first.getId());
+        verify(lifecycle).synchronize(second.getId());
+        verify(lifecycle).synchronize(archived.getId());
+        verify(reconciliation, never()).reconcile(first.getId());
         verify(reconciliation).reconcile(second.getId());
+        verify(reconciliation, never()).reconcile(archived.getId());
     }
 }
