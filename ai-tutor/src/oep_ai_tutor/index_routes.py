@@ -74,6 +74,46 @@ def index_job(jobId: UUID, request: Request) -> dict:
     return _public_job(row)
 
 
+@router.get("/courses/{courseId}/index-status")
+def course_index_status(courseId: UUID, request: Request) -> dict:
+    """Operational source state for M2's Admin route; no text or file grants."""
+    space_key = request.app.state.embedding_space_key
+    if not space_key:
+        raise AiTutorError("AI_TUTOR_UNAVAILABLE", 503, "AI Tutor is unavailable")
+    with database(request) as connection:
+        rows = connection.execute(
+            "WITH latest_revision AS ("
+            " SELECT DISTINCT ON (content_id) content_id, version_number, "
+            " source_title, state, updated_at FROM ai_tutor.ai_source_revisions "
+            " WHERE course_id = %s AND embedding_space_key = %s "
+            " ORDER BY content_id, version_number DESC, created_at DESC, id DESC"
+            "), latest_job AS ("
+            " SELECT DISTINCT ON (content_id) content_id, version_number, action, "
+            " status, error_code, updated_at FROM ai_tutor.ai_index_jobs "
+            " WHERE course_id = %s ORDER BY content_id, version_number DESC, "
+            " action ASC, created_at DESC, id DESC"
+            ") SELECT coalesce(revision.content_id, job.content_id) AS content_id, "
+            " greatest(revision.version_number, job.version_number) AS version_number, "
+            " CASE WHEN job.version_number > coalesce(revision.version_number, 0) "
+            " THEN NULL ELSE revision.source_title END AS source_title, "
+            " greatest(job.updated_at, revision.updated_at) AS updated_at, "
+            " CASE WHEN job.action = 'DEACTIVATE' AND job.version_number >= "
+            " coalesce(revision.version_number, 0) THEN 'INACTIVE' "
+            " WHEN job.version_number > coalesce(revision.version_number, 0) THEN "
+            " CASE WHEN job.status = 'SUCCEEDED' THEN 'INACTIVE' ELSE job.status END "
+            " ELSE revision.state END AS state, "
+            " CASE WHEN job.version_number > coalesce(revision.version_number, 0) "
+            " OR (job.version_number = revision.version_number "
+            " AND revision.state IN ('FAILED', 'UNSUPPORTED')) "
+            " THEN job.error_code ELSE NULL END AS error_code "
+            " FROM latest_revision AS revision FULL OUTER JOIN latest_job AS job "
+            " USING (content_id) ORDER BY content_id",
+            (courseId, space_key, courseId),
+        ).fetchall()
+    return {"course_id": courseId, "embedding_space_key": space_key,
+            "items": rows}
+
+
 @router.post("/sources/{contentId}/deactivate", status_code=204)
 def deactivate(contentId: UUID, body: DeactivateBody, request: Request) -> Response:
     with database(request) as connection:

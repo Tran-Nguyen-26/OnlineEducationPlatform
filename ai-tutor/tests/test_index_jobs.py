@@ -165,6 +165,47 @@ def test_versioned_course_access_hides_vectors_and_rejects_old_student_assertion
 
 
 @pytest.mark.integration
+def test_private_admin_index_status_lists_queue_ready_and_failures_without_source_text(
+    job_dsn: str, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AI_TUTOR_SERVICE_JWT_SECRET", SECRET)
+    monkeypatch.setenv("AI_TUTOR_DATABASE_URL", job_dsn)
+    monkeypatch.setenv("AI_TUTOR_EMBEDDING_SPACE_KEY", "admin-status-space")
+    course, lesson, queued_content, ready_content, failed_content = (uuid4() for _ in range(5))
+    with psycopg.connect(job_dsn, autocommit=True) as connection:
+        enqueue_index_event(connection, IndexEvent(
+            uuid4(), queued_content, course, lesson, 1, "UPSERT"))
+        failed, _ = enqueue_index_event(connection, IndexEvent(
+            uuid4(), failed_content, course, lesson, 1, "UPSERT"))
+        connection.execute(
+            "UPDATE ai_tutor.ai_index_jobs SET status = 'FAILED', "
+            "error_code = 'OCR_REQUIRED' WHERE id = %s", (failed["id"],),
+        )
+        connection.execute(
+            "INSERT INTO ai_tutor.ai_source_revisions "
+            "(id, content_id, version_number, course_id, lesson_id, content_type, "
+            "source_title, state, embedding_space_key) "
+            "VALUES (%s, %s, 1, %s, %s, 'TEXT', 'Ready lesson', 'READY', 'admin-status-space')",
+            (uuid4(), ready_content, course, lesson),
+        )
+    request_id = uuid4()
+    auth = {"Authorization": "Bearer " + _token(request_id),
+            "X-Request-Id": str(request_id)}
+    path = f"/internal/v1/ai/courses/{course}/index-status"
+    with TestClient(create_app()) as client:
+        assert client.get(path).status_code == 401
+        result = client.get(path, headers=auth)
+    assert result.status_code == 200
+    body = result.json()
+    assert body["embedding_space_key"] == "admin-status-space"
+    states = {row["content_id"]: row for row in body["items"]}
+    assert states[str(queued_content)]["state"] == "QUEUED"
+    assert states[str(ready_content)]["state"] == "READY"
+    assert states[str(failed_content)]["error_code"] == "OCR_REQUIRED"
+    assert "chunk_text" not in result.text and "download_url" not in result.text
+
+
+@pytest.mark.integration
 def test_private_index_routes_enforce_service_scope_and_event_replay(
     job_dsn: str, monkeypatch: pytest.MonkeyPatch,
 ) -> None:

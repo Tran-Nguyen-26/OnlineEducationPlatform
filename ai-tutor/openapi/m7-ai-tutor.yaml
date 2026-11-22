@@ -438,6 +438,51 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
 
+  /internal/v1/ai/courses/{courseId}/index-status:
+    get:
+      tags: [AI Tutor Internal Indexing]
+      operationId: getAiCourseIndexStatus
+      summary: Read source processing states for M2's Admin management route
+      description: |
+        Requires an ai:index service assertion. M2 checks the Admin role and
+        course before proxying; Admin clients never call M7 directly. Returns
+        source/job metadata only, without extracted text or file grants.
+      servers:
+        - url: http://ai-tutor:8000
+          description: Example private container DNS; replace in deployment
+      security:
+        - serviceAuth: []
+      x-internal-only: true
+      parameters:
+        - $ref: '#/components/parameters/CourseId'
+      responses:
+        '200':
+          description: Current M7-known source and job states for the course
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [course_id, embedding_space_key, items]
+                properties:
+                  course_id: { $ref: '#/components/schemas/Uuid' }
+                  embedding_space_key: { type: string }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [content_id, version_number, state, source_title, error_code, updated_at]
+                      properties:
+                        content_id: { $ref: '#/components/schemas/Uuid' }
+                        version_number: { type: integer, minimum: 1 }
+                        state: { type: string }
+                        source_title: { type: string, nullable: true }
+                        error_code: { type: string, nullable: true }
+                        updated_at: { type: string, format: date-time, nullable: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
   /internal/v1/ai/courses/{courseId}/access:
     put:
       tags: [AI Tutor Internal Indexing]

@@ -7,6 +7,7 @@ import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { Modal } from '../../../components/ui/Modal'
 import { ModuleItem } from './ModuleItem'
+import { AiIndexStatusPanel } from './AiIndexStatusPanel'
 
 export function ContentTab({ courseId }: { courseId: string }) {
   const queryClient = useQueryClient()
@@ -72,6 +73,7 @@ export function ContentTab({ courseId }: { courseId: string }) {
 
   return (
     <div>
+      <AiIndexStatusPanel courseId={courseId} />
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-slate-500">Cấu trúc: Chương (module) → Bài học (lesson) → Nội dung (video/tài liệu/văn bản).</p>
         <Button size="sm" onClick={openCreate}>
