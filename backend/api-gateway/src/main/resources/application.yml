@@ -86,6 +86,19 @@ spring:
                 redis-rate-limiter.replenishRate: 2
                 redis-rate-limiter.burstCapacity: 10
                 key-resolver: "#{@routeUserKeyResolver}"
+        - id: ai-tutor-send
+          uri: ${CORE_LMS_URL:http://localhost:8081}
+          predicates:
+            - Method=POST
+            - Path=/api/courses/*/ai/conversations/*/messages
+          metadata:
+            response-timeout: 100000
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+                key-resolver: "#{@routeUserKeyResolver}"
         # --- generic routes: retry idempotent reads with backoff, circuit-break the whole upstream ---------------
         - id: core-lms
           uri: ${CORE_LMS_URL:http://localhost:8081}

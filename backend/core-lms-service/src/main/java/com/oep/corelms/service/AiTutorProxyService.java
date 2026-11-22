@@ -54,7 +54,8 @@ public class AiTutorProxyService {
         }
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(2_000);
-        factory.setReadTimeout(10_000);
+        // Embedding and generation are sequential provider calls for a chat turn.
+        factory.setReadTimeout(90_000);
         return builder.baseUrl(baseUrl).requestFactory(factory).build();
     }
 

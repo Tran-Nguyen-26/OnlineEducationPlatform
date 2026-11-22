@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timezone
 import os
 from uuid import UUID, uuid4
@@ -39,12 +40,20 @@ class FakeEmbedding:
 
 class FakeGeneration:
     model = "fake"
-    answer = "The source states the answer. [1]"
+    answer = "The source states the answer. 【1†L1】"
 
     def generate(self, instructions, messages):
         assert "untrusted" in instructions.lower()
         assert "Untrusted source excerpts:" in messages[-1].content
         return GenerationResult(self.answer, 10, 12, self.model)
+
+
+def test_alternate_model_citation_markers_are_normalized() -> None:
+    assert chat_routes._normalize_citation_markers(
+        "Facts 【1】 and 【2†L3-L5】 and ［3］") == "Facts [1] and [2] and [3]"
+    assert chat_routes._looks_like_refusal(
+        "The course materials do not contain any information about Neptune City. [1]")
+    assert not chat_routes._looks_like_refusal("Python has int, float, str and bool. [1]")
 
 
 @pytest.fixture(scope="module")
@@ -99,9 +108,11 @@ def test_grounded_turn_replay_abstention_and_revocation(
                            "(id, user_id, course_id, title) VALUES (%s, %s, %s, 'Chat')",
                            (conversation, user, course))
     with TestClient(create_app()) as client:
-        headers = _headers(user, course, (lesson,), uuid4())
+        replay_key = uuid4()
+        headers = _headers(user, course, (lesson,), replay_key)
         body = {"message": "What is stated?", "readable_lesson_ids": [str(lesson)]}
-        assert client.post(path, headers=headers, json=body).status_code == 409
+        assert client.post(path, headers=_headers(user, course, (lesson,), replay_key),
+                           json=body).status_code == 409
         with psycopg.connect(chat_dsn) as connection:
             connection.execute(
                 "INSERT INTO ai_tutor.ai_source_revisions "
@@ -127,11 +138,13 @@ def test_grounded_turn_replay_abstention_and_revocation(
         assert answered.status_code == 201, answered.text
         result = answered.json()
         assert result["assistant_message"]["answer_status"] == "ANSWERED"
+        assert result["assistant_message"]["content"] == "The source states the answer. [1]"
         assert result["assistant_message"]["citations"][0]["chunk_id"] == str(chunk)
         assert result["user_message"]["citations"] == []
-        replay = client.post(path, headers=headers, json=body)
+        replay = client.post(path, headers=_headers(user, course, (lesson,), replay_key),
+                             json=body)
         assert replay.status_code == 201 and replay.json() == result
-        conflict = client.post(path, headers=headers,
+        conflict = client.post(path, headers=_headers(user, course, (lesson,), replay_key),
                                json={**body, "message": "Different question"})
         assert conflict.status_code == 409
         assert conflict.json()["error"]["code"] == "IDEMPOTENCY_CONFLICT"
@@ -139,27 +152,40 @@ def test_grounded_turn_replay_abstention_and_revocation(
                                 json={**body, "readable_lesson_ids": []})
         assert no_lesson.status_code == 201
         assert no_lesson.json()["assistant_message"]["answer_status"] == "ABSTAINED"
-        monkeypatch.setattr(FakeGeneration, "answer", "Unsupported claim without a citation.")
+        original_retrieve = chat_routes.retrieve
+        monkeypatch.setattr(chat_routes, "retrieve", lambda *args, **kwargs: [
+            replace(item, score=0.05) for item in original_retrieve(*args, **kwargs)])
+        low_relevance = client.post(path, headers=_headers(user, course, (lesson,), uuid4()),
+                                    json=body)
+        assert low_relevance.status_code == 201
+        assert low_relevance.json()["assistant_message"]["answer_status"] == "ABSTAINED"
+        assert low_relevance.json()["assistant_message"]["citations"] == []
+        monkeypatch.setattr(chat_routes, "retrieve", original_retrieve)
+        monkeypatch.setattr(FakeGeneration, "answer",
+                            "The course materials do not contain enough information. 【1】")
         unsupported = client.post(path, headers=_headers(user, course, (lesson,), uuid4()),
                                   json=body)
         assert unsupported.status_code == 201
         assert unsupported.json()["assistant_message"]["answer_status"] == "ABSTAINED"
+        assert unsupported.json()["assistant_message"]["citations"] == []
         monkeypatch.setattr(chat_routes, "fetch_source",
                             lambda *_, **__: (_ for _ in ()).throw(SourceUnavailable()))
         unavailable = client.post(path, headers=_headers(user, course, (lesson,), uuid4()),
                                   json=body)
         assert unavailable.status_code == 409
         assert unavailable.json()["error"]["code"] == "AI_INDEX_NOT_READY"
-        assert client.post(path, headers=headers, json=body).status_code == 409
+        assert client.post(path, headers=_headers(user, course, (lesson,), replay_key),
+                           json=body).status_code == 409
         with psycopg.connect(chat_dsn) as connection:
             connection.execute("UPDATE ai_tutor.ai_source_revisions "
                                "SET state = 'INACTIVE', deactivated_at = now() WHERE id = %s",
                                (revision,))
-        stale = client.post(path, headers=headers, json=body)
+        stale = client.post(path, headers=_headers(user, course, (lesson,), replay_key),
+                            json=body)
         assert stale.status_code == 409
         with psycopg.connect(chat_dsn) as connection:
             count = connection.execute(
                 "SELECT count(*) FROM ai_tutor.ai_messages WHERE conversation_id = %s",
                 (conversation,),
             ).fetchone()[0]
-        assert count == 6
+        assert count == 8
