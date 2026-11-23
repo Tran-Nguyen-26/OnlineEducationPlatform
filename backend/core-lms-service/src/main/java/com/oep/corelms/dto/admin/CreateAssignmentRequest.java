@@ -17,5 +17,6 @@ public record CreateAssignmentRequest(
         Boolean allowLateSubmission,
         Boolean allowText,
         Boolean allowFiles,
-        @Positive BigDecimal maxScore) {
+        @Positive BigDecimal maxScore,
+        Boolean blindGrading) {
 }

@@ -16,5 +16,8 @@ public interface GradeAppealRepository extends JpaRepository<GradeAppeal, UUID> 
 
     List<GradeAppeal> findAllByOrderByCreatedAtDesc();
 
+    /** At most one appeal per graded item, whatever its outcome. */
+    boolean existsByTargetTypeAndTargetIdAndEnrollment_Id(String targetType, UUID targetId, UUID enrollmentId);
+
     boolean existsByTargetTypeAndTargetIdAndEnrollment_IdAndStatus(String targetType, UUID targetId, UUID enrollmentId, String status);
 }

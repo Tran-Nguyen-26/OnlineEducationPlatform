@@ -45,4 +45,9 @@ public class AssignmentSubmission extends BaseEntity {
 
     @Column(name = "is_late", nullable = false)
     private boolean late = false;
+
+    /** Optimistic lock: two instructors grading the same submission at once no longer overwrite each other silently. */
+    @jakarta.persistence.Version
+    @Column(name = "version", nullable = false)
+    private long version;
 }

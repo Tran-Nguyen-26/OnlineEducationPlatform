@@ -41,9 +41,33 @@ public class CourseCompletionService {
     private final CertificateService certificateService;
     private final WaitlistService waitlistService;
 
-    @Transactional(readOnly = true)
+    /** Viewing the status also finalises the course when every condition is met (BRD: completion is automatic, no manual click). */
+    @Transactional
     public CourseCompletionResponse status(UUID courseId, UUID studentId) {
-        return evaluate(courseId, requireEnrollment(courseId, studentId));
+        Enrollment e = requireEnrollment(courseId, studentId);
+        CourseCompletionResponse check = evaluate(courseId, e);
+        if (check.eligible() && e.getStatus() == EnrollmentStatus.ACTIVE) {
+            return finalizeCompletion(courseId, e);
+        }
+        return check;
+    }
+
+    /** Called after progress changes; never throws, does nothing unless the enrollment is ACTIVE and fully eligible. */
+    @Transactional
+    public void tryAutoComplete(UUID courseId, UUID studentId) {
+        enrollments.findByCourseIdAndStudentId(courseId, studentId)
+                .filter(e -> e.getStatus() == EnrollmentStatus.ACTIVE)
+                .filter(e -> evaluate(courseId, e).eligible())
+                .ifPresent(e -> finalizeCompletion(courseId, e));
+    }
+
+    private CourseCompletionResponse finalizeCompletion(UUID courseId, Enrollment e) {
+        e.setStatus(EnrollmentStatus.COMPLETED);
+        e.setCompletedAt(Instant.now());
+        Enrollment saved = enrollments.save(e);
+        certificateService.issueIfAbsent(saved);
+        waitlistService.promoteNext(courseId);
+        return evaluate(courseId, saved);
     }
 
     @Transactional
@@ -63,12 +87,7 @@ public class CourseCompletionService {
                             ? "Điểm tổng kết chưa đạt mức tối thiểu (" + check.passingPercent() + "%)"
                             : "Bạn chưa đáp ứng đủ yêu cầu hoàn thành khóa học (bài học bắt buộc, quiz, bài tập, chấm điểm)");
         }
-        e.setStatus(EnrollmentStatus.COMPLETED);
-        e.setCompletedAt(Instant.now());
-        Enrollment saved = enrollments.save(e);
-        certificateService.issueIfAbsent(saved);
-        waitlistService.promoteNext(courseId);
-        return evaluate(courseId, saved);
+        return finalizeCompletion(courseId, e);
     }
 
     private Enrollment requireEnrollment(UUID courseId, UUID studentId) {
@@ -88,7 +107,7 @@ public class CourseCompletionService {
         var course = e.getCourse();
         FinalGradeService.Standing st = finalGrades.standing(course, e);
         boolean completed = e.getStatus() == EnrollmentStatus.COMPLETED;
-        boolean passOk = course.getPassingPercent() == null || Boolean.TRUE.equals(st.passed());
+        boolean passOk = Boolean.TRUE.equals(st.passed());
         boolean eligible = doneRequired == required.size() && !required.isEmpty()
                 && st.quizzesAttempted() == st.quizzesTotal() && st.assignmentsSubmitted() == st.assignmentsTotal()
                 && st.pendingCount() == 0 && passOk;

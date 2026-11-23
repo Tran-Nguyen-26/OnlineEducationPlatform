@@ -44,6 +44,8 @@ public class AppealService {
 
     private static final String SUBMISSION = "ASSIGNMENT_SUBMISSION";
     private static final String ATTEMPT = "QUIZ_ATTEMPT";
+    /** BRD: an appeal must be filed within 7 days of the grade being published, once per item. */
+    private static final java.time.Duration APPEAL_WINDOW = java.time.Duration.ofDays(7);
 
     private final AuditTrail audit;
     private final GradeAppealRepository appeals;
@@ -69,6 +71,8 @@ public class AppealService {
             if (s.getStatus() != AssignmentStatus.GRADED) {
                 throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "Chỉ có thể phúc khảo bài đã được chấm");
             }
+            Instant gradedAt = grades.findBySubmission_Id(s.getId()).map(AssignmentGrade::getGradedAt).orElse(null);
+            requireWithinWindow(gradedAt);
             title = s.getAssignment().getTitle();
         } else if (ATTEMPT.equals(req.targetType())) {
             QuizAttempt a = attempts.findById(req.targetId())
@@ -77,6 +81,7 @@ public class AppealService {
             if (a.getStatus() == QuizAttemptStatus.IN_PROGRESS || quizResults.findByAttempt_Id(a.getId()).isEmpty()) {
                 throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "Chỉ có thể phúc khảo lượt làm đã nộp");
             }
+            requireWithinWindow(a.getSubmittedAt());
             title = a.getQuiz().getTitle() + " (lần " + a.getAttemptNumber() + ")";
         } else {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "Unknown targetType");
@@ -87,8 +92,8 @@ public class AppealService {
         if (enrollment.getStatus() != EnrollmentStatus.ACTIVE && enrollment.getStatus() != EnrollmentStatus.COMPLETED) {
             throw new BusinessException(ErrorCode.NOT_ENROLLED, "Enrollment is not active");
         }
-        if (appeals.existsByTargetTypeAndTargetIdAndEnrollment_IdAndStatus(req.targetType(), req.targetId(), enrollment.getId(), "OPEN")) {
-            throw new BusinessException(ErrorCode.ALREADY_ASSIGNED, "Bạn đã gửi yêu cầu phúc khảo cho mục này và đang chờ xử lý");
+        if (appeals.existsByTargetTypeAndTargetIdAndEnrollment_Id(req.targetType(), req.targetId(), enrollment.getId())) {
+            throw new BusinessException(ErrorCode.ALREADY_ASSIGNED, "Mỗi bài chỉ được phúc khảo 1 lần — bạn đã gửi yêu cầu cho mục này");
         }
         GradeAppeal ap = new GradeAppeal();
         ap.setEnrollment(enrollment);
@@ -131,9 +136,25 @@ public class AppealService {
     @Transactional
     public AppealDtos.AppealResponse resolve(UUID appealId, UUID userId, String role, AppealDtos.ResolveRequest req) {
         GradeAppeal ap = appeals.findById(appealId).orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Appeal not found"));
-        boolean allowed = "INSTRUCTOR".equals(role) && courseInstructors.existsByCourse_IdAndInstructor_Id(ap.getCourseId(), userId);
+        // BRD: the appeal goes to an instructor other than the original grader; if the grader is the course's only
+        // instructor there is nobody independent, so an Admin reviews it instead.
+        UUID firstGrader = originalGraderOf(ap);
+        boolean otherInstructorExists = courseInstructors.findByCourse_Id(ap.getCourseId()).stream()
+                .anyMatch(ci -> !ci.getInstructor().getId().equals(firstGrader));
+        boolean assignedInstructor = "INSTRUCTOR".equals(role) && courseInstructors.existsByCourse_IdAndInstructor_Id(ap.getCourseId(), userId);
+        boolean allowed;
+        if (assignedInstructor) {
+            allowed = !userId.equals(firstGrader);
+            if (!allowed) {
+                throw new BusinessException(ErrorCode.FORBIDDEN, otherInstructorExists
+                        ? "Bạn là người chấm lần đầu — phúc khảo phải do giảng viên khác xử lý"
+                        : "Bạn là giảng viên duy nhất của khóa này và là người chấm lần đầu — Admin sẽ xử lý phúc khảo");
+            }
+        } else {
+            allowed = "ADMIN".equals(role) && !otherInstructorExists;
+        }
         if (!allowed) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "Chỉ giáo viên phụ trách khóa học mới được xử lý phúc khảo");
+            throw new BusinessException(ErrorCode.FORBIDDEN, "Chỉ giáo viên phụ trách khóa học (không phải người chấm lần đầu) mới được xử lý phúc khảo");
         }
         if (!"OPEN".equals(ap.getStatus())) {
             throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "Appeal was already resolved");
@@ -156,6 +177,18 @@ public class AppealService {
                 (req.accepted() ? "Được chấp nhận" : "Không được chấp nhận") + scoreNote + ". Phản hồi: " + ap.getResponse(),
                 "appeal-resolved:" + ap.getId(), ap.getCourseId());
         return toResponse(ap);
+    }
+
+    private void requireWithinWindow(Instant publishedAt) {
+        if (publishedAt != null && Instant.now().isAfter(publishedAt.plus(APPEAL_WINDOW))) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "Đã quá thời hạn phúc khảo (7 ngày kể từ khi có điểm)");
+        }
+    }
+
+    /** Quiz attempts are auto-graded, so only assignment submissions have a human first grader. */
+    private UUID originalGraderOf(GradeAppeal ap) {
+        if (!SUBMISSION.equals(ap.getTargetType())) return null;
+        return grades.findBySubmission_Id(ap.getTargetId()).map(g -> g.getGradedBy().getId()).orElse(null);
     }
 
     private String applyNewScore(GradeAppeal ap, BigDecimal newScore, UUID userId) {

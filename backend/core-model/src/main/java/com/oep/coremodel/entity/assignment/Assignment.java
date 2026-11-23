@@ -53,6 +53,10 @@ public class Assignment extends BaseEntity {
     @Column(name = "allow_files", nullable = false)
     private boolean allowFiles = true;
 
+    /** BRD blind grading: graders see an anonymous label instead of the student's name/email. */
+    @Column(name = "blind_grading", nullable = false)
+    private boolean blindGrading = true;
+
     @Column(name = "max_score", nullable = false, precision = 5, scale = 2)
     private BigDecimal maxScore = new BigDecimal("100.00");
 

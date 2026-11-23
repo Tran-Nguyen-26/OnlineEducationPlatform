@@ -52,6 +52,7 @@ export function AssignmentRow({ courseId, assignment }: { courseId: string; assi
       const { data } = await apiClient.post<UploadUrlResponse>(`/api/submissions/${submissionId}/files/upload-url`, {
         fileName: file.name,
         mimeType,
+        fileSize: file.size,
       })
       const putResponse = await fetch(data.uploadUrl, { method: 'PUT', headers: { 'Content-Type': mimeType }, body: file })
       if (!putResponse.ok) throw new Error(`Tải file lên thất bại (HTTP ${putResponse.status})`)

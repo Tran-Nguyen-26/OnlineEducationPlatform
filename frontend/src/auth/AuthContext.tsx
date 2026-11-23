@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function register(email: string, password: string, fullName: string): Promise<MeResponse> {
-    const { data } = await apiClient.post<AuthResponse>('/api/auth/register', { email, password, fullName })
+    const { data } = await apiClient.post<AuthResponse>('/api/auth/register', { email, password, fullName, consent: true })
     tokenStore.setTokens(data.accessToken, data.refreshToken)
     return refreshMe()
   }

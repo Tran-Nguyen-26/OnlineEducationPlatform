@@ -12,6 +12,7 @@ export function RegisterPage() {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [consent, setConsent] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -55,9 +56,14 @@ export function RegisterPage() {
           className="mb-4"
         />
 
+        <label className="mb-4 flex items-start gap-2 text-sm text-slate-600">
+          <input type="checkbox" required checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1" />
+          <span>Tôi đồng ý để hệ thống thu thập và xử lý dữ liệu học tập của tôi (tiến độ học, nhật ký làm bài, kết quả) phục vụ việc học và đánh giá.</span>
+        </label>
+
         {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
-        <Button type="submit" disabled={submitting} className="w-full">
+        <Button type="submit" disabled={submitting || !consent} className="w-full">
           {submitting ? 'Đang tạo tài khoản...' : 'Đăng ký'}
         </Button>
 

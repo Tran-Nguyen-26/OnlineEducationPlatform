@@ -52,7 +52,7 @@ public class CourseMessageService {
     /** lessonId null = the course's general thread; non-null = that lesson's own thread — the two never mix. */
     @Transactional(readOnly = true)
     public List<MessageResponse> list(UUID courseId, UUID userId, String role, UUID lessonId) {
-        requireAccess(courseId, userId, role);
+        requireAccess(courseId, userId, role, false);
         return channels.findByCourse_Id(courseId)
                 .map(channel -> (lessonId == null
                         ? messages.findByChannel_IdAndLessonIsNullOrderByCreatedAtAsc(channel.getId())
@@ -64,7 +64,7 @@ public class CourseMessageService {
 
     @Transactional
     public MessageResponse post(UUID courseId, UUID userId, String role, String content, UUID lessonId) {
-        requireAccess(courseId, userId, role);
+        requireAccess(courseId, userId, role, true);
         Course course = courses.findById(courseId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Course not found"));
         Lesson lesson = lessonId == null ? null : lessons.findById(lessonId)
@@ -108,12 +108,13 @@ public class CourseMessageService {
         }
     }
 
-    private void requireAccess(UUID courseId, UUID userId, String role) {
+    /** Reading old Q&A stays open to COMPLETED students (archived read-only mode, BRD); posting needs an ACTIVE enrollment. */
+    private void requireAccess(UUID courseId, UUID userId, String role, boolean write) {
         boolean allowed = switch (role) {
             case "ADMIN" -> true;
             case "INSTRUCTOR" -> courseInstructors.existsByCourse_IdAndInstructor_Id(courseId, userId);
             default -> enrollments.findByCourseIdAndStudentId(courseId, userId)
-                    .filter(e -> e.getStatus() == EnrollmentStatus.ACTIVE)
+                    .filter(e -> e.getStatus() == EnrollmentStatus.ACTIVE || (!write && e.getStatus() == EnrollmentStatus.COMPLETED))
                     .isPresent();
         };
         if (!allowed) {
@@ -140,7 +141,7 @@ public class CourseMessageService {
     /** Only the message's author may attach files (max 3 per message, 10MB each, no executables). */
     @Transactional(readOnly = true)
     public AttachmentUpload requestAttachmentUpload(UUID courseId, UUID messageId, UUID userId, String role, String fileName, String mimeType, long fileSize) {
-        requireAccess(courseId, userId, role);
+        requireAccess(courseId, userId, role, true);
         Message m = ownMessage(courseId, messageId, userId);
         String ext = fileName == null || !fileName.contains(".") ? "" : fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase();
         if (BLOCKED_EXT.contains(ext)) {
@@ -159,7 +160,7 @@ public class CourseMessageService {
 
     @Transactional
     public MessageResponse confirmAttachment(UUID courseId, UUID messageId, UUID userId, String role, String objectKey, String fileName, String mimeType, long fileSize) {
-        requireAccess(courseId, userId, role);
+        requireAccess(courseId, userId, role, true);
         Message m = ownMessage(courseId, messageId, userId);
         if (objectKey == null || !objectKey.startsWith("message-attachments/")) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "Invalid attachment key");

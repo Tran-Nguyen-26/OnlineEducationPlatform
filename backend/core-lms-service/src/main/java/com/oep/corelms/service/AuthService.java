@@ -65,6 +65,7 @@ public class AuthService {
         user.setEmail(request.email());
         user.setRole(UserRole.STUDENT);
         user.setAccountStatus(AccountStatus.ACTIVE);
+        user.setConsentAt(java.time.Instant.now());
         user = users.save(user);
 
         AuthIdentity identity = new AuthIdentity();

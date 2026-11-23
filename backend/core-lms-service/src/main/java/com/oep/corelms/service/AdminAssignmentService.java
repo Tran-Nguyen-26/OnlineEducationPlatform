@@ -38,7 +38,7 @@ public class AdminAssignmentService {
         assignment.setLesson(resolveLesson(request.lessonId()));
         assignment.setCreatedBy(users.getReferenceById(adminId));
         applyFields(assignment, request.title(), request.instructions(), request.deadline(), request.maxSubmissions(),
-                request.allowLateSubmission(), request.allowText(), request.allowFiles(), request.maxScore());
+                request.allowLateSubmission(), request.allowText(), request.allowFiles(), request.maxScore(), request.blindGrading());
 
         return AssignmentResponse.from(assignments.saveAndFlush(assignment));
     }
@@ -53,7 +53,7 @@ public class AdminAssignmentService {
         Assignment assignment = findOrThrow(assignmentId);
         assignment.setLesson(resolveLesson(request.lessonId()));
         applyFields(assignment, request.title(), request.instructions(), request.deadline(), request.maxSubmissions(),
-                request.allowLateSubmission(), request.allowText(), request.allowFiles(), request.maxScore());
+                request.allowLateSubmission(), request.allowText(), request.allowFiles(), request.maxScore(), request.blindGrading());
         return AssignmentResponse.from(assignments.saveAndFlush(assignment));
     }
 
@@ -76,7 +76,7 @@ public class AdminAssignmentService {
 
     private void applyFields(Assignment assignment, String title, String instructions, java.time.Instant deadline,
                               Integer maxSubmissions, Boolean allowLateSubmission, Boolean allowText, Boolean allowFiles,
-                              java.math.BigDecimal maxScore) {
+                              java.math.BigDecimal maxScore, Boolean blindGrading) {
         assignment.setTitle(title);
         assignment.setInstructions(instructions);
         assignment.setDeadline(deadline);
@@ -85,5 +85,6 @@ public class AdminAssignmentService {
         if (allowText != null) assignment.setAllowText(allowText);
         if (allowFiles != null) assignment.setAllowFiles(allowFiles);
         if (maxScore != null) assignment.setMaxScore(maxScore);
+        if (blindGrading != null) assignment.setBlindGrading(blindGrading);
     }
 }

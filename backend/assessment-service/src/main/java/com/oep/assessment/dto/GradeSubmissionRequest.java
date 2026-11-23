@@ -5,5 +5,6 @@ import jakarta.validation.constraints.PositiveOrZero;
 
 import java.math.BigDecimal;
 
-public record GradeSubmissionRequest(@NotNull @PositiveOrZero BigDecimal score, String feedback) {
+/** version = the submission version the grader was looking at (optimistic lock); null skips the check. */
+public record GradeSubmissionRequest(@NotNull @PositiveOrZero BigDecimal score, String feedback, Long version) {
 }

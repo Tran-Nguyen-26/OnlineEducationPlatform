@@ -8,6 +8,22 @@ import { Input } from '../../../components/ui/Input'
 
 type Answers = Record<string, { selectedOptionIds?: string[]; textAnswer?: string }>
 
+const draftKey = (attemptId: string) => `oep-quiz-draft:${attemptId}`
+
+/** Local draft (survives F5 / lost connection on the same browser until the attempt is submitted). Never throws. */
+function loadDraft(attemptId: string): { answers: Answers; current: number } | null {
+  try {
+    const raw = window.localStorage.getItem(draftKey(attemptId))
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+function saveDraft(attemptId: string, answers: Answers, current: number) {
+  try { window.localStorage.setItem(draftKey(attemptId), JSON.stringify({ answers, current })) } catch { /* storage unavailable */ }
+}
+function clearDraft(attemptId: string) {
+  try { window.localStorage.removeItem(draftKey(attemptId)) } catch { /* ignore */ }
+}
+
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 
 export function QuizTakingModal({ quizId, courseId, start, onClose }: {
@@ -17,11 +33,12 @@ export function QuizTakingModal({ quizId, courseId, start, onClose }: {
   onClose: () => void
 }) {
   const queryClient = useQueryClient()
-  const [answers, setAnswers] = useState<Answers>({})
+  const [draft] = useState(() => loadDraft(start.attemptId))
+  const [answers, setAnswers] = useState<Answers>(draft?.answers ?? {})
   const [result, setResult] = useState<AttemptResultResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)
-  const [current, setCurrent] = useState(0)
+  const [current, setCurrent] = useState(Math.min(draft?.current ?? 0, Math.max(0, start.questions.length - 1)))
 
   const deadlineMs = useMemo(
     () => (start.timeLimitSeconds ? new Date(start.startedAt).getTime() + start.timeLimitSeconds * 1000 : null),
@@ -45,6 +62,7 @@ export function QuizTakingModal({ quizId, courseId, start, onClose }: {
         })),
       }),
     onSuccess: (res) => {
+      clearDraft(start.attemptId)
       setResult(res.data)
       setConfirming(false)
       queryClient.invalidateQueries({ queryKey: ['student', 'quizzes', courseId] })
@@ -53,6 +71,11 @@ export function QuizTakingModal({ quizId, courseId, start, onClose }: {
     },
     onError: (err) => { setError(getApiErrorMessage(err)); setConfirming(false) },
   })
+
+  // Persist every change immediately so a refresh or dropped connection never loses the answers.
+  useEffect(() => {
+    if (!result) saveDraft(start.attemptId, answers, current)
+  }, [answers, current, result, start.attemptId])
 
   // Countdown; auto-submits whatever has been answered when the time limit is reached.
   const submitRef = useRef(submitMutation.mutate)
@@ -87,7 +110,7 @@ export function QuizTakingModal({ quizId, courseId, start, onClose }: {
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-gradient text-white shadow-lg shadow-indigo-500/30"><ClipboardCheck size={18} /></span>
           Làm bài
         </div>
-        <button onClick={result ? onClose : () => { if (window.confirm('Thoát sẽ không lưu bài làm. Bạn chắc chắn?')) onClose() }} className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100" aria-label="Đóng">{result ? 'Đóng' : 'Thoát'}</button>
+        <button onClick={result ? onClose : () => { if (window.confirm('Bài làm được lưu tạm trên trình duyệt này. Đồng hồ vẫn chạy và bài sẽ tự nộp khi hết giờ. Thoát bây giờ?')) onClose() }} className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100" aria-label="Đóng">{result ? 'Đóng' : 'Thoát'}</button>
       </div>
       <div className="flex-1 overflow-y-auto p-4 sm:p-8">
         <div className="surface mx-auto w-full max-w-3xl p-6 sm:p-8">

@@ -20,6 +20,7 @@ public class NotificationListener {
     private final NotificationRepository notifications;
     private final UserRepository users;
     private final com.oep.worker.repository.NotificationPreferenceRepository preferences;
+    private final EmailSender emailSender;
 
     /** dedupeKey carries a unique DB constraint, so a redelivered message never creates a duplicate row. */
     @Transactional
@@ -44,6 +45,11 @@ public class NotificationListener {
         notification.setTargetId(event.targetId());
         try {
             notifications.saveAndFlush(notification);
+            boolean emailOff = category != null
+                    && preferences.findByUser_IdAndEventType(event.userId(), category).map(p -> !p.isEmailEnabled()).orElse(false);
+            if (!emailOff) {
+                emailSender.send(users.getReferenceById(event.userId()), event.eventType(), event.title(), event.message());
+            }
         } catch (DataIntegrityViolationException e) {
             log.info("Duplicate notification delivery (race) ignored: {}", event.dedupeKey());
         }

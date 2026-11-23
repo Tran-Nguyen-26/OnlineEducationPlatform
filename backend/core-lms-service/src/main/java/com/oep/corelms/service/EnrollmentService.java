@@ -52,7 +52,8 @@ public class EnrollmentService {
         CourseInviteCode ic = inviteCode == null ? null : inviteCodes.findByCode(inviteCode).orElse(null);
         boolean valid = ic != null && ic.isActive()
                 && ic.getCourse().getId().equals(courseId)
-                && (ic.getExpiresAt() == null || ic.getExpiresAt().isAfter(Instant.now()));
+                && (ic.getExpiresAt() == null || ic.getExpiresAt().isAfter(Instant.now()))
+                && (ic.getMaxUses() == null || ic.getUsedCount() < ic.getMaxUses());
         if (!valid) {
             throw new BusinessException(ErrorCode.INVALID_INVITE_CODE, "Invalid or expired invite code");
         }
@@ -88,6 +89,8 @@ public class EnrollmentService {
         e.setWithdrawnAt(null);
         e.setRemovedAt(null);
         Enrollment savedEnrollment = enrollments.save(e);
+        ic.setUsedCount(ic.getUsedCount() + 1);   // the course row is locked above, so the counter cannot race
+        inviteCodes.save(ic);
         audit.record(studentId, isFull ? "STUDENT_WAITLISTED" : "STUDENT_ENROLL", "COURSE", courseId, null);
         return MyEnrollmentResponse.from(savedEnrollment);
     }

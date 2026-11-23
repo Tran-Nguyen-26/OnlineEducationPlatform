@@ -17,7 +17,9 @@ import com.oep.corelms.repository.LessonContentRepository;
 import com.oep.corelms.repository.LessonProgressRepository;
 import com.oep.corelms.repository.LessonRepository;
 import com.oep.corelms.repository.QuizAttemptRepository;
+import com.oep.corelms.repository.QuizQuestionRepository;
 import com.oep.corelms.repository.QuizRepository;
+import com.oep.corelms.repository.QuizResultRepository;
 import com.oep.coremodel.entity.course.Course;
 import com.oep.coremodel.entity.course.Lesson;
 import com.oep.coremodel.entity.course.LessonCompletionRule;
@@ -44,6 +46,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class StudentCourseContentService {
 
+    /** Mastery threshold for a lesson's mini-quiz (BRD v1.3, Sequential Mastery). */
+    private static final double LESSON_QUIZ_PASS_PERCENT = 70.0;
+
     private final CourseRepository courses;
     private final CourseModuleRepository modules;
     private final LessonRepository lessons;
@@ -57,9 +62,12 @@ public class StudentCourseContentService {
     private final LessonCompletionRuleRepository completionRules;
     private final QuizRepository quizzes;
     private final QuizAttemptRepository quizAttempts;
+    private final QuizResultRepository quizResults;
+    private final QuizQuestionRepository quizQuestions;
     private final AssignmentRepository assignments;
     private final AssignmentSubmissionRepository assignmentSubmissions;
     private final TuitionPaymentService tuitionPaymentService;
+    private final CourseCompletionService courseCompletion;
 
     @Transactional(readOnly = true)
     public CourseOutlineResponse getOutline(UUID courseId, UUID studentId) {
@@ -202,6 +210,9 @@ public class StudentCourseContentService {
         progress.setStatus(status);
         progress.setLastAccessedAt(Instant.now());
         lessonProgress.save(progress);
+        if (status == LessonProgressStatus.COMPLETED) {
+            courseCompletion.tryAutoComplete(courseId, studentId);
+        }
     }
 
     /**
@@ -221,10 +232,27 @@ public class StudentCourseContentService {
                     "Bạn cần xem ít nhất " + rule.getMinVideoPercentage().intValue() + "% video của bài học (hiện " + progress.getWatchedPercent() + "%)");
         }
         if (rule.isRequireQuiz()) {
-            boolean attempted = quizzes.findByLesson_Id(lessonId).stream()
-                    .anyMatch(quiz -> quizAttempts.existsByQuiz_IdAndEnrollment_Id(quiz.getId(), enrollment.getId()));
-            if (!attempted) {
-                throw new BusinessException(ErrorCode.COMPLETION_RULE_NOT_MET, "Bạn cần làm quiz của bài học này trước");
+            // BRD (Sequential Mastery): attempting is not enough — the lesson's mini-quiz must be passed (>= 70%).
+            for (com.oep.coremodel.entity.quiz.Quiz quiz : quizzes.findByLesson_Id(lessonId)) {
+                if (quiz.isLocked()) continue;
+                List<com.oep.coremodel.entity.quiz.QuizAttempt> mine =
+                        quizAttempts.findByQuiz_IdAndEnrollment_IdOrderByAttemptNumberAsc(quiz.getId(), enrollment.getId());
+                if (mine.isEmpty()) {
+                    throw new BusinessException(ErrorCode.COMPLETION_RULE_NOT_MET, "Bạn cần làm quiz của bài học này trước");
+                }
+                java.math.BigDecimal max = quizQuestions.findByQuiz_IdOrderByPositionAsc(quiz.getId()).stream()
+                        .map(com.oep.coremodel.entity.quiz.QuizQuestion::getPoints)
+                        .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+                double bestPercent = mine.stream()
+                        .map(a -> quizResults.findByAttempt_Id(a.getId()).map(com.oep.coremodel.entity.quiz.QuizResult::getFinalScore).orElse(null))
+                        .filter(java.util.Objects::nonNull)
+                        .mapToDouble(sc -> max.signum() > 0 ? sc.doubleValue() * 100.0 / max.doubleValue() : 0.0)
+                        .max().orElse(-1);
+                if (bestPercent < LESSON_QUIZ_PASS_PERCENT) {
+                    throw new BusinessException(ErrorCode.COMPLETION_RULE_NOT_MET, "Bạn cần đạt tối thiểu "
+                            + (int) LESSON_QUIZ_PASS_PERCENT + "% ở quiz của bài học này"
+                            + (bestPercent < 0 ? " (bài đang chờ chấm)" : " (cao nhất hiện " + Math.round(bestPercent) + "%)"));
+                }
             }
         }
         if (rule.isRequireAssignment()) {

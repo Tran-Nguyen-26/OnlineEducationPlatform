@@ -19,7 +19,8 @@ public record AssignmentResponse(
         boolean allowFiles,
         BigDecimal maxScore,
         String createdByEmail,
-        Instant createdAt) {
+        Instant createdAt,
+        boolean blindGrading) {
 
     public static AssignmentResponse from(Assignment assignment) {
         return new AssignmentResponse(
@@ -35,6 +36,7 @@ public record AssignmentResponse(
                 assignment.isAllowFiles(),
                 assignment.getMaxScore(),
                 assignment.getCreatedBy() == null ? null : assignment.getCreatedBy().getEmail(),
-                assignment.getCreatedAt());
+                assignment.getCreatedAt(),
+                assignment.isBlindGrading());
     }
 }

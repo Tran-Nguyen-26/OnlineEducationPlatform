@@ -23,14 +23,17 @@ function GradeForm({
 
   const gradeMutation = useMutation({
     mutationFn: () =>
-      apiClient.post(`/api/submissions/${submission.submissionId}/grade`, { score: Number(score), feedback: feedback || null }),
+      apiClient.post(`/api/submissions/${submission.submissionId}/grade`, { score: Number(score), feedback: feedback || null, version: submission.version }),
     onSuccess: () => {
       setError(null)
       queryClient.invalidateQueries({ queryKey: ['teacher', 'submissions', assignmentId] })
       queryClient.invalidateQueries({ queryKey: ['teacher', 'pending-grading'] })
       queryClient.invalidateQueries({ queryKey: ['gradebook'] })
     },
-    onError: (err) => setError(getApiErrorMessage(err)),
+    onError: (err) => {
+      setError(getApiErrorMessage(err))
+      queryClient.invalidateQueries({ queryKey: ['teacher', 'submissions', assignmentId] })
+    },
   })
 
   function handleSubmit(e: FormEvent) {
@@ -43,7 +46,7 @@ function GradeForm({
       <div className="mb-2 flex items-center justify-between">
         <div>
           <span className="font-medium text-slate-900">{submission.studentName}</span>{' '}
-          <span className="text-xs text-slate-400">({submission.studentEmail})</span>
+          {submission.studentEmail && <span className="text-xs text-slate-400">({submission.studentEmail})</span>}
         </div>
         <div className="flex items-center gap-2">
           <Badge status={submission.status} />

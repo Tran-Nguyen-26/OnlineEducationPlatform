@@ -19,5 +19,7 @@ public record SubmissionForGradingResponse(
         boolean late,
         List<SubmissionFileResponse> files,
         BigDecimal score,
-        String feedback) {
+        String feedback,
+        long version,
+        boolean anonymous) {
 }

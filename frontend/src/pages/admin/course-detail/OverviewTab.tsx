@@ -184,8 +184,9 @@ export function OverviewTab({ course }: { course: CourseResponse }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['courses', courseId, 'prerequisites'] }),
   })
 
+  const [codeMaxUses, setCodeMaxUses] = useState('')
   const generateCodeMutation = useMutation({
-    mutationFn: () => apiClient.post(`/api/admin/courses/${courseId}/invite-codes`, {}),
+    mutationFn: () => apiClient.post(`/api/admin/courses/${courseId}/invite-codes`, { maxUses: Number(codeMaxUses) > 0 ? Number(codeMaxUses) : null }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['courses', courseId, 'invite-codes'] }),
   })
 
@@ -272,9 +273,17 @@ export function OverviewTab({ course }: { course: CourseResponse }) {
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-900">Mã kích hoạt khóa học</h2>
-          <Button size="sm" disabled={generateCodeMutation.isPending} onClick={() => generateCodeMutation.mutate()}>
-            <Plus size={16} /> Sinh mã mới
-          </Button>
+          <div className="flex items-center gap-2">
+            <input
+              type="number" min={1} value={codeMaxUses} onChange={(e) => setCodeMaxUses(e.target.value)}
+              placeholder="Số lượt dùng (trống = không giới hạn)"
+              className="w-64 rounded-md border border-slate-300 px-2 py-1 text-sm"
+              aria-label="Số lượt dùng tối đa của mã"
+            />
+            <Button size="sm" disabled={generateCodeMutation.isPending} onClick={() => generateCodeMutation.mutate()}>
+              <Plus size={16} /> Sinh mã mới
+            </Button>
+          </div>
         </div>
         <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
           <table className="w-full text-left text-sm">
@@ -291,6 +300,9 @@ export function OverviewTab({ course }: { course: CourseResponse }) {
                   <td className="px-4 py-3 font-mono font-medium text-slate-900">{code.code}</td>
                   <td className="px-4 py-3">
                     <Badge status={code.active ? 'ACTIVE' : 'DISABLED'} />
+                    <span className="ml-2 text-xs text-slate-500">
+                      {code.usedCount}/{code.maxUses ?? '∞'} lượt
+                    </span>
                   </td>
                   <td className="px-4 py-3 text-right">
                     {code.active && (

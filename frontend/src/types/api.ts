@@ -139,6 +139,8 @@ export interface InviteCodeResponse {
   expiresAt: string | null
   active: boolean
   createdAt: string
+  maxUses: number | null
+  usedCount: number
 }
 
 export interface AdminUserResponse {
@@ -285,6 +287,7 @@ export interface AssignmentResponse {
   maxScore: number
   createdByEmail: string | null
   createdAt: string
+  blindGrading: boolean
 }
 
 // ---- Student-facing ----
@@ -550,9 +553,10 @@ export interface RosterEntryResponse {
 
 export interface SubmissionForGradingResponse {
   submissionId: string
-  studentId: string
+  /** null when the assignment is graded blind */
+  studentId: string | null
   studentName: string
-  studentEmail: string
+  studentEmail: string | null
   textContent: string | null
   submissionCount: number
   status: AssignmentSubmissionStatus
@@ -561,6 +565,8 @@ export interface SubmissionForGradingResponse {
   files: SubmissionFileResponse[]
   score: number | null
   feedback: string | null
+  version: number
+  anonymous: boolean
 }
 
 // ---- Shared (Q&A) ----

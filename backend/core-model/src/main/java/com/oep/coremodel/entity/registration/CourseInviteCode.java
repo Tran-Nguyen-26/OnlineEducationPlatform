@@ -36,6 +36,13 @@ public class CourseInviteCode extends BaseEntity {
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
+    /** Null = unlimited (class/cohort code). Otherwise the code stops working after this many successful enrollments. */
+    @Column(name = "max_uses", nullable = true)
+    private Integer maxUses;
+
+    @Column(name = "used_count", nullable = false)
+    private int usedCount = 0;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = true)
     @JoinColumn(name = "created_by", nullable = true)
     private User createdBy;

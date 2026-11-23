@@ -46,7 +46,22 @@ spring:
           multiplier: 2
           max-interval: 15s
 
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:25}
+    username: ${MAIL_USER:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${MAIL_AUTH:false}
+      mail.smtp.starttls.enable: ${MAIL_STARTTLS:false}
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+
 oep:
+  mail:
+    enabled: ${MAIL_ENABLED:false}   # off by default: set MAIL_ENABLED=true plus MAIL_HOST/PORT/USER/PASSWORD (e.g. Amazon SES SMTP)
+    from: ${MAIL_FROM:no-reply@oep.local}
   storage:
     endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
     access-key: ${STORAGE_ACCESS_KEY:oep}

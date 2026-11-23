@@ -17,5 +17,6 @@ public record UpdateAssignmentRequest(
         Boolean allowLateSubmission,
         Boolean allowText,
         Boolean allowFiles,
-        @Positive BigDecimal maxScore) {
+        @Positive BigDecimal maxScore,
+        Boolean blindGrading) {
 }

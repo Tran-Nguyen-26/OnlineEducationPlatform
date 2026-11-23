@@ -70,6 +70,10 @@ public class TeacherGradingService {
         AssignmentSubmission submission = submissions.findById(submissionId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Submission not found"));
         requireAssignedInstructor(submission.getAssignment().getCourse().getId(), instructorId);
+        if (request.version() != null && request.version() != submission.getVersion()) {
+            throw new BusinessException(ErrorCode.STALE_VERSION,
+                    "Bài này vừa được giảng viên khác chấm hoặc học sinh vừa nộp lại. Hãy tải lại danh sách rồi chấm lại.");
+        }
 
         Optional<AssignmentGrade> existing = assignmentGrades.findBySubmission_Id(submissionId);
         AssignmentGrade grade = existing.orElseGet(AssignmentGrade::new);
@@ -124,9 +128,12 @@ public class TeacherGradingService {
                 .map(SubmissionFileResponse::from)
                 .toList();
         Optional<AssignmentGrade> grade = assignmentGrades.findBySubmission_Id(submission.getId());
+        boolean blind = submission.getAssignment().isBlindGrading();
+        String shownName = blind ? "Học viên ẩn danh #" + submission.getId().toString().substring(0, 4).toUpperCase() : name;
         return new SubmissionForGradingResponse(
-                submission.getId(), student.getId(), name, student.getEmail(), submission.getTextContent(),
+                submission.getId(), blind ? null : student.getId(), shownName, blind ? null : student.getEmail(), submission.getTextContent(),
                 submission.getSubmissionCount(), submission.getStatus(), submission.getSubmittedAt(), submission.isLate(),
-                files, grade.map(AssignmentGrade::getScore).orElse(null), grade.map(AssignmentGrade::getFeedback).orElse(null));
+                files, grade.map(AssignmentGrade::getScore).orElse(null), grade.map(AssignmentGrade::getFeedback).orElse(null),
+                submission.getVersion(), blind);
     }
 }

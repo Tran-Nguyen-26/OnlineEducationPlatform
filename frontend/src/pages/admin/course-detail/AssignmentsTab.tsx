@@ -28,6 +28,7 @@ export function AssignmentsTab({ courseId }: { courseId: string }) {
   const [allowLateSubmission, setAllowLateSubmission] = useState(false)
   const [allowText, setAllowText] = useState(true)
   const [allowFiles, setAllowFiles] = useState(true)
+  const [blindGrading, setBlindGrading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   function openCreate() {
@@ -53,6 +54,7 @@ export function AssignmentsTab({ courseId }: { courseId: string }) {
     setAllowLateSubmission(assignment.allowLateSubmission)
     setAllowText(assignment.allowText)
     setAllowFiles(assignment.allowFiles)
+    setBlindGrading(assignment.blindGrading ?? true)
     setError(null)
   }
 
@@ -64,6 +66,7 @@ export function AssignmentsTab({ courseId }: { courseId: string }) {
     allowLateSubmission,
     allowText,
     allowFiles,
+    blindGrading,
     maxScore: Number(maxScore) || 100,
   })
 
@@ -184,6 +187,10 @@ export function AssignmentsTab({ courseId }: { courseId: string }) {
             <label className="flex items-center gap-2 text-sm text-slate-700">
               <input type="checkbox" checked={allowLateSubmission} onChange={(e) => setAllowLateSubmission(e.target.checked)} />
               Cho phép nộp muộn
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input type="checkbox" checked={blindGrading} onChange={(e) => setBlindGrading(e.target.checked)} />
+              Chấm ẩn danh (giáo viên không thấy tên/email học viên)
             </label>
           </div>
 

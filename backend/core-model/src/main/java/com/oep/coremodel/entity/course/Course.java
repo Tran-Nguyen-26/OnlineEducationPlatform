@@ -57,9 +57,16 @@ public class Course extends BaseEntity {
     @Column(name = "quiz_weight_percent", nullable = false, columnDefinition = "integer not null default 50")
     private int quizWeightPercent = 50;
 
-    /** Minimum final percentage (0-100) required to pass / earn the certificate; null = no threshold. */
+    /** Minimum final percentage (0-100) required to pass / earn the certificate; null is read as {@link #DEFAULT_PASSING_PERCENT} (BRD v1.3: 70%). */
     @Column(name = "passing_percent", nullable = true)
     private Integer passingPercent;
+
+    public static final int DEFAULT_PASSING_PERCENT = 70;
+
+    /** A course always has a pass threshold: an unset value means the default instead of "everyone passes". */
+    public Integer getPassingPercent() {
+        return passingPercent != null ? passingPercent : DEFAULT_PASSING_PERCENT;
+    }
 
     @Enumerated(EnumType.STRING)
     @Column(name = "learning_mode", nullable = false, length = 40)

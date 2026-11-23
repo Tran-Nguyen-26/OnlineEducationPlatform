@@ -103,6 +103,7 @@ export function LessonItem({ lesson }: { lesson: LessonResponse }) {
       const { data } = await apiClient.post<UploadUrlResponse>(`/api/admin/lesson-contents/${content.id}/upload-url`, {
         fileName: file.name,
         mimeType,
+        fileSize: file.size,
       })
       const putResponse = await fetch(data.uploadUrl, {
         method: 'PUT',

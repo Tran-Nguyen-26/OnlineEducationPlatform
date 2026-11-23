@@ -32,6 +32,10 @@ public class User extends BaseEntity {
     @Column(name = "account_status", nullable = false, length = 40)
     private AccountStatus accountStatus = AccountStatus.ACTIVE;
 
+    /** When the user gave explicit consent to the processing of learning data at self-registration (null for admin-created accounts). */
+    @jakarta.persistence.Column(name = "consent_at", nullable = true)
+    private Instant consentAt;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

@@ -32,7 +32,7 @@ public class AdminInviteCodeController {
     public InviteCodeResponse generate(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID courseId,
                                         @Valid @RequestBody GenerateInviteCodeRequest request) {
         UUID adminId = UUID.fromString(jwt.getSubject());
-        InviteCodeResponse response = inviteCodeService.generate(courseId, request.expiresAt(), adminId);
+        InviteCodeResponse response = inviteCodeService.generate(courseId, request.expiresAt(), request.maxUses(), adminId);
         auditLogService.record(adminId, "GENERATE_INVITE_CODE", "COURSE", courseId, Map.of("code", response.code()));
         return response;
     }

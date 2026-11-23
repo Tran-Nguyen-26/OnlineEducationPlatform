@@ -62,6 +62,23 @@ public class StorageService {
         return presigner.presignPutObject(presignRequest).url().toString();
     }
 
+    /** Real size of an uploaded object (null if it cannot be read) — the client-declared size is never trusted alone. */
+    public Long objectSize(String objectKey) {
+        try {
+            return s3.headObject(software.amazon.awssdk.services.s3.model.HeadObjectRequest.builder().bucket(bucket).key(objectKey).build()).contentLength();
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    public void deleteObject(String objectKey) {
+        try {
+            s3.deleteObject(software.amazon.awssdk.services.s3.model.DeleteObjectRequest.builder().bucket(bucket).key(objectKey).build());
+        } catch (RuntimeException ignored) {
+            // best effort: an orphan object is harmless, the content row is not marked AVAILABLE
+        }
+    }
+
     public long viewUrlTtlSeconds() {
         return viewUrlTtlSeconds;
     }

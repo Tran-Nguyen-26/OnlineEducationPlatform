@@ -10,5 +10,7 @@ import java.util.UUID;
 public interface CourseInstructorRepository extends JpaRepository<CourseInstructor, CourseInstructorId> {
     List<CourseInstructor> findByInstructor_Id(UUID instructorId);
 
+    List<CourseInstructor> findByCourse_Id(UUID courseId);
+
     boolean existsByCourse_IdAndInstructor_Id(UUID courseId, UUID instructorId);
 }

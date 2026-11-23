@@ -29,13 +29,17 @@ class MigrationsTest {
                 .load();
         var result = flyway.migrate();
         assertTrue(result.success);
-        assertEquals("5", flyway.info().current().getVersion().getVersion(), "latest migration is V5");
+        assertEquals("6", flyway.info().current().getVersion().getVersion(), "latest migration is V6");
 
         try (Connection c = DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
              Statement s = c.createStatement()) {
             assertEquals(1, scalar(s, "select count(*) from information_schema.tables where table_name = 'shedlock'"));
             assertEquals(2, scalar(s, "select count(*) from information_schema.columns where table_name = 'lesson_contents' and column_name in ('transcode_status','hls_prefix')"));
             assertEquals(2, scalar(s, "select count(*) from information_schema.columns where table_name = 'outbox_events' and column_name in ('next_attempt_at','last_error')"));
+            assertEquals(1, scalar(s, "select count(*) from information_schema.columns where table_name = 'assignments' and column_name = 'blind_grading'"));
+            assertEquals(1, scalar(s, "select count(*) from information_schema.columns where table_name = 'assignment_submissions' and column_name = 'version'"));
+            assertEquals(1, scalar(s, "select count(*) from information_schema.columns where table_name = 'users' and column_name = 'consent_at'"));
+            assertEquals(2, scalar(s, "select count(*) from information_schema.columns where table_name = 'course_invite_codes' and column_name in ('max_uses','used_count')"));
             assertTrue(scalar(s, "select count(*) from information_schema.tables where table_schema = 'public'") >= 48);
         }
     }

@@ -31,7 +31,7 @@ public class AdminInviteCodeService {
     private final CourseInviteCodeRepository inviteCodes;
 
     @Transactional
-    public InviteCodeResponse generate(UUID courseId, Instant expiresAt, UUID adminId) {
+    public InviteCodeResponse generate(UUID courseId, Instant expiresAt, Integer maxUses, UUID adminId) {
         Course course = courses.findById(courseId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Course not found"));
 
@@ -39,6 +39,7 @@ public class AdminInviteCodeService {
         inviteCode.setCourse(course);
         inviteCode.setCode(generateUniqueCode());
         inviteCode.setExpiresAt(expiresAt);
+        inviteCode.setMaxUses(maxUses);
         inviteCode.setCreatedBy(users.getReferenceById(adminId));
 
         return InviteCodeResponse.from(inviteCodes.saveAndFlush(inviteCode));

@@ -109,6 +109,9 @@ public class AssignmentSubmissionService {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "This assignment does not accept file submissions");
         }
 
+        if (request.fileSize() != null) {
+            requireSubmissionFileAllowed(request.fileName(), request.fileSize());
+        }
         String objectKey = storageService.newObjectKey(request.fileName());
         SubmissionFile file = new SubmissionFile();
         file.setSubmission(submission);
@@ -130,9 +133,19 @@ public class AssignmentSubmissionService {
         if (!file.getSubmission().getEnrollment().getStudent().getId().equals(studentId)) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "This file does not belong to you");
         }
+        requireSubmissionFileAllowed(file.getFileName(), request.fileSize());
         file.setFileSize(request.fileSize());
         file.setUploadStatus(UploadStatus.AVAILABLE);
         return SubmissionFileResponse.from(submissionFiles.save(file));
+    }
+
+    /** BRD: submission files are at most 20 MB (file types are not restricted beyond the blocked executable types). */
+    static final long MAX_SUBMISSION_FILE_BYTES = 20L * 1024 * 1024;
+
+    private void requireSubmissionFileAllowed(String fileName, long bytes) {
+        if (bytes > MAX_SUBMISSION_FILE_BYTES) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "Tệp quá lớn: tối đa 20 MB");
+        }
     }
 
     private AssignmentSubmission findOwnedSubmission(UUID submissionId, UUID studentId) {

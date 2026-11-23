@@ -118,7 +118,9 @@ public class AdminLessonContentService {
         }
 
         AiTutorLearningFilePolicy.maximumBytes(content.getContentType(), request.fileName(), request.mimeType());
-
+        if (request.fileSize() != null) {
+            requireWithinLimit(content.getContentType(), request.fileName(), request.fileSize());
+        }
         String objectKey = storageService.newObjectKey(request.fileName());
         content.setObjectKey(objectKey);
         content.setFileName(request.fileName());
@@ -153,7 +155,15 @@ public class AdminLessonContentService {
                         "Learning content exceeds the allowed upload size");
             }
         }
-        content.setFileSize(request.fileSize());
+        Long actual = storageService.objectSize(content.getObjectKey());
+        long size = actual != null && actual > 0 ? actual : request.fileSize();
+        try {
+            requireWithinLimit(content.getContentType(), content.getFileName(), size);
+        } catch (BusinessException tooLarge) {
+            storageService.deleteObject(content.getObjectKey());
+            throw tooLarge;
+        }
+        content.setFileSize(size);
         content.setDurationSeconds(request.durationSeconds());
         content.setUploadStatus(UploadStatus.AVAILABLE);
         transcodeRequester.request(content);   // VIDEO only: adaptive HLS version is prepared in the background
@@ -171,6 +181,25 @@ public class AdminLessonContentService {
             throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "Only uploaded videos can be transcoded");
         }
         return LessonContentResponse.from(contents.saveAndFlush(content));
+    }
+
+    // BRD v1.3 upload limits: video 2 GB, subtitles (.vtt/.srt) 5 MB, documents (PDF/DOCX/...) 20 MB.
+    static final long MAX_VIDEO_BYTES = 2L * 1024 * 1024 * 1024;
+    static final long MAX_SUBTITLE_BYTES = 5L * 1024 * 1024;
+    static final long MAX_DOCUMENT_BYTES = 20L * 1024 * 1024;
+
+    private void requireWithinLimit(ContentType type, String fileName, long bytes) {
+        String name = fileName == null ? "" : fileName.toLowerCase();
+        long max;
+        String label;
+        if (name.endsWith(".vtt") || name.endsWith(".srt")) { max = MAX_SUBTITLE_BYTES; label = "phụ đề (.vtt/.srt) tối đa 5 MB"; }
+        else if (type == ContentType.VIDEO) { max = MAX_VIDEO_BYTES; label = "video tối đa 2 GB"; }
+        else if (type == ContentType.PDF || type == ContentType.DOCUMENT || type == ContentType.SLIDE
+                || name.endsWith(".pdf") || name.endsWith(".docx")) { max = MAX_DOCUMENT_BYTES; label = "tài liệu tối đa 20 MB"; }
+        else { return; }   // other FILE contents keep their previous behaviour
+        if (bytes > max) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "Tệp quá lớn: " + label);
+        }
     }
 
     private LessonContent findOrThrow(UUID contentId) {

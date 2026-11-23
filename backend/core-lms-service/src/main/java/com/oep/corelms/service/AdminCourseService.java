@@ -5,6 +5,7 @@ import com.oep.corelms.dto.admin.CreateCourseRequest;
 import com.oep.corelms.dto.admin.UpdateCourseRequest;
 import com.oep.corelms.repository.CourseRepository;
 import com.oep.corelms.repository.LessonContentRepository;
+import com.oep.corelms.repository.LessonRepository;
 import com.oep.corelms.repository.SubjectRepository;
 import com.oep.corelms.repository.UserRepository;
 import com.oep.coremodel.entity.course.Course;
@@ -28,6 +29,7 @@ public class AdminCourseService {
     private final CourseRepository courses;
     private final SubjectRepository subjects;
     private final UserRepository users;
+    private final LessonRepository lessons;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private AiTutorIndexOutbox aiIndexOutbox;
@@ -103,6 +105,12 @@ public class AdminCourseService {
             throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION, "Cannot move a course back to DRAFT");
         }
         CourseLifecycleStatus previous = course.getLifecycleStatus();
+        if (target == CourseLifecycleStatus.PUBLISHED && course.getLifecycleStatus() == CourseLifecycleStatus.DRAFT) {
+            // BRD publish validation (simplified, no LO): an empty course must not reach learners.
+            if (lessons.countByCourseIds(List.of(id)).stream().mapToLong(r -> ((Number) r[1]).longValue()).sum() == 0) {
+                throw new BusinessException(ErrorCode.VALIDATION_FAILED, "Không thể phát hành: khóa học chưa có bài học nào");
+            }
+        }
         course.setLifecycleStatus(target);
         CourseResponse response = CourseResponse.from(courses.saveAndFlush(course));
         if (target == CourseLifecycleStatus.PUBLISHED && previous != CourseLifecycleStatus.PUBLISHED
