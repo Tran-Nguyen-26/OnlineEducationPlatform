@@ -56,19 +56,19 @@ Chạy test ở máy cục bộ: `mvn verify` (test Testcontainers tự bỏ qua
 
 ## 2c. Video HLS
 
-Khi giáo viên/admin xác nhận tải video lên (`complete-upload`), `core-lms-service` ghi một sự kiện `video.transcode` vào outbox; `worker-service` (image có ffmpeg, mỗi lần một video) tải file gốc, tạo 2 độ phân giải (720p và 360p, không phóng to quá nguồn; đoạn 6 giây) và tải lên `hls/<contentId>/`. Trạng thái nằm ở cột `lesson_contents.transcode_status` (`PENDING → PROCESSING → READY | FAILED`); admin xem huy hiệu "HLS" trong tab nội dung và bấm "Thử lại" khi lỗi (`POST /api/admin/lesson-contents/{id}/transcode`).
-Phát: `GET /api/lesson-contents/{id}/view-url` trả thêm `hlsUrl`. Trình phát (hls.js) lấy playlist từ API (cần token, cùng quy tắc truy cập như file gốc); mỗi segment trong playlist là URL ký sẵn tới S3/MinIO nên video không đi qua server ứng dụng. Video chưa chuyển mã xong hoặc lỗi vẫn phát file gốc. Trên AWS, đặt CloudFront trước bucket (URL ký) để phát từ CDN.
+Khi **Admin** xác nhận tải video lên (`complete-upload` — chỉ Admin có quyền biên soạn/tải học liệu theo [BRD v1.4](../docs/BRD_Project8_OEP_v1.4.md) và [BUSINESS.md](BUSINESS.md)), `core-lms-service` ghi một sự kiện `video.transcode` vào outbox; `worker-service` (image có ffmpeg, mỗi lần một video) tải file gốc, tạo 2 độ phân giải (720p và 360p, không phóng to quá nguồn; đoạn 6 giây) và tải lên `hls/<contentId>/`. Trạng thái nằm ở cột `lesson_contents.transcode_status` (`PENDING → PROCESSING → READY | FAILED`); admin xem huy hiệu "HLS" trong tab nội dung và bấm "Thử lại" khi lỗi (`POST /api/admin/lesson-contents/{id}/transcode`).
+Phát: `GET /api/lesson-contents/{id}/view-url` trả thêm `hlsUrl`. Trình phát (hls.js) lấy playlist từ API (cần token, cùng quy tắc truy cập như file gốc); mỗi segment trong playlist là URL ký sẵn tới S3/MinIO (TTL 600s) nên video không đi qua server ứng dụng. Video chưa chuyển mã xong hoặc lỗi vẫn phát file gốc. Nâng cấp bảo mật HLS tại Edge CDN (cùng Dynamic Watermark) đang nghiên cứu 2 phương án `[TBD]` trong [BRD v1.4 §3.1 #4 & §7.2](../docs/BRD_Project8_OEP_v1.4.md): **PA-A** (AWS CloudFront OAC + Signed Cookies) vs. **PA-B** (Hybrid AWS Compute + Cloudflare R2 \$0 Egress + Worker HMAC).
 Tài nguyên: worker cần ~1,5 GB RAM (Fargate: 1 vCPU / 2 GB), image worker ~1,2 GB do có ffmpeg.
 
 ## 3. AWS target
 
-Terraform for both options lives in `../infra/aws/` (`ec2-demo`, `ecs-managed`; see its README for commands, cost and limits). The options below describe what those stacks create.
+Terraform for both options lives in `../infra/aws/` (`ec2-demo`, `ecs-managed`; see its README for commands, cost and limits). The options below describe what those stacks create. *(Lưu ý BRD v1.4 `[KẾ HOẠCH BỔ SUNG - MVP]`: cần bổ sung `ai-tutor` + `ai-postgres` vào `docker-compose.prod.yml`, Terraform & CI/CD, cùng Scheduled Pre-warming 15 phút trước ca thi và Observability AWS.)*
 
 ### Option A — single EC2 with Docker Compose (cheapest, good for a demo)
 
 | Local | AWS |
 |---|---|
-| Docker host | 1× EC2 `t3.large` (2 vCPU / 8 GB), Ubuntu 24.04, 30 GB gp3, Docker + compose plugin |
+| Docker host | 1× EC2 `c7i-flex.large` (2 vCPU / 4 GB + 2 GB swap, theo `infra/aws/ec2-demo`), Ubuntu 24.04, 30 GB gp3, Docker + compose plugin |
 | MinIO | **S3 bucket** (remove the `minio` service; leave `STORAGE_ENDPOINT` unset) |
 | Postgres container | container (demo) or **RDS PostgreSQL** `db.t4g.micro` (set `DB_URL`) |
 | nginx container | same, plus **TLS**: ALB + ACM certificate, or Caddy/Certbot on the instance |
@@ -103,9 +103,10 @@ Steps:
 | Variable | Used by | Meaning |
 |---|---|---|
 | `DB_URL` `DB_USER` `DB_PASSWORD` | core-lms, assessment, worker | primary database |
-| `DB_REPLICA_URL` `DB_REPLICA_USER` `DB_REPLICA_PASSWORD` | core-lms | read replica (may equal the primary) |
+| `DB_REPLICA_URL` `DB_REPLICA_USER` `DB_REPLICA_PASSWORD` | core-lms, assessment | read replica (may equal the primary) |
 | `REDIS_HOST` `REDIS_PASSWORD` | core-lms, gateway | token revocation, login lockout, rate limits, idempotency |
 | `RABBIT_HOST` `RABBIT_PORT` `RABBIT_USER` `RABBIT_PASSWORD` | core-lms, assessment, worker | broker |
+| `OEP_MAIL_ENABLED` `SPRING_MAIL_*` | worker | optional SMTP email delivery (default disabled; BRD v1.4 upgrades to Retry 3x + DLQ) |
 | `JWT_PRIVATE_KEY_FILE` `JWT_PREVIOUS_PUBLIC_KEY_FILES` | core-lms | signing key / keys still valid during rotation |
 | `JWK_SET_URI` | gateway, assessment | where to fetch public keys |
 | `ADMIN_SEED_EMAIL` `ADMIN_SEED_PASSWORD` | core-lms | first admin (forced password change) |

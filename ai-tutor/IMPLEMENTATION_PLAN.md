@@ -108,11 +108,11 @@ These targets are retained for a separate milestone; none is claimed met by the 
 - [ ] Benchmark retrieval p95 ≤150 ms at 20,000 chunks; first-token p95 ≤3 s and full-answer p95 ≤10 s where streaming applies. Measure a 50-page document at ≤3 minutes, batches of 32 embeddings, at most 3 parallel jobs, and 20 simultaneous chat clients.
 - [ ] Tune query threshold (initial checklist value 0.75), vector search, chunking and rate limits using measured Vietnamese/English course data. Treat numerical thresholds as targets requiring evidence.
 
-### N2. Reliability, operations and security hardening
+### N2. Reliability, operations and security hardening *(aligned with [BRD v1.4](../docs/BRD_Project8_OEP_v1.4.md) §3.4 & §8.2)*
 
-- [ ] Define total request deadline and provider retry budget; the old 20-second LLM timeout conflicts with a 10-second full-answer p95 target. For SSE, retry only before the first event and send a terminal error afterward.
-- [ ] Add bounded backoff (up to three embedding retries), dead-letter handling, health/readiness, observability, secret management, data-handling controls and deployment/CI checks.
-- [ ] Load-test and enforce the proposed 30 questions/user/hour with 429; complete a 10-case prompt-injection evaluation and 100 cross-course query audit with zero leakage.
+- [ ] Enforce **TTFT < 3 s (with SSE)**, **Hard Timeout 15–20 s** on LLM calls, **Circuit Breaker**, and **Retrieval-only Fallback (Top-3 chunks/transcripts)** when external LLM providers fail (`Timeout / 429 / 503`), plus **XML Delimiters** and `ephemeral_session_hash`. For SSE, retry only before the first event and send a terminal error afterward.
+- [ ] Add bounded backoff (up to three embedding retries), dead-letter handling, health/readiness, observability, secret management, data-handling controls and deployment/CI checks (including wiring `ai-tutor` + `ai-postgres` into `docker-compose.prod.yml`, Terraform AWS and CI/CD).
+- [ ] Enforce BRD v1.4 guardrails: **20 questions/learner/day** (Admin configurable) with 429 (replacing the earlier 30/hour draft), **≤ 1,000 characters/question**, **3 recent turns (6 messages)** context window, **cross-course exam lock by `user_id`** for `PRE_TEST`/`POST_TEST`/`MASS_EXAM` (allowing `MINI_QUIZ`), **Prompt Socratic**, optional **`.docx` / `.vtt` Timestamp (`±90s`)**, **Cached Mistake Explanation** (available to Archived Read-Only with 0 new tokens), and complete the 10-case prompt-injection evaluation + 100 cross-course query audit with zero leakage. *(Note: AI Quiz Generator is moved to `[STRETCH]` per BRD v1.4 Q11.)*
 
 ### N3. Cost, retention and provider migration
 

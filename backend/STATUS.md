@@ -1,8 +1,8 @@
 # STATUS.md — Trạng thái triển khai & kế hoạch tiếp theo (Project 8: Online Education Platform)
 
-Cập nhật: xem lịch sử commit trên nhánh `nguyentt/database-replication` để biết thời điểm thật. Tài liệu nghiệp vụ: `BUSINESS.md`. Luồng xử lý: `FLOWS.md`. Schema: `DATABASE.md`. Kiến trúc/hạ tầng: `CLAUDE.md`.
+Cập nhật: **27/11/2026** (đồng bộ với **[BRD v1.4](../docs/BRD_Project8_OEP_v1.4.md)** và **[BUSINESS.md](BUSINESS.md)**). Luồng xử lý: `FLOWS.md`. Schema: `DATABASE.md`. Kiến trúc/hạ tầng: `CLAUDE.md`. Đối chiếu môn Cloud: `CLOUD_ALIGNMENT.md`.
 
-## 1. Đã hoàn thành
+## 1. Đã hoàn thành *(nhật ký triển khai theo trình tự thời gian — các ghi chú mới hơn ở Phase sau / Mục 5 thay thế nhận định ở Phase trước)*
 
 | Phase | Nội dung | Backend | Frontend |
 |---|---|---|---|
@@ -60,9 +60,9 @@ Cập nhật: xem lịch sử commit trên nhánh `nguyentt/database-replication
 
 **2 lỗi hạ tầng tự phát hiện và sửa khi verify các mục 16–21 (không liên quan trực tiếp tới code mới, đã có từ trước):**
 - `api-gateway`: route `core-lms` thiếu `/api/certificates/**` trong danh sách `Path` predicate → mọi request tới endpoint xác thực chứng chỉ bị gateway trả 404 dù `core-lms-service` xử lý đúng. Đã thêm vào `api-gateway/src/main/resources/application.yml`.
-- DB: cột `enrollments.status` có sẵn một `CHECK` constraint cứng (`enrollments_status_check`, không phải do Hibernate sinh ra, không có trong bất kỳ file nào của repo) giới hạn đúng 4 giá trị cũ — chặn hẳn việc ghi `WAITLISTED` ở tầng DB dù code/entity đã đúng. Đã `ALTER TABLE ... DROP CONSTRAINT` trực tiếp trên DB dev. **Lưu ý cho môi trường khác**: nếu dựng DB mới từ đầu bằng `ddl-auto: update`, Hibernate sẽ không tự tạo lại constraint này (nó không phải do Hibernate sinh), nên chỉ cần lo cho các DB cũ đã có constraint này từ trước.
+- DB: cột `enrollments.status` từng có một `CHECK` constraint cứng (`enrollments_status_check`) giới hạn đúng 4 giá trị cũ — chặn ghi `WAITLISTED`; nay đã được xử lý sạch qua Flyway `V2__drop_enum_check_constraints.sql`.
 
-Hạ tầng dev đang chạy thật và đã verify bằng curl: `api-gateway :8080`, `core-lms-service :8081`, `assessment-service :8082`, PostgreSQL primary `:5432` + read replica `:5433` (streaming replication, routing đọc/ghi tự động trong `core-lms-service`), Redis, RabbitMQ, MinIO (object storage, presigned PUT/GET), frontend Vite dev server `:5173`.
+Hạ tầng dev đang chạy thật và đã verify: `api-gateway :8080`, `core-lms-service :8081`, `assessment-service :8082`, `worker-service :8083`, `ai-tutor` (Python/FastAPI, profile `ai-tutor`), PostgreSQL 16 primary `:5432` + read replica `:5433` (routing đọc/ghi cho cả `core-lms-service` và `assessment-service`), `ai-postgres :5435` (PG17 + `pgvector`), Redis, RabbitMQ, MinIO, frontend Vite dev server `:5173`.
 
 Tài khoản test đang có sẵn trên DB dev: `admin@oep.local` / `Admin@12345` (ADMIN), `teacher1@oep.local` / `MyNewPass123` (INSTRUCTOR, đã gán khóa "Hoa hoc 10", có sẵn 1 bài nộp đã chấm + 1 thread hỏi đáp).
 
@@ -70,29 +70,24 @@ Tài khoản test đang có sẵn trên DB dev: `admin@oep.local` / `Admin@12345
 
 | # | Mục | Vị trí | Mức ảnh hưởng |
 |---|---|---|---|
-| ~~D1~~ | ~~`NotificationListener` chỉ log, chưa ghi bảng `notifications`~~ | — | **Đã xử lý**: publish `NotificationRequestedEvent` từ `assessment-service` (chấm bài) và `core-lms-service` (tin nhắn Q&A) → `worker-service` ghi bảng `notifications` (idempotent theo `dedupe_key`); `GET/PATCH /api/notifications` + `NotificationBell` ở frontend. Email/push thật vẫn chưa làm (chỉ in-app). |
-| D2 | `ScoreSyncListener` chỉ log, chưa đồng bộ điểm từ Redis xuống `quiz_attempts` | `worker-service/.../listener/ScoreSyncListener.java` | Thấp hiện tại — vì quiz đang chấm trực tiếp trong `assessment-service`/Postgres, chưa dùng Redis cho trạng thái thi tải cao như kiến trúc gốc dự tính |
+| ~~D1~~ | ~~`NotificationListener` chỉ log, chưa ghi bảng `notifications`~~ | — | **Đã xử lý**: publish `NotificationRequestedEvent` → `worker-service` ghi bảng `notifications` (idempotent theo `dedupe_key`); `EmailSender` SMTP đã thêm ở `9e24f26` (mặc định tắt, cần sửa lỗi nuốt exception để Retry 3x + DLQ, xem Mục 6.1). |
+| D2 | `ScoreSyncListener` chỉ log, chưa đồng bộ điểm từ Redis xuống `quiz_attempts` | `worker-service/.../listener/ScoreSyncListener.java` | Thuộc kế hoạch bổ sung Mass Exam 500 CCU ở Mục 6.2 — hiện quiz đang chấm trực tiếp trong `assessment-service`/Postgres |
 | ~~D3~~ | ~~Admin frontend chưa có form sửa thông tin cơ bản khóa học~~ | — | **Đã xử lý**: modal "Sửa thông tin" trong `OverviewTab.tsx`, dùng `PATCH /api/admin/courses/{id}` đã có sẵn. |
 | ~~D4~~ | **Đã xử lý** (khóa bền vững + xoay khóa + thu hồi token). Dòng gốc: RSA keypair ký JWT sinh lại mỗi lần restart `core-lms-service` | `core-lms-service/.../security/JwtKeyService.java` | Thấp (dev-only) — access token cũ hết hiệu lực ngay sau restart, user chỉ cần gọi lại `/refresh` hoặc đăng nhập lại |
-| ~~D5~~ | ~~`ddl-auto: update`, không có Flyway, chưa tách config theo biến môi trường prod~~ — **Đã xử lý** (Flyway V1–V4, profile dev/prod, xem mục 5). Dòng gốc: | toàn bộ `core-lms-service` | Phải xử lý trước khi lên `prod` (đã ghi sẵn trong `CLAUDE.md` mục 4) |
+| ~~D5~~ | ~~`ddl-auto: update`, không có Flyway, chưa tách config theo biến môi trường prod~~ — **Đã xử lý** (Flyway `V1–V6`, `ddl-auto: validate`, profile dev/prod, xem mục 5). | toàn bộ `core-lms-service` | Đã đóng |
 | ~~D6~~ | ~~Notification chưa có "mã mời sắp hết hạn" / "quiz sắp đến deadline"~~ | — | **Đã xử lý**: 2 scheduler mới chạy mỗi giờ (xem Phase 10), đã verify thật bằng cách tạm đổi cron sang mỗi 10s, tạo invite code/quiz có hạn trong 24h tới, xác nhận notification đúng + không bị gửi trùng (`dedupe_key`) qua nhiều lần tick, rồi trả cron về `0 0 * * * *` và khởi động lại sạch. |
 
-## 3. Ngoài phạm vi hiện tại (chưa bắt đầu)
+## 3. Lịch sử mục "Ngoài phạm vi" cũ (đã thay thế bởi BRD v1.4)
 
-- AI Tutor (Python + Pinecone, hỏi đáp RAG trích nguồn).
-- CDN / nén video đa độ phân giải (HLS 720p/1080p).
-- Nhiều read replica, backup WAL sang Cloud Archive, triển khai thật lên GCP.
-- Rate limit bằng Redis ở `api-gateway` (đã có trong sơ đồ kiến trúc, chưa code).
+*(Các mục dưới đây từng bị ghi là "chưa bắt đầu" ở mốc cũ, nay **nhiều mục đã triển khai xong** — xem mục 5 & 6 bên dưới và [BRD v1.4](../docs/BRD_Project8_OEP_v1.4.md)):*
+- ~~AI Tutor~~ → **Đã triển khai** Document RAG 4 định dạng (`ai-tutor/`, `pgvector`, 102 pytest + 90 Java tests); phần nâng cấp Socratic/Timestamp/Mistake Cache/Eval P5 thuộc kế hoạch bổ sung MVP v1.4.
+- ~~Nén video đa độ phân giải (HLS)~~ → **Đã triển khai** FFmpeg HLS `360p/720p` + `hls.js`; Edge Signed Cookies đang nghiên cứu 2 phương án (`[TBD]` PA-A AWS CloudFront OAC vs. PA-B Hybrid Cloudflare R2).
+- ~~Rate limit bằng Redis ở `api-gateway`~~ → **Đã triển khai** (per-route token bucket theo IP thật).
+- Đăng nhập Google OAuth → chuyển sang `[STRETCH]` trong BRD v1.4.
 
-## 4. Đề xuất kế hoạch tiếp theo
+## 4. Kế hoạch cũ (G1–G11 & Nhóm A)
 
-Toàn bộ G1–G11 trong `GAPS.md` đợt phân tích đầu, cộng thêm "Nhóm A" (học phí, chứng chỉ, điều kiện tiên quyết, danh sách chờ, hỏi đáp theo bài học, ghi danh/xuất CSV hàng loạt — xem Phase 16–21 ở mục 1) **đã hoàn thành**. Còn lại:
-
-- **Đăng nhập Google** — đã được yêu cầu nhưng **đang chờ** Admin/chủ dự án cung cấp OAuth client id/secret thật (tạo trên Google Cloud Console); chưa làm được phần nào vì cần thông tin bên ngoài.
-- G4 (gửi email thật) — mức thấp, cải thiện UX/vận hành, chưa làm.
-- Flyway + cấu hình prod (D5), AI Tutor — nằm ngoài phạm vi theo yêu cầu hiện tại của user.
-
-Nói "làm mục N" hoặc "làm phần X" để bắt đầu — giữ đúng quy ước: build + verify bằng curl/UI thật trước khi báo xong, commit chỉ khi được yêu cầu.
+Toàn bộ G1–G11 trong `GAPS.md` đợt phân tích đầu, cộng thêm "Nhóm A" (học phí, chứng chỉ, điều kiện tiên quyết, danh sách chờ, hỏi đáp theo bài học, ghi danh/xuất CSV hàng loạt — xem Phase 16–21 ở mục 1) **đã hoàn thành** và chính thức được đưa vào BRD v1.4 dưới nhóm *Center Operations* (`FR-09`). Kế hoạch triển khai hiện hành được thống nhất tại **Mục 6** bên dưới và [BRD v1.4](../docs/BRD_Project8_OEP_v1.4.md).
 
 
 ## 5. Đợt "enterprise readiness" và chuẩn bị triển khai (nhánh `dev-2` → `build/deploy-prep`)
@@ -105,12 +100,27 @@ Nói "làm mục N" hoặc "làm phần X" để bắt đầu — giữ đúng q
 | Dữ liệu | Flyway, `@Version` (409), phân trang server, batch fetch + bộ phát hiện N+1, cache Redis, replica cho assessment, backup/restore, xuất/ẩn danh dữ liệu, retention | `OPERATIONS.md` §3, §6 |
 | Quan sát | Log JSON, trace OTLP, Prometheus/Grafana/Jaeger, SLO + alert, metric nghiệp vụ, OpenAPI, `/api/v1`, problem+json | `ENTERPRISE_READINESS.md` |
 | Đóng gói/triển khai | Profile dev/prod, Dockerfile, nginx, compose prod-like + smoke test (13 check), storage S3-ready, Terraform AWS (`ec2-demo`, `ecs-managed`) | `DEPLOYMENT.md`, `../infra/aws/README.md` |
-
 | Dữ liệu demo | `DemoDataSeeder` (profile `demo`): 2 GV, 8 HV, 3 khóa, quiz, bài tập, tiến độ, điểm; bật mặc định ở compose prod-like và Terraform | `DEPLOYMENT.md` |
-
 | Kiểm thử tải/chịu lỗi | k6 (200 HV duyệt, 300 HV thi, 100 HV sau 1 NAT) + chaos 6 kịch bản; tìm và sửa 7 lỗi | `LOAD_TEST_REPORT.md`, `loadtest/README.md` |
-
 | Mở rộng & video | core-lms chạy nhiều bản (gateway chia tải DNS round-robin), login không giữ kết nối DB khi băm bcrypt, HLS 720p/360p bằng ffmpeg + hls.js, nhật ký cho thao tác người dùng, Redis AUTH/TLS (Terraform) | `LOAD_TEST_REPORT.md` §5, `DEPLOYMENT.md` §2c |
-| Test & CI/CD | 24 test tự động (validator mật khẩu, playlist HLS, error handler/rate limit của gateway, migration trên Postgres thật, transcoder), workflow CI / deploy / rollback (đã qua `actionlint`) | `DEPLOYMENT.md` §2b |
+| Test & CI/CD | 24+ test tự động (validator mật khẩu, playlist HLS, error handler/rate limit của gateway, migration trên Postgres thật, transcoder), workflow CI / deploy / rollback (đã qua `actionlint`) | `DEPLOYMENT.md` §2b |
+| AI Tutor (M7 — nhánh `dev-2`) | Document RAG 4 định dạng (`TEXT`, `PDF`, `MD`, `JSON`), `ai-postgres` (PG17 + `pgvector`), ký `lesson_scope_sha256` lọc theo bài đã mở khóa, Outbox + RabbitMQ + Synchronous Invalidation, Abstention, adapter đa provider (`Groq`/`Gemini`/`OpenAI`, `Jina`/`OpenAI`/`Gemini`), UI `AiTutorPanel` + `AiIndexStatusPanel`, 102 pytest + 90 Java tests | `../ai-tutor/PROGRESS.md` |
+| Đồng bộ BRD đợt 1 (`9e24f26`, V6) | Migration `V6__brd_alignment.sql`: `blind_grading`, `@Version` OCC, `consent_at`, `max_uses`/`used_count`; quiz gate ≥ 70%, anti-seek HLS, tự hoàn thành mặc định 70%, publish check ≥ 1 bài, `localStorage` draft, phúc khảo 1x/7 ngày/GV thứ 2, giới hạn upload 2GB/5MB/20MB, SMTP email (mặc định tắt), import/export Ngân hàng câu hỏi CSV/JSON | `../docs/BRD_Project8_OEP_v1.4.md` |
 
-**Chưa làm:** test end-to-end của giao diện, soak test, chạy thật pipeline trên GitHub và Terraform trên AWS, AI Tutor, CDN cho segment video (CloudFront trước bucket).
+## 6. Lộ trình bổ sung MVP & Vá lỗi theo [BRD v1.4](../docs/BRD_Project8_OEP_v1.4.md)
+
+### 6.1. Lỗi lệch nội bộ cần vá (`[ĐÃ TRIỂN KHAI - CẦN VÁ LỖI]`)
+- **FE–BE Sequential:** Bỏ `disabled` ô `minVideoPercentage` tại `frontend/.../LessonItem.tsx`; sửa checklist `LessonView.tsx` kiểm tra điểm quiz `≥ 70%` thay vì `attemptsUsed > 0`.
+- **Archived / `readOnly` leak:** Chặn `CoursePhase.ENDED` / `access_expires_at` tại `CourseMessageService` & `AiTutorAccessPolicy`; khóa đúng các tab AI/Quiz/Assignment/Q&A ở sidebar `CourseViewerPage.tsx` khi `readOnly`.
+- **Blind Grading leak:** Che tên/email học viên ở `AppealService.java` và `PendingGradingPage.tsx` (phúc khảo & câu tự luận quiz).
+- **Email & S3 upload & Quiz score:** Sửa `EmailSender.java` không nuốt lỗi để kích hoạt Retry 3 lần + DLQ; bổ sung S3 `headObject` trong `assessment-service` và cho upload file tự luận không cần nộp text trước; siết `PATCH /api/attempts/{id}/score` chặn sửa điểm trắc nghiệm Kỳ thi đồng loạt.
+
+### 6.2. Hạng mục bổ sung bắt buộc (`[KẾ HOẠCH BỔ SUNG - MVP]`)
+1. **Identity & Device/Stream Control:** `PENDING_VERIFICATION` + xác thực Email OTP/Link (15–30p); cờ `is_root_admin` + chỉ Root Admin tạo/khóa `ADMIN` và xử lý phúc khảo fallback cuối cùng; giới hạn 3 thiết bị + 1 luồng video (Redis Heartbeat 30s) + Single-Device Exam Lock & Handover Log.
+2. **Course, LO & Access Period:** LO & Bloom (tùy chọn); Publish Validation 2 lớp (+ ≥ 2 GV cho khóa có tự luận); UI upload + `<track>` + parser `.vtt` tùy chọn; Dynamic Watermark + bỏ link mở tab mới video; lô mã CSV/QR + Mã gia hạn; `access_period_days` / `access_expires_at`; Archived Read-Only đầy đủ (mở Mini-quiz & Mistake Cache) + Fair-Use 15h/tháng + Dormant 24 tháng; đặt mặc định `SEQUENTIAL`, đo % video từ Heartbeat 30s + đọc tài liệu, Fast-track Pre-test ≥ 85%.
+3. **Khảo thí 4 loại, Mass Exam 500 CCU & Tự luận:** Phân 4 loại `PRE_TEST`/`POST_TEST`/`MINI_QUIZ`/`MASS_EXAM` + Remediation 24h + ẩn đáp án động + gợi ý Socratic; Động cơ Mass Exam (`T_start/T_end`, vào muộn ≤ 15p, IndexedDB + Redis Delta Sync 20s/5s, Client Jitter 0–10s, Grace 30s, Auto-Finalize, Queue `W01`, Pre-warming 15p, Exam Panic Mode, load test 500 CCU); Rich-text/MD + PDF/DOCX text-searchable ≥ 50 từ, Rubric từng tiêu chí, Claim/Lock 30p + Lease, chặn Resubmit khi `CLAIMED`, cảnh báo Admin phúc khảo lệch > 15%, nút `Flag Content/Rubric Issue`.
+4. **AI Tutor & Eval P5:** Prompt Socratic, parser `.docx`/`.vtt` + One-Click Timestamp `±90s`, khóa AI xuyên khóa theo `user_id` (mở Mini-quiz), quota 20 lượt/ngày, giới hạn câu hỏi ≤ 1.000 ký tự, **Cached Mistake Explanation** (nạp sẵn + lazy-cache), XML Delimiters + Hard Timeout 15–20s + Circuit Breaker + Retrieval-only Fallback (Top-3), **Eval Pipeline P5** & lưu Token FinOps.
+5. **Chứng nhận, Analytics, Tuân thủ & Cloud Ops:** Open Badges 3.0 (JSON-LD + chữ ký + QR) + CSAT/NPS; Drop-off từng bài, Learning Gain, LO Map, FinOps AI; Q&A mốc giây video; phím tắt WCAG 2.1 AA cho trình làm quiz; học viên tự yêu cầu khóa/xóa tài khoản; đưa `ai-tutor` + `ai-postgres` vào `docker-compose.prod.yml`/Terraform/CI-CD; Observability Prometheus/Grafana/Alarms trên AWS & siết alert `p95 < 300ms`; chốt phương án Edge HLS (`[TBD]` PA-A AWS CloudFront OAC vs. PA-B Hybrid Cloudflare R2).
+
+### 6.3. Mở rộng (`[STRETCH]`)
+AI Quiz Generator (Admin duyệt), Song ngữ Tiếng Anh (i18n), AI Viva Voce, AI Pre-Grading, Rewind Heatmap & Misconception Radar, Semantic FAQ Deflection & Verified Q&A → RAG, FSRS Spaced Repetition, đăng nhập Google OAuth.

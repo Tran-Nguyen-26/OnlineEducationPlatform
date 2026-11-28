@@ -1,5 +1,7 @@
 # DATABASE.md — Thiết kế database (Project 8: Online Education Platform)
 
+> **[SNAPSHOT LỊCH SỬ — trước Flyway V1–V6 & AI Tutor]:** Tài liệu này ghi lại thiết kế schema ban đầu (trước khi chuyển sang Flyway `V1–V6`, `ddl-auto: validate`, tách `ai-postgres` theo `ADR-0015`, thêm các bảng Center Ops & cột BRD alignment). Để xem đặc tả hiện hành và kế hoạch bổ sung MVP, xem **[BRD v1.4](../docs/BRD_Project8_OEP_v1.4.md)**, **[BUSINESS.md](BUSINESS.md)**, **[CLAUDE.md](CLAUDE.md)** và các file migration trong `core-lms-service/src/main/resources/db/migration/`.
+
 Nguồn chân lý là code trong `core-model/src/main/java/com/oep/coremodel/{entity,enums}`; tài liệu này mô tả lại schema đó dưới dạng dễ đọc, kèm lý do thiết kế, để không ai sửa entity mà quên ảnh hưởng nghiệp vụ. Mọi bảng do Hibernate tạo trên **primary** Postgres (`ddl-auto: update`, dev only) khi `core-lms-service` khởi động — xem `CLAUDE.md` mục 3.
 
 ## 1. Nguyên tắc

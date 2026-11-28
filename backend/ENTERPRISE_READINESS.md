@@ -1,5 +1,7 @@
 # ENTERPRISE_READINESS.md — Năng lực xuyên suốt (cross-cutting) của một phần mềm chuẩn doanh nghiệp
 
+> **[SNAPSHOT LỊCH SỬ — baseline commit `6d79ca8` & cập nhật 17/11/2026]:** Nhiều hạng mục trong mục *"Still open"* (audit mở rộng, test tự động, CI/CD, load test/chaos, Flyway `V5–V6`, AI Tutor) đã được triển khai sau mốc này. Trạng thái mới nhất & lộ trình đồng bộ xem tại **[BRD v1.4](../docs/BRD_Project8_OEP_v1.4.md)**, **[STATUS.md](STATUS.md)** và **[CLOUD_ALIGNMENT.md](CLOUD_ALIGNMENT.md)** (Mục 7).
+
 Đã đối chiếu từng mục với code/cấu hình thật (commit `6d79ca8`). Ký hiệu: ✅ có và dùng được · ⚠️ có một phần · ❌ chưa có.
 
 ## 1. Hiện trạng

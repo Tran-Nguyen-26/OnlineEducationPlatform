@@ -45,6 +45,8 @@ Deletion must remove chat content from future prompts immediately. Define whethe
 
 Revisit after privacy/legal review, user feedback or the team has measured storage growth.
 
+> **BRD v1.4 Alignment Note (2026-11-27):** Reconcile the proposed 12-month inactivity purge with [BRD v1.4](../../docs/BRD_Project8_OEP_v1.4.md) §3.2 #3 & §4.3 (**24-month Dormant policy** under Law 91/2025/QH15 & Decree 356/2025/ND-CP, plus learner self-service account lock/deletion requests).
+
 ## References
 
 - [M7 conversation lifecycle](../docs/m7-ai-tutor.md)

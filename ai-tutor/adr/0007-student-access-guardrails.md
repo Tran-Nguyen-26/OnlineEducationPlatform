@@ -45,6 +45,8 @@ The final policy changes the gateway checks, M2/M3 contracts, status display and
 
 Revisit if the team later changes completed-student course-content access, the quiz policy or evidence eligibility.
 
+> **BRD v1.4 Alignment Note (2026-11-27):** Per [BRD v1.4](../../docs/BRD_Project8_OEP_v1.4.md) §3.2 #3 & §3.4 #2 (`[KẾ HOẠCH BỔ SUNG - MVP]`), next MVP milestone upgrades the quiz lock from same-course all-quizzes to a **cross-course `user_id` lock** for `PRE_TEST`, `POST_TEST`, and `MASS_EXAM` while **allowing Socratic hints during `MINI_QUIZ`**, explicitly blocks `CoursePhase.ENDED` / expired `access_expires_at` for live chat, and allows Archived Read-Only students to view **Cached Mistake Explanations** (0 new tokens).
+
 ## References
 
 - [M7 authorization matrix](../docs/m7-ai-tutor.md)

@@ -1,8 +1,10 @@
 # CLOUD_ALIGNMENT.md — Đối chiếu project với yêu cầu môn Cloud Application Development
 
+> **Lưu ý đồng bộ (27/11/2026):** Mục 1–6 bên dưới lưu nguyên bản phân tích nền (baseline) ở thời điểm commit `f3824ad` (khi chưa có Docker, Terraform, Load test, HLS hay AI Tutor). **Trạng thái thực tế mới nhất & lộ trình P1–P5 đã đồng bộ theo [BRD v1.4](../docs/BRD_Project8_OEP_v1.4.md)** được tổng hợp đầy đủ tại **Mục 7** bên dưới.
+
 Nguồn: `Cloud Application Development - Project Topics.pdf` (Project 8 — Online Education Platform) và hai bài giảng
 Presentation 1–2 (từ bài toán nghiệp vụ tới kiến trúc cloud; kiến trúc ứng dụng, dữ liệu, tích hợp).
-Phân tích dựa trên code và cấu hình thật của repo ở thời điểm commit `f3824ad`, không suy diễn từ tài liệu thiết kế.
+Phân tích baseline (mục 1–6) dựa trên code và cấu hình thật của repo ở thời điểm commit `f3824ad`, không suy diễn từ tài liệu thiết kế.
 
 ## 1. Đề bài nói gì (Project 8)
 
@@ -151,16 +153,16 @@ Phân tích dựa trên code và cấu hình thật của repo ở thời điể
 - Có bắt buộc làm AI tutor không, hay chỉ cần các demo còn lại?
 
 
-## 7. Cập nhật tiến độ so với kế hoạch ở mục 4
+## 7. Cập nhật tiến độ hiện tại — Đồng bộ [BRD v1.4](../docs/BRD_Project8_OEP_v1.4.md) (27/11/2026)
 
-| Giai đoạn | Trạng thái | Ghi chú |
+| Giai đoạn | Trạng thái | Hiện trạng đã làm & Khoảng trống còn lại theo BRD v1.4 |
 |---|---|---|
-| A — Nền tảng bảo vệ được | ✅ phần kỹ thuật | `DEPLOYMENT.md`, `OPERATIONS.md`, `ENTERPRISE_READINESS.md`; còn thiếu: số liệu NFR/SLO đo thật |
-| B — Chứng minh chịu tải quiz | ✅ trên máy local | 300 học viên làm quiz đồng thời, 0 lỗi nghiêm trọng, p95 nộp bài 44 ms; xem `LOAD_TEST_REPORT.md` (chưa đo trên AWS) |
-| C — Triển khai cloud + CI/CD | 🟡 | Dockerfile, compose prod-like, Terraform AWS và pipeline GitHub Actions (CI, deploy, rollback) đã viết và kiểm cú pháp; **chưa apply/chạy thật trên AWS/GitHub** |
-| D — Observability & độ tin cậy | ✅ | log JSON, trace, Prometheus/Grafana/Jaeger, alert, outbox/DLQ/circuit breaker; chaos test 6 kịch bản có số liệu trong `LOAD_TEST_REPORT.md` |
-| E — Media (CDN/HLS) | ✅ ở local | video tự chuyển sang HLS 720p/360p (ffmpeg), phát thích ứng bằng hls.js với segment là URL ký tới S3; CloudFront cho giao diện đã có trong Terraform (CDN cho segment video: bước sau khi lên AWS) |
-| F — Kiểm thử & bảo mật | ✅ cơ bản | bảo mật (JWT, lockout, idempotency, header, privacy), test tự động (24 test + migration Testcontainers) và CI; chưa có test giao diện |
-| G — AI tutor | ⏳ tùy chọn | chưa |
+| **A — Nền tảng bảo vệ được (P1–P2)** | ✅ Đã chốt tài liệu | Đã chốt **[BRD v1.4](../docs/BRD_Project8_OEP_v1.4.md)** + **[BUSINESS.md](BUSINESS.md)** đồng bộ kiến trúc thật (`4 Java services + Python ai-tutor`, `PostgreSQL 16` + `ai-postgres` PG17 `pgvector`, 15 ADRs AI Tutor, bảng Workload 500 CCU & FinOps so sánh 2 phương án Media), cùng `DEPLOYMENT.md`, `OPERATIONS.md`, `ENTERPRISE_READINESS.md`. |
+| **B — Chứng minh chịu tải quiz (P4)** | 🟡 Baseline 300 HV ✅ · Mục tiêu 500 CCU 📝 | Đã đo k6 baseline **300 HV** (0 lỗi, `POST submit p95 = 24–26 ms` với 2 bản `core-lms`; `LOAD_TEST_REPORT.md`). **Còn làm (`[KẾ HOẠCH BỔ SUNG - MVP]`):** triển khai động cơ Mass Exam (IndexedDB + Redis Delta Sync 20s/5s + Grace 30s + Auto-Finalize + `exam-submission-queue` + Exam Panic Mode) và chạy lại load test mốc **500 CCU** trên hạ tầng cloud. |
+| **C — Triển khai cloud + CI/CD (P3)** | 🟡 `ec2-demo` đã deploy AWS ✅ · AI & `ecs-managed` 📝 | `infra/aws/ec2-demo` **đã apply thật trên AWS Free Plan (`ap-southeast-2`)**; `ecs-managed` (Fargate + RDS + ElastiCache + Amazon MQ + S3 + CloudFront + Secrets Manager) và GitHub Actions CI/deploy/rollback đã kiểm cú pháp. **Còn làm:** đưa `ai-tutor` + `ai-postgres` vào `docker-compose.prod.yml`/Terraform/CI-CD, thêm **Scheduled Pre-warming** (`aws_appautoscaling_scheduled_action` trước ca thi 15p), chạy kiểm chứng `ecs-managed` & pipeline thật. |
+| **D — Observability & độ tin cậy (P4)** | 🟡 Local ✅ · Cloud AWS 📝 | Local/prod-like đã có log JSON, OTLP tracing, Prometheus/Grafana/Jaeger, Outbox + DLQ + Circuit Breaker, và **chaos test 6 kịch bản** (`LOAD_TEST_REPORT.md`). **Còn làm:** triển khai Prometheus/Grafana/Alarms lên AWS, siết alert `alerts.yml` từ `p95 > 500ms` về **`p95 < 300ms`**, sửa `EmailSender` để Retry 3 lần + DLQ. |
+| **E — Media & Edge CDN (P2/P4)** | 🟡 HLS 360p/720p ✅ · Edge Auth `[TBD]` | Đã có FFmpeg HLS **360p/720p** bất đồng bộ + `hls.js` + anti-seek + Presigned Playlist 600s; CloudFront đã đứng trước SPA/API. **Còn làm:** chốt 1 trong 2 phương án Edge Auth HLS (**PA-A:** AWS CloudFront OAC + Signed Cookies vs. **PA-B:** Hybrid AWS Compute + Cloudflare R2 \$0 Egress + Worker HMAC), thêm Dynamic Watermark & `.vtt` tùy chọn. |
+| **F — Kiểm thử & bảo mật (P3)** | 🟡 Nền vững ✅ · Vá & bổ sung MVP 📝 | Đã có JWT RS256/JWKS, Redis revocation, lockout, S3 IAM role, Flyway `V1–V6`, commit `9e24f26` (consent, blind grading, `@Version`, 2GB/5MB/20MB caps), 90 Java tests + 102 pytest. **Còn làm:** xác thực Email OTP/Link, Root Admin guard, 3 thiết bị / 1 luồng video Heartbeat 30s / Single-Device Exam Lock, vá lỗi blind/readOnly/FE–BE, kiểm S3 `headObject` ở `assessment-service`. |
+| **G — AI Tutor & Đánh giá (P5)** | 🟡 Document RAG ✅ · Socratic/Mistake Cache/Eval P5 📝 | `ai-tutor/` **đã triển khai & verify live (Jina/Groq)** cho 4 định dạng (`TEXT/PDF/MD/JSON`), Access-Controlled RAG theo bài đã mở khóa, Abstention, 102 pytest. **Còn làm (`[KẾ HOẠCH BỔ SUNG - MVP]`):** Prompt Socratic, `.docx`/`.vtt` + Timestamp `±90s`, khóa AI xuyên khóa (mở Mini-quiz), quota 20 lượt/ngày, giới hạn ≤ 1.000 ký tự, **Cached Mistake Explanation**, XML Delimiters + Circuit Breaker + Retrieval-only Fallback (Top-3), **Evaluation Pipeline P5** & lưu Token FinOps. *(AI Quiz Generator chuyển sang `[STRETCH]`.)* |
 
-Rủi ro #8 ở mục 3 ("hạ tầng dev không tái lập được") đã được xử lý: có Dockerfile, `docker-compose.prod.yml`, script secret/smoke/backup và Terraform.
+Rủi ro #8 ở mục 3 ("hạ tầng dev không tái lập được") đã được xử lý hoàn toàn: có Dockerfile, `docker-compose.prod.yml`, script secret/smoke/backup và Terraform AWS (`infra/aws/`). Chi tiết đầy đủ toàn bộ quyết định & lộ trình xem tại [BRD v1.4](../docs/BRD_Project8_OEP_v1.4.md) và [STATUS.md](STATUS.md).

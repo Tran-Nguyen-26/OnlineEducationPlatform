@@ -1,5 +1,7 @@
 # GAPS.md — Phân tích khoảng trống nghiệp vụ hướng chuẩn enterprise (Project 8: Online Education Platform)
 
+> **[SNAPSHOT LỊCH SỬ — trước Phase 25 & BRD v1.4]:** Toàn bộ `G1–G11` và "Nhóm A" đã hoàn thành (kể cả Lịch học & Điểm danh bổ sung sau đó ở Phase 27 và đã chính thức đưa vào Center Operations của BRD v1.4). Danh sách vá lỗi & hạng mục bổ sung hiện hành xem tại **[BRD v1.4](../docs/BRD_Project8_OEP_v1.4.md)** và **[STATUS.md](STATUS.md)** (Mục 6).
+
 Tài liệu này **không** đổi nghiệp vụ gốc trong `BUSINESS.md` — chỉ liệt kê những gì một trung tâm học thật/enterprise LMS thường cần mà hệ thống hiện tại còn thiếu, để quyết định bổ sung tiếp. Chưa code gì ở tài liệu này. Loại trừ theo yêu cầu: không gồm Flyway/cấu hình prod (`D5`), không gồm AI Tutor — hai mục đó đã có trong `STATUS.md` mục 4.
 
 Phân tích dựa trên việc đọc trực tiếp code, không suy diễn từ tài liệu.

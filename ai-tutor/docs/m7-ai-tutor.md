@@ -1,6 +1,6 @@
 # M7 AI Tutor: RAG, access isolation, conversation, indexing and integration
 
-> **Status:** REVIEW DRAFT — updated 2026-11-19. This document specifies *intended* M7 behavior; it does **not** assert that controllers, workers, migrations, cloud deployment or evaluation have been implemented.
+> **Status:** FIRST-RELEASE SPEC (F1–F6 implemented & live-verified — see [`PROGRESS.md`](../PROGRESS.md) & [`README.md`](../README.md)). **BRD v1.4 alignment (2026-11-27):** Planned MVP upgrades (Socratic prompt, optional `.docx`/`.vtt` Timestamp `±90s`, cross-course exam lock allowing `MINI_QUIZ`, 20 req/day, ≤ 1,000 chars, Cached Mistake Explanation for Archived mode, XML Delimiters + Hard Timeout 15–20s + Top-3 Retrieval-only Fallback, Eval P5 & Token FinOps) are governed by **[BRD v1.4](../../docs/BRD_Project8_OEP_v1.4.md)** §3.4 & Q10–Q11.
 >
 > **API contract:** [`openapi/m7-ai-tutor.yaml`](../openapi/m7-ai-tutor.yaml) — OpenAPI 3.0.3. The public contract is planned for Spring Boot; the separate AI runtime is planned for Python/FastAPI.
 >
@@ -33,10 +33,10 @@
 **Source-grounded constraints (existing M2/M3):**
 
 - M2 organizes materials as `Course → Module → Lesson → Content`. Source identifiers are M2 `lesson_contents.id`, `lesson_id`, `content_type`, `upload_status`, and `version_number`. File types include `VIDEO`, `PDF`, `SLIDE`, `DOCUMENT`, `FILE`; inline types include `TEXT`, `LINK`. M2 has no distinct `MD` or `JSON` content type; this release maps Admin-uploaded `.md` and `.json` learning materials through `FILE` with MIME/extension validation.
-- M2 uses object storage and presigned upload/access URLs, **not video streaming**. Do not copy storage object keys or signed URLs into AI public responses.
+- M2 uses object storage with presigned upload/access URLs and asynchronous FFmpeg **HLS `360p/720p`** video streaming. Do not copy storage object keys or signed URLs into AI public responses.
 - M2 confirms `ARCHIVED` denies student access even with `ACTIVE` enrollment; `DRAFT`, `DISABLED` and unpublished content are not student-readable. Previously issued signed URLs expire by TTL and are not immediately revoked; this does **not** authorize new AI answers after access revocation.
-- M3 enrollment states are `ACTIVE`, `COMPLETED`, `WITHDRAWN`, `REMOVED`. `WITHDRAWN` and `REMOVED` retain history but do not have current learning access. M7's confirmed first-release policy uses `ACTIVE` only and denies `COMPLETED`; revisit if M2/M3 course-content policy changes.
-- A `PRIVATE` course is accessible to an eligible Student only after M3 successfully enrolls them via the invite-code flow. `PUBLIC + PUBLISHED` catalog visibility is **not** authorization to view AI-grounding material.
+- M3 enrollment states are `ACTIVE`, `COMPLETED`, `WITHDRAWN`, `REMOVED` (and `WAITLISTED`). `WITHDRAWN` and `REMOVED` retain history but do not have current learning access. M7's first-release live chat policy uses `ACTIVE` only and denies `COMPLETED`/Archived live chat; per BRD v1.4 §3.2 & §3.4, Archived Read-Only learners may still view **Cached Mistake Explanations** (0 new tokens).
+- All `PUBLISHED` courses show public catalog introductions (course `visibility` / `PRIVATE` column was removed in `BUSINESS.md`); catalog visibility is **not** authorization to view AI-grounding material — valid enrollment via invite/activation code is always required.
 - M2 already has Admin lesson-content upload endpoints and a `FILE` content type. It validates `.pdf` (20 MiB) and `.md`/`.json` (5 MiB) learning uploads by extension/MIME and checks the stored object's size and MIME before marking them `AVAILABLE`. Its M7 indexing event hook and Admin processing-status management route still need integration. M7 pagination/error conventions and some M3 access details remain contract work.
 - The live backend hides content from lessons that are still locked in a `SEQUENTIAL` course and blocks learning content before an `UPCOMING` course starts. M7 may index eligible published content once per course, but it must restrict retrieval to the lessons currently readable by that Student. The signed lesson-scope digest contract is defined and tested on both sides; the proxy and retrieval filter still need wiring.
 
@@ -44,12 +44,12 @@
 
 | Actor / course and enrollment state | Create/list/read/delete own M7 chat | Ask on M2 content | Notes |
 | --- | :---: | :---: | --- |
-| Student + `PUBLISHED` + `ACTIVE` | Yes | Yes | PUBLIC or PRIVATE; PRIVATE requires prior valid enrollment |
+| Student + `PUBLISHED` + `ACTIVE` | Yes | Yes | Requires valid enrollment (invite/activation code) |
 | Student + `PUBLISHED` + `ACTIVE` + `UPCOMING` phase | No | No | Existing M2 learning content is not open yet |
-| Student + `PUBLISHED` + `COMPLETED` | No | No | First-release rule; revisit if M2/M3 later changes completed-student access |
+| Student + `PUBLISHED` + `COMPLETED` (or Archived) | No | No | Live chat denied; per BRD v1.4 Archived Read-Only still accesses Cached Mistake Explanations (0 new tokens) |
 | Student + `WITHDRAWN` or `REMOVED` | No | No | Retain stored history; do not expose via M7 APIs |
 | Student + `ARCHIVED`, `DRAFT` or `DISABLED` | No | No | Even if an enrollment row exists |
-| Instructor, `OWNER`, `CO_INSTRUCTOR` or `ADMIN` | No | No | No M7 chat, status or history access; Admin retains ordinary M2 content-management rights |
+| `INSTRUCTOR` or `ADMIN` (incl. Root Admin) | No | No | No M7 chat, status or history access; Admin retains M2 content-management & index-status rights |
 | Unauthenticated or student from another course | No | No | 401 or 403; cross-user chat IDs return 404 |
 
 **Mandatory checks for *every* request:**
@@ -254,7 +254,7 @@ Private operational routes (not internet-exposed) are `POST /internal/v1/ai/inde
 - M3 currently uses **0-based** `page`, `size` and a *different* error model. M7 keeps M2 conventions for its public contract; the gateway translates internal M3 checker errors rather than exposing M3's response envelope to M7 clients. The common gateway can align this later.
 - Standard timestamps: UTC RFC 3339; identifiers: UUID; consistent request IDs across Spring Boot ↔ FastAPI.
 - Main errors: `401 UNAUTHORIZED`; `403 AI_COURSE_ACCESS_DENIED`; `404 AI_CONVERSATION_NOT_FOUND`; `409 AI_INDEX_NOT_READY`, `IDEMPOTENCY_CONFLICT` or `AI_REQUEST_IN_PROGRESS`; `422 VALIDATION_ERROR`; `429 AI_RATE_LIMITED`; `503 ENROLLMENT_CHECK_UNAVAILABLE` or `AI_SERVICE_UNAVAILABLE`.
-- On authorization failure, **do not** fall back to generic LLM chat. On no evidence, save an `ABSTAINED` turn. External LLM/provider errors should return a safe 503 and not a fabricated answer.
+- On authorization failure, **do not** fall back to generic LLM chat. On no evidence, save an `ABSTAINED` turn. In the first release, external LLM/provider errors return a safe `503` without fabricating an answer; per [BRD v1.4](../../docs/BRD_Project8_OEP_v1.4.md) §3.4 #5 & §8.2 #4 (`[KẾ HOẠCH BỔ SUNG - MVP]`), upgrade to **Hard Timeout 15–20s + Circuit Breaker + Retrieval-only Fallback (Top-3 retrieved excerpts)**.
 
 ## 8. Integration interfaces to confirm
 

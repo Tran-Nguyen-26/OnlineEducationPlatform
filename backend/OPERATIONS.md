@@ -1,6 +1,6 @@
 # OPERATIONS.md — Sổ tay vận hành
 
-Dành cho người chạy hệ thống (local prod-like hoặc AWS). Cấu hình/triển khai xem `DEPLOYMENT.md`.
+Dành cho người chạy hệ thống (local prod-like hoặc AWS). Cấu hình/triển khai xem `DEPLOYMENT.md`. Quy chuẩn nghiệp vụ & SLO mục tiêu xem [BRD v1.4](../docs/BRD_Project8_OEP_v1.4.md).
 
 ## 1. Cổng và endpoint vận hành
 
@@ -19,7 +19,7 @@ API công khai có thêm tiền tố phiên bản: `/api/v1/...` ≡ `/api/...` 
 
 1. Service ghi `outbox_events` **trong cùng transaction** với thay đổi nghiệp vụ (RabbitMQ chết không làm hỏng nghiệp vụ).
 2. `worker-service` (`OutboxRelay`, mỗi 1 s, `FOR UPDATE SKIP LOCKED`) gửi lên RabbitMQ có publisher confirm; lỗi → thử lại với backoff, sau 10 lần → `FAILED`.
-3. Consumer thử 5 lần; hỏng nữa → hàng đợi chết `oep.worker.notification.dlq`.
+3. Consumer in-app thử 5 lần; hỏng nữa → hàng đợi chết `oep.worker.notification.dlq` *(riêng kênh gửi Email SMTP sẽ được nâng cấp theo BRD v1.4 để không nuốt lỗi và thực hiện Retry 3 lần + DLQ; hàng đợi AI Tutor cũng có DLQ riêng `oep.ai-tutor.index.dlq`)*.
 
 Theo dõi và xử lý: **Admin → Vận hành** (`/admin/ops`, tự làm mới 5 s).
 
@@ -61,8 +61,8 @@ Nên diễn tập khôi phục trước buổi demo. Trên AWS dùng thêm snaps
 | Chức năng | Endpoint / nơi |
 |---|---|
 | Người dùng tải dữ liệu của mình | `GET /api/users/me/export` (nút trong trang Hồ sơ) |
-| Admin ẩn danh tài khoản (không hoàn tác; giữ điểm/ghi danh) | `POST /api/admin/users/{id}/anonymize` (nút ở chi tiết người dùng) |
-| Job lưu giữ dữ liệu 03:00 hằng ngày | `RetentionScheduler`: thông báo >180 ngày, outbox đã gửi >7 ngày, refresh token hết hạn >30 ngày (`oep.retention.*`). bản ghi đăng nhập *thành công* >90 ngày (`oep.retention.login-audit-days`). Không đụng điểm, ghi danh, chứng chỉ, và phần còn lại của nhật ký |
+| Admin ẩn danh tài khoản (không hoàn tác; giữ điểm/ghi danh; cấm áp dụng với Root Admin `is_root_admin=true` theo BRD v1.4) | `POST /api/admin/users/{id}/anonymize` (nút ở chi tiết người dùng) |
+| Job lưu giữ dữ liệu 03:00 hằng ngày | `RetentionScheduler`: thông báo >180 ngày, outbox đã gửi >7 ngày, refresh token hết hạn >30 ngày (`oep.retention.*`), bản ghi đăng nhập *thành công* >90 ngày (`oep.retention.login-audit-days`). Không đụng điểm, ghi danh, chứng chỉ, và phần còn lại của nhật ký. *(BRD v1.4 `[KẾ HOẠCH BỔ SUNG - MVP]`: thêm luồng học viên tự yêu cầu khóa/xóa tài khoản và Worker Dormant 24 tháng xóa/ẩn danh hóa Heartbeat logs theo NĐ 356/2025/NĐ-CP.)* |
 
 ## 6b. Nhật ký hành động (audit)
 
@@ -82,7 +82,7 @@ Các job định kỳ dùng ShedLock (bảng `shedlock`) nên chỉ một bản 
 |---|---|
 | Service prod không khởi động, báo "Refusing to start ... default secrets" | `ProdSecretsGuard`: đặt mật khẩu thật (≥8 ký tự, không phải giá trị mặc định) |
 | `oep.jwt.private-key-file is required under profile 'prod'` | thiếu `JWT_PRIVATE_KEY_FILE`/`JWT_PRIVATE_KEY_PEM` |
-| 429 liên tục khi test bằng script | giới hạn 1 req/s/IP trên `/api/auth/*`; thêm `sleep` giữa các lần đăng nhập |
+| 429 liên tục khi test bằng script | giới hạn `5 req/s/IP`, burst `60` trên `/api/auth/*` (`AUTH_RATE_REPLENISH`/`AUTH_RATE_BURST`, xem mục 5); tôn trọng header `Retry-After` hoặc thêm giãn cách giữa các lần đăng nhập |
 | Thông báo không tới | Admin → Vận hành: outbox pending tăng ⇒ RabbitMQ/relay; DLQ có tin ⇒ lỗi consumer |
 | 503 `SERVICE_UNAVAILABLE` + `Retry-After` | circuit breaker đang mở vì upstream lỗi; tự đóng lại sau ~10 s |
 | Upload file bị chặn trên trình duyệt | CORS của bucket (`STORAGE_CORS_ORIGINS`) hoặc CSP `STORAGE_PUBLIC_ORIGIN` sai |

@@ -48,6 +48,8 @@ Parser and chunker versions must be recorded on source revisions so re-indexing 
 
 Revisit after retrieval evaluation identifies missed cross-paragraph answers, poor citations, or frequent parser failures.
 
+> **BRD v1.4 Alignment Note (2026-11-27):** First-release 4-format scope (`TEXT`, `PDF`, `.md`, `.json`) remains `[ĐÃ TRIỂN KHAI]`. Per [BRD v1.4](../../docs/BRD_Project8_OEP_v1.4.md) §3.1 #4 & §3.4 #1 (`[KẾ HOẠCH BỔ SUNG - MVP]`), next MVP milestone will extend parsers to add `.docx` and optional `.vtt`/`.srt` timestamped chunks (supporting One-Click Timestamp `±90s` when a lesson has subtitles).
+
 ## References
 
 - [Live M2 lesson-content service](../../backend/core-lms-service/src/main/java/com/oep/corelms/service/AdminLessonContentService.java)

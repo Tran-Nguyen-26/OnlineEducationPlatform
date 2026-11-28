@@ -1,15 +1,15 @@
 # OEP Backend — Online Education Platform
 
-Java 21 · Spring Boot 3.3 · Maven multi-module · PostgreSQL (primary + read replica) · Redis · RabbitMQ · S3-compatible storage.
+Java 21 · Spring Boot 3.3 · Maven multi-module · PostgreSQL 16 (primary + read replica) · `ai-postgres` PG17 `pgvector` (profile `ai-tutor`) · Redis · RabbitMQ · S3-compatible storage (MinIO / AWS S3).
 
 ## Modules
 
 | Module | Port | Role |
 |---|---|---|
 | `api-gateway` | 8080 | WebFlux gateway: JWT + revocation check, per-route rate limits, idempotency keys, retry / circuit breaker, `/api/v1` alias, security headers |
-| `core-lms-service` | 8081 | users, auth (JWT RS256 + JWKS), courses, enrollment, content, admin, privacy; **runs Flyway** |
-| `assessment-service` | 8082 | quizzes, attempts, submissions, grading, appeals (reads from the replica) |
-| `worker-service` | 8083 | outbox relay → RabbitMQ, notification consumer (retry + dead-letter queue) |
+| `core-lms-service` | 8081 | users, auth (JWT RS256 + JWKS), courses, enrollment, content, HLS signed playlists, AI Tutor proxy, admin, privacy; **runs Flyway (`V1–V6`)** |
+| `assessment-service` | 8082 | quizzes, attempts, submissions, blind grading, appeals (reads from the replica) |
+| `worker-service` | 8083 | outbox relay → RabbitMQ, FFmpeg HLS `360p/720p` transcoder, notification consumer + optional SMTP `EmailSender` (retry + DLQ) |
 | `core-model` | — | shared jar: entities, enums, events, exceptions, `PageResponse`, `ApiExceptionHandler` |
 | management port | 9090 | **prod only**: health / readiness / Prometheus on every service, never exposed publicly |
 
@@ -38,17 +38,18 @@ Sample data (teachers `gv.lan@oep.demo`, `gv.minh@oep.demo`; students `hs01..hs0
 
 | File | Content |
 |---|---|
+| `../docs/BRD_Project8_OEP_v1.4.md` | **Single Source of Truth** — Tài liệu yêu cầu nghiệp vụ & kiến trúc tổng thể (BRD v1.4) |
 | `DEPLOYMENT.md` | profiles dev/prod, local prod-like stack, AWS options, environment variables, pre-demo checklist |
 | `LOAD_TEST_REPORT.md` | kết quả load test (k6) và chaos test, các lỗi tìm thấy và đã sửa; scripts ở `loadtest/` |
-| `.github/workflows/` | CI (build, test, image, terraform validate), deploy và rollback lên ECS |
+| `../.github/workflows/` | CI (build, test, image, terraform validate), deploy và rollback lên ECS |
 | `OPERATIONS.md` | runbook: backup/restore, async pipeline (outbox/DLQ), key rotation, monitoring, troubleshooting, ops/privacy endpoints |
 | `../infra/aws/README.md` | Terraform for AWS (`ec2-demo`, `ecs-managed`) |
 | `ENTERPRISE_READINESS.md` | capability audit + status table of reliability / security / observability work |
-| `CLOUD_ALIGNMENT.md` | mapping of the project to the Cloud course (Project 8) requirements and remaining gaps |
+| `CLOUD_ALIGNMENT.md` | mapping of the project to the Cloud course (Project 8) requirements and remaining gaps (synced to BRD v1.4) |
 | `CLAUDE.md` | architecture diagram, conventions, branch workflow |
-| `DATABASE.md`, `FLOWS.md`, `BUSINESS.md`, `GAPS.md`, `STATUS.md` | schema, flows, business rules, gap analysis, delivery status |
+| `DATABASE.md`, `FLOWS.md`, `BUSINESS.md`, `GAPS.md`, `STATUS.md` | schema (historical snapshot), flows (historical snapshot), business rules (synced v1.4), gap analysis (historical), delivery status |
 
 ## Schema
 
-Flyway owns the schema (`core-lms-service/src/main/resources/db/migration`, V1 baseline … V4); Hibernate runs with `ddl-auto: validate`.
+Flyway owns the schema (`core-lms-service/src/main/resources/db/migration`, `V1` baseline … `V6` BRD alignment); Hibernate runs with `ddl-auto: validate`.
 An existing database created by the old `ddl-auto: update` is baselined at V1 automatically. Only core-lms-service migrates; start it first.
